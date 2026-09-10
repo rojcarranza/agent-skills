@@ -28,9 +28,10 @@ feature should be understood (Important Observations in
   and error text verbatim.
 
 No terminal (agent mode off, or a Copilot setup without command access): say
-so, ask the user to paste the output of `git diff <base>...HEAD` and
-`git log --oneline <base>..HEAD`, explain from that, and name the skipped
-phases in the report header.
+so and ask for exactly two pastes — the output of `git diff <base>...HEAD`
+and of `git log --oneline <base>..HEAD`. Ask for nothing else up front.
+Explain from those two outputs, and name the skipped phases in the report
+header.
 
 ## Companion skills
 
@@ -152,7 +153,8 @@ Write the report to `<branch-slug>-changes.md` at the repository root, where
 an earlier report of the same name.
 
 In chat, print only: the comparison line, the Feature Change Overview, Key
-Things to Understand, and the report path. Then say the report is untracked
+Things to Understand, and the report path. Uncommitted and skipped files
+belong in the report header, not in chat. Then say the report is untracked
 and offer to add it to `.git/info/exclude` so it is never committed. Never
 edit `.gitignore`.
 
@@ -162,7 +164,9 @@ Confirm each item and fix the report where one fails:
 
 - The comparison names the right base and merge base.
 - Every behavior claim has a `path:start-end` reference that matches the
-  current file.
+  current file. Re-open each cited file and confirm the cited lines hold
+  the code the claim is about — a docstring, comment or blank line next to
+  it does not count.
 - Every new or changed symbol lists its callers, or says it has none.
 - Before and after are both stated for each behavior change.
 - Every intent claim carries confirmed, likely or unknown.

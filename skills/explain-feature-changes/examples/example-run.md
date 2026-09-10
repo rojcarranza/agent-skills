@@ -106,7 +106,7 @@ without `integration.event_types`.
     Purpose:            decides whether one event is sent to the partner integration
     Inputs:             event (dict), config (dict loaded from config/settings.yaml)
     Outputs:            bool; no side effects
-    Conditions:         test event → False; type not in integration.event_types → False
+    Important conditions: test event → False; type not in integration.event_types → False
     Called by:          process_event() at app/processor.py:7
     Calls:              validate_conditions() at app/decision.py:8
     Return value use:   True → trigger_integration(event) at app/processor.py:8

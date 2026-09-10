@@ -49,7 +49,9 @@ responsibility, listing its files under it. Put a five-line executive
 summary before the overview.
 
 A file with only a trivial change gets one line under its heading, not the
-four subsections.
+four subsections. A test-only file may use one short paragraph instead: what
+it covers, with `path:start-end` references, and which new behavior paths it
+leaves untested.
 
 ## Evidence rules
 
