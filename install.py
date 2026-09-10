@@ -179,7 +179,10 @@ EXTERNALS = [
 # Skills a custom skill calls at runtime. Installing the key installs every
 # value alongside it, to the same targets, in every install mode. Values may
 # be community skills, externals or other custom skills; chains are followed.
-REQUIRES = {}
+REQUIRES = {
+    "explain-feature-changes": ("code-tour", "context-map",
+                                "write-pr-description"),
+}
 
 
 def externals():

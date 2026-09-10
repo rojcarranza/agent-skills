@@ -1830,5 +1830,53 @@ class TestMainRequirements(TempDirTest):
         self.assertFalse((claude / "code-tour").exists())
 
 
+class TestExplainFeatureChangesSkill(unittest.TestCase):
+    """The skill must load in every agent and its commands must run the same
+    in bash, PowerShell and cmd — the JetBrains terminal on the Windows VDI
+    may be any of them."""
+
+    SKILL = install.SKILLS_SRC / "explain-feature-changes"
+    FILES = [SKILL / "SKILL.md", SKILL / "references" / "tracing.md"]
+
+    def snippets(self, text):
+        fenced = re.findall(r"```[^\n]*\n(.*?)```", text, re.S)
+        lines = [line.strip() for block in fenced
+                 for line in block.splitlines()]
+        prose = re.sub(r"```.*?```", "", text, flags=re.S)
+        spans = re.findall(r"`([^`\n]+)`", prose)
+        return [s.strip() for s in lines + spans if s.strip()]
+
+    def test_frontmatter_is_name_and_description_only(self):
+        text = (self.SKILL / "SKILL.md").read_text(encoding="utf-8")
+        head = text.split("---")[1]
+        keys = [line.split(":", 1)[0] for line in head.splitlines()
+                if line.strip() and not line.startswith(" ")]
+        self.assertEqual(keys, ["name", "description"])
+        self.assertIn("name: explain-feature-changes", head)
+
+    def test_description_fits_the_agent_skills_limit(self):
+        text = (self.SKILL / "SKILL.md").read_text(encoding="utf-8")
+        line = next(l for l in text.split("---")[1].splitlines()
+                    if l.startswith("description:"))
+        self.assertLessEqual(len(line[len("description:"):].strip()), 1024)
+
+    def test_git_commands_are_shell_neutral(self):
+        for f in self.FILES:
+            for s in self.snippets(f.read_text(encoding="utf-8")):
+                with self.subTest(file=f.name, snippet=s):
+                    if s.startswith("git "):
+                        self.assertNotIn("$(", s)
+                        self.assertNotIn("|", s)
+                    self.assertFalse(s.startswith(("grep ", "sed ", "awk ")))
+
+    def test_no_custom_skill_is_named(self):
+        others = install.custom_skill_names() - {"explain-feature-changes"}
+        for f in self.SKILL.rglob("*.md"):
+            text = f.read_text(encoding="utf-8")
+            for name in others:
+                with self.subTest(file=f.name, skill=name):
+                    self.assertNotIn(name, text)
+
+
 if __name__ == "__main__":
     unittest.main()
