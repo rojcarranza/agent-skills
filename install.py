@@ -176,6 +176,11 @@ EXTERNALS = [
     },
 ]
 
+# Skills a custom skill calls at runtime. Installing the key installs every
+# value alongside it, to the same targets, in every install mode. Values may
+# be community skills, externals or other custom skills; chains are followed.
+REQUIRES = {}
+
 
 def externals():
     """{external_name: ext}."""
@@ -218,6 +223,80 @@ def default_community_names():
 COMMUNITY_SKILLS = list(source_by_label("awesome-copilot")["skills"])
 CAVEMAN_SKILLS = list(source_by_label("caveman")["skills"])
 ADDY_SKILLS = list(source_by_label("addy-agent-skills")["skills"])
+
+
+def required_by(skills, requires=None):
+    """{name: [dependents]} for everything `skills` need, following custom
+    skills that declare requirements of their own."""
+    requires = REQUIRES if requires is None else requires
+    out = {}
+    queue = sorted(skills)
+    seen = set(queue)
+    while queue:
+        skill = queue.pop(0)
+        for dep in requires.get(skill, ()):
+            out.setdefault(dep, []).append(skill)
+            if dep not in seen:
+                seen.add(dep)
+                queue.append(dep)
+    return out
+
+
+def add_requirements(custom_names, sel_community, sel_externals,
+                     requires=None):
+    """Grow the three selections by what the selected custom skills need.
+    Returns new (custom_names, sel_community, sel_externals) sets and logs
+    each addition, so an item unticked in the picker coming back is
+    explained."""
+    custom_names = set(custom_names)
+    sel_community = set(sel_community)
+    sel_externals = set(sel_externals)
+    pools = ((all_community_names(), sel_community),
+             (all_external_names(), sel_externals),
+             (custom_skill_names(), custom_names))
+    for name, dependents in sorted(required_by(custom_names,
+                                               requires).items()):
+        for known, selected in pools:
+            if name in known:
+                if name not in selected:
+                    selected.add(name)
+                    log(f"{name} (required by {', '.join(dependents)})")
+                break
+    return custom_names, sel_community, sel_externals
+
+
+def _present(dest_root, name):
+    path = Path(dest_root) / name
+    return path.is_symlink() or path.exists()
+
+
+def missing_requirements(dest_root, requires=None):
+    """[(skill, requirement)] for skills installed in dest_root whose
+    requirements are not installed there."""
+    requires = REQUIRES if requires is None else requires
+    missing = []
+    for skill in sorted(requires):
+        if not _present(dest_root, skill):
+            continue
+        for dep in sorted(required_by([skill], requires)):
+            if not _present(dest_root, dep):
+                missing.append((skill, dep))
+    return missing
+
+
+def uninstall_dependents(names, dest_root, requires=None):
+    """[(requirement, dependent)] for skills about to be removed from
+    dest_root that a skill staying there still requires."""
+    requires = REQUIRES if requires is None else requires
+    removing = set(names)
+    hits = []
+    for skill in sorted(requires):
+        if skill in removing or not _present(dest_root, skill):
+            continue
+        for dep in sorted(required_by([skill], requires)):
+            if dep in removing:
+                hits.append((dep, skill))
+    return hits
 
 
 def log(msg):
@@ -1101,6 +1180,9 @@ def gather_status(target, dest_root, custom_names, plugin_map,
             warnings.append(f"claude: {name} also provided by enabled"
                             f" plugin {plugin_map[name]} — remove the"
                             f" skills-dir copy")
+    for skill, dep in missing_requirements(dest_root):
+        warnings.append(f"{target}: {skill} requires {dep}, which is not "
+                        f"installed here — re-run install.py")
     return rows, warnings
 
 
@@ -1227,6 +1309,10 @@ def main():
                  | prompt_skill_names() | all_external_names())
         results = []
         for target in targets:
+            for dep, skill in uninstall_dependents(
+                    names, target_root(target, repo)):
+                warn(f"{target}: removing {dep}, but {skill} still requires "
+                     f"it — {skill} will run on its fallback")
             # Externals are removed by their own CLI in personal scope; in
             # repo scope they are ordinary copied directories.
             ext_names = [n for n in names if n in all_external_names()]
@@ -1277,6 +1363,11 @@ def main():
         sel_prompts = None
         sel_community = default_community_names()
         sel_externals = default_external_names()
+
+    names, sel_community, sel_externals = add_requirements(
+        {p.name for p in custom}, sel_community, sel_externals)
+    custom = sorted(p for p in SKILLS_SRC.iterdir()
+                    if p.is_dir() and p.name in names)
 
     if args.skills_only:
         # Externals fetch from a package index, same network the community
@@ -1339,6 +1430,15 @@ def main():
                                                    names=sel_prompts))
 
     print_summary(results, targets, args.dry_run)
+
+    if not args.dry_run:
+        # Last, so a missing dependency cannot scroll out of view.
+        hint = (" — re-run without --skills-only when online"
+                if args.skills_only else " — see the fetch warnings above")
+        for target in targets:
+            for skill, dep in missing_requirements(target_root(target, repo)):
+                warn(f"{target}: {skill} requires {dep}, which is not "
+                     f"installed{hint}")
 
 
 if __name__ == "__main__":

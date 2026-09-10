@@ -1,5 +1,7 @@
+import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1635,6 +1637,197 @@ class TestPromptStem(unittest.TestCase):
                          "create-sb")
         self.assertEqual(install.prompt_stem(Path("/x/explain-code.prompt.md")),
                          "explain-code")
+
+
+class TestRequiredBy(unittest.TestCase):
+    def test_direct_requirements(self):
+        self.assertEqual(
+            install.required_by(["a"], {"a": ("x", "y")}),
+            {"x": ["a"], "y": ["a"]})
+
+    def test_chains_through_skills_with_their_own_requirements(self):
+        self.assertEqual(
+            install.required_by(["a"], {"a": ("b",), "b": ("x",)}),
+            {"b": ["a"], "x": ["b"]})
+
+    def test_shared_requirement_lists_every_dependent(self):
+        self.assertEqual(
+            install.required_by(["a", "b"], {"a": ("x",), "b": ("x",)}),
+            {"x": ["a", "b"]})
+
+    def test_nothing_required(self):
+        self.assertEqual(install.required_by(["a"], {}), {})
+
+
+class TestAddRequirements(unittest.TestCase):
+    def test_unticked_community_requirement_comes_back_and_is_logged(self):
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            names, community, externals = install.add_requirements(
+                {"needs-dep"}, set(), set(), {"needs-dep": ("code-tour",)})
+        self.assertEqual(community, {"code-tour"})
+        self.assertEqual(names, {"needs-dep"})
+        self.assertEqual(externals, set())
+        self.assertIn("code-tour (required by needs-dep)", out.getvalue())
+
+    def test_external_requirement_goes_to_externals(self):
+        with mock.patch("sys.stdout", new_callable=io.StringIO):
+            _, community, externals = install.add_requirements(
+                {"needs-dep"}, set(), set(), {"needs-dep": ("graphify",)})
+        self.assertEqual(externals, {"graphify"})
+        self.assertEqual(community, set())
+
+    def test_custom_requirement_goes_to_custom_skills(self):
+        with mock.patch("install.custom_skill_names",
+                        return_value={"needs-dep", "helper"}), \
+             mock.patch("sys.stdout", new_callable=io.StringIO):
+            names, _, _ = install.add_requirements(
+                {"needs-dep"}, set(), set(), {"needs-dep": ("helper",)})
+        self.assertEqual(names, {"needs-dep", "helper"})
+
+    def test_already_selected_is_not_logged(self):
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            install.add_requirements({"needs-dep"}, {"code-tour"}, set(),
+                                     {"needs-dep": ("code-tour",)})
+        self.assertNotIn("required by", out.getvalue())
+
+    def test_inputs_are_not_mutated(self):
+        community = set()
+        with mock.patch("sys.stdout", new_callable=io.StringIO):
+            install.add_requirements({"needs-dep"}, community, set(),
+                                     {"needs-dep": ("code-tour",)})
+        self.assertEqual(community, set())
+
+
+class TestMissingRequirements(TempDirTest):
+    REQ = {"needs-dep": ("code-tour", "context-map")}
+
+    def test_reports_each_missing_requirement(self):
+        (self.tmp / "needs-dep").mkdir()
+        (self.tmp / "code-tour").mkdir()
+        self.assertEqual(install.missing_requirements(self.tmp, self.REQ),
+                         [("needs-dep", "context-map")])
+
+    def test_dependent_not_installed_reports_nothing(self):
+        self.assertEqual(install.missing_requirements(self.tmp, self.REQ), [])
+
+    def test_symlinked_requirement_counts_as_present(self):
+        (self.tmp / "needs-dep").mkdir()
+        target = self.tmp / "elsewhere"
+        target.mkdir()
+        (self.tmp / "code-tour").symlink_to(target)
+        (self.tmp / "context-map").mkdir()
+        self.assertEqual(install.missing_requirements(self.tmp, self.REQ), [])
+
+    def test_status_warns_about_a_missing_requirement(self):
+        (self.tmp / "needs-dep").mkdir()
+        with mock.patch("install.REQUIRES", {"needs-dep": ("code-tour",)}):
+            _, warnings = install.gather_status("claude", self.tmp,
+                                                {"needs-dep"}, {})
+        self.assertIn("claude: needs-dep requires code-tour, which is not "
+                      "installed here — re-run install.py", warnings)
+
+
+class TestUninstallDependents(TempDirTest):
+    REQ = {"needs-dep": ("code-tour",)}
+
+    def test_removing_a_requirement_of_an_installed_skill(self):
+        (self.tmp / "needs-dep").mkdir()
+        self.assertEqual(
+            install.uninstall_dependents(["code-tour"], self.tmp, self.REQ),
+            [("code-tour", "needs-dep")])
+
+    def test_removing_both_is_silent(self):
+        (self.tmp / "needs-dep").mkdir()
+        self.assertEqual(
+            install.uninstall_dependents(["code-tour", "needs-dep"],
+                                         self.tmp, self.REQ), [])
+
+    def test_dependent_absent_is_silent(self):
+        self.assertEqual(
+            install.uninstall_dependents(["code-tour"], self.tmp, self.REQ),
+            [])
+
+
+class TestRequiresInvariants(unittest.TestCase):
+    """REQUIRES must track the real skill names — a rename that forgets the
+    map fails here instead of silently dropping dependencies."""
+
+    def test_keys_are_custom_skills(self):
+        for skill in install.REQUIRES:
+            with self.subTest(skill=skill):
+                self.assertIn(skill, install.custom_skill_names())
+
+    def test_values_are_known_names(self):
+        known = (install.custom_skill_names() | install.all_community_names()
+                 | install.all_external_names())
+        for skill, deps in install.REQUIRES.items():
+            for dep in deps:
+                with self.subTest(skill=skill, dep=dep):
+                    self.assertIn(dep, known)
+
+    def test_requirements_install_everywhere_the_dependent_does(self):
+        reg, ext = install.registry(), install.externals()
+        for skill, deps in install.REQUIRES.items():
+            for dep in deps:
+                targets = (reg[dep][1]["targets"] if dep in reg
+                           else ext[dep]["targets"] if dep in ext
+                           else install.ANY)
+                for target in install.ANY:
+                    with self.subTest(skill=skill, dep=dep, target=target):
+                        self.assertIn(target, targets)
+
+
+class TestMainRequirements(TempDirTest):
+    """Through main(): requirements ride along with their skill, a run that
+    cannot fetch them says so, and uninstalling one warns."""
+
+    REQ = {"needs-dep": ("code-tour",)}
+
+    def run_main(self, argv):
+        skills = self.tmp / "skills"
+        if not (skills / "needs-dep").exists():
+            self.make_skill("skills", name="needs-dep")
+        prompts = self.tmp / "prompts"
+        prompts.mkdir(exist_ok=True)
+        home = self.tmp / "home"
+
+        def root(target, repo=None):
+            return home / target
+
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch("install.SKILLS_SRC", skills), \
+             mock.patch("install.PROMPTS_SRC", prompts), \
+             mock.patch("install.REQUIRES", self.REQ), \
+             mock.patch("install.EXTERNALS", []), \
+             mock.patch("install.target_root", side_effect=root), \
+             mock.patch("install.claude_commands_dir",
+                        return_value=self.tmp / "commands"), \
+             mock.patch("install.update_source_cache", return_value=None), \
+             mock.patch("sys.argv", ["install.py", *argv]), \
+             mock.patch("sys.stdout", out), mock.patch("sys.stderr", err):
+            install.main()
+        return out.getvalue(), err.getvalue()
+
+    def test_skills_only_warns_about_a_missing_requirement(self):
+        _, err = self.run_main(["--target", "claude", "--skills-only"])
+        self.assertIn("claude: needs-dep requires code-tour, which is not "
+                      "installed — re-run without --skills-only when online",
+                      err)
+
+    def test_present_requirement_does_not_warn(self):
+        (self.tmp / "home" / "claude" / "code-tour").mkdir(parents=True)
+        _, err = self.run_main(["--target", "claude", "--skills-only"])
+        self.assertNotIn("requires code-tour", err)
+
+    def test_uninstalling_a_requirement_warns_and_still_removes(self):
+        claude = self.tmp / "home" / "claude"
+        (claude / "needs-dep").mkdir(parents=True)
+        (claude / "code-tour").mkdir()
+        _, err = self.run_main(["--uninstall", "code-tour",
+                                "--target", "claude"])
+        self.assertIn("claude: removing code-tour, but needs-dep still "
+                      "requires it — needs-dep will run on its fallback", err)
+        self.assertFalse((claude / "code-tour").exists())
 
 
 if __name__ == "__main__":
