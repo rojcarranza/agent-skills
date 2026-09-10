@@ -122,11 +122,11 @@ without `integration.event_types`.
 
 # End-to-End Flow
 
-    main()                              app/main.py:9-13     loads config/settings.yaml, one event per stdin line
-      → process_event()                 app/processor.py:5
-        → should_trigger_integration()  app/decision.py:1
-          → validate_conditions()       app/decision.py:11
-        → trigger_integration()         app/integration.py:1  only when the decision is True
+    main()                              app/main.py:17      entry point; defined at app/main.py:9, loads config/settings.yaml
+      → process_event()                 app/main.py:13      once per stdin line; defined at app/processor.py:5
+        → should_trigger_integration()  app/processor.py:7  defined at app/decision.py:1
+          → validate_conditions()       app/decision.py:8   defined at app/decision.py:11
+        → trigger_integration()         app/processor.py:8  only when the decision is True; defined at app/integration.py:1
 
 # Key Things to Understand
 

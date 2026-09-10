@@ -15,7 +15,7 @@ component or configuration key.
 | Inputs | parameters, plus state it reads (config, env vars, fields, DB) |
 | Outputs | return value, plus side effects (writes, calls, messages, logs, exceptions) |
 | Important conditions | the branches that change the outcome |
-| Called by | each caller as `path:line`, or "no callers in the repository" |
+| Called by | each call site as `path:line` — the line where the caller invokes it, not the caller's range — or "no callers in the repository" |
 | Calls | the downstream calls that matter |
 | Return value use | what each caller does with the result |
 | Before | the code that did this job at `<merge-base>`, or "new behavior" |

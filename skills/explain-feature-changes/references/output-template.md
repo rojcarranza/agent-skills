@@ -33,7 +33,8 @@ second. Leave out any section that would be empty; never write "N/A".
 
     # End-to-End Flow
     From the entry point to the final effect, in run order, one hop per
-    line, each with `path:line`.
+    line: the function, its call site as `path:line` (the line where it is
+    invoked), then where it is defined.
 
     # Key Things to Understand
     3–7 numbered points the developer must be able to say out loud in review.
