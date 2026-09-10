@@ -1836,7 +1836,8 @@ class TestExplainFeatureChangesSkill(unittest.TestCase):
     may be any of them."""
 
     SKILL = install.SKILLS_SRC / "explain-feature-changes"
-    FILES = [SKILL / "SKILL.md", SKILL / "references" / "tracing.md"]
+    FILES = [SKILL / "SKILL.md", SKILL / "references" / "tracing.md",
+             install.PROMPTS_SRC / "explain-feature-changes.prompt.md"]
 
     def snippets(self, text):
         fenced = re.findall(r"```[^\n]*\n(.*?)```", text, re.S)
@@ -1876,6 +1877,16 @@ class TestExplainFeatureChangesSkill(unittest.TestCase):
             for name in others:
                 with self.subTest(file=f.name, skill=name):
                     self.assertNotIn(name, text)
+
+    def test_prompt_uses_no_vscode_only_variables(self):
+        text = (install.PROMPTS_SRC
+                / "explain-feature-changes.prompt.md").read_text(
+                    encoding="utf-8")
+        self.assertNotIn("${", text)
+
+    def test_prompt_generates_no_stub_over_the_real_skill(self):
+        self.assertNotIn("explain-feature-changes",
+                         install.prompt_skill_names())
 
 
 if __name__ == "__main__":

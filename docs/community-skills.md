@@ -1,8 +1,8 @@
 # Community skills
 
 Fetched by `install.py` into `~/.agent-skills-cache/` and installed
-alongside the custom skills. Sources: `github/awesome-copilot` and
-`juliusbrussee/caveman`.
+alongside the custom skills. Sources: `github/awesome-copilot`,
+`juliusbrussee/caveman` and `warpdotdev/common-skills`.
 
 ## code-tour
 Creates CodeTour `.tour` walkthroughs through a repo, PR, or bug.
@@ -45,3 +45,14 @@ Adds explanatory comments to a file for learning purposes.
 Terse-output mode — cuts output tokens while keeping technical substance.
 - `Caveman mode: explain this build failure`
 - Combine with other skills: `use caveman mode` appended to any prompt.
+
+## write-pr-description
+Writes a PR body that gives the reviewer what the diff cannot: motivation,
+behavior changes, decisions and blast radius. Repository PR templates win.
+From `warpdotdev/common-skills` (MIT), fetched from its `.agents/skills/`
+folder.
+- `Write the PR description for this branch`
+
+`explain-feature-changes` requires it and hands it verified facts for the
+PR Explanation section, skipping its `gh` steps. Without it,
+`explain-feature-changes` uses its own fallback rules.

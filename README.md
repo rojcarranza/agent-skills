@@ -28,10 +28,15 @@ Claude Code, plus an installer. One `SKILL.md` format serves every platform.
   conventions) into `.tours/`. Tour planning, flow tracing and step writing
   are its own references; the community skills do the scanning and the
   `.tour` writing.
+- `skills/explain-feature-changes/` — explains your own feature branch
+  against `develop` or `main`: traced before/after behavior, intent labelled
+  confirmed / likely / unknown, a `-changes.md` report with PR-ready text and
+  per-change PR comments, and a tour. Requires `code-tour`, `context-map` and
+  `write-pr-description` (see [Skill dependencies](#skill-dependencies)).
 - `prompts/` — `.prompt.md` slash commands (`/explain-code`,
   `/explain-and-review`, `/create-sb`, `/implement-sb`,
   `/create-implement-sb`, `/code-review-pr`, `/code-review-pr-fast`,
-  `/tour-codebase`). Prompt files are Copilot's format and are
+  `/tour-codebase`, `/explain-feature-changes`). Prompt files are Copilot's format and are
   **repo-scoped**: Copilot reads them from `<repo>/.github/prompts/`. VS Code
   additionally reads a user-profile copy, which is why the slash commands
   appear there without seeding a repo. The installer covers the two agents
@@ -100,15 +105,36 @@ in place (missing = install, present = update, unchanged = up to date):
 - From `addyosmani/agent-skills`: debugging-and-error-recovery (Copilot only;
   Claude uses superpowers:systematic-debugging). investigate-issue chains it
   when present.
+- From `warpdotdev/common-skills`: write-pr-description (fetched from its
+  `.agents/skills/` folder). explain-feature-changes uses it for the PR
+  Explanation.
 
 **Cherry-picks (interactive mode only, default unchecked):**
 - From `addyosmani/agent-skills`: observability-and-instrumentation,
   ci-cd-and-automation, security-and-hardening, deprecation-and-migration.
 - From `anthropics/skills`: pdf, docx, pptx, xlsx.
 
-`./install.py install agent-skills` from the repo root runs the custom-skill
-install (no community fetch) as part of normal dotfiles setup — Claude only on
-macOS/Linux, **both** Claude and Copilot on Windows (Git Bash).
+`./install.py install agent-skills` from the repo root runs a flag install —
+custom skills, default community skills and externals — as part of normal
+dotfiles setup: Claude only on macOS/Linux, **both** Claude and Copilot on
+Windows (Git Bash).
+
+### Skill dependencies
+
+`REQUIRES` in `install.py` lists the skills a custom skill calls. Installing
+the skill installs its requirements to the same targets in every mode — flag,
+interactive and `--repo`. An item unticked in the picker comes back with a
+`(required by …)` log line.
+
+| Skill | Requires |
+| --- | --- |
+| `explain-feature-changes` | `code-tour`, `context-map`, `write-pr-description` |
+
+`--skills-only` cannot fetch requirements; the run ends with a warning for
+each one missing. `--status` lists missing requirements per target.
+`--uninstall` of a requirement that an installed skill still needs warns,
+then removes it. A test fails if a `REQUIRES` key stops matching a
+directory under `skills/`, so a rename cannot silently drop dependencies.
 
 ## External skills (installed by their own CLI)
 
@@ -253,10 +279,10 @@ Copilot-only `mode: agent` key and appends `My request: $ARGUMENTS`, so text
 typed after the command reaches the prompt.
 
 **A prompt named after a skill generates neither.** `code-review-pr`,
-`code-review-pr-fast` and `tour-codebase` exist in both `skills/` and
+`code-review-pr-fast`, `tour-codebase` and `explain-feature-changes` exist in both `skills/` and
 `prompts/`; the skill already owns `~/.copilot/skills/<name>/` and answers to
 `/<name>` in Claude, so generating over it would replace the real `SKILL.md`
-with the prompt stub. Those three install as prompt files only, and
+with the prompt stub. Those four install as prompt files only, and
 `--status` reports the generator as `skipped (real skill of same name)`.
 The result is one spelling per agent:
 
@@ -285,7 +311,7 @@ To get the same commands in **every** project, `--target copilot` also
 generates one skill per prompt file into `~/.copilot/skills/<stem>/SKILL.md`,
 carrying the prompt body verbatim plus a description that triggers on the
 command name. Skills are personal scope, so those reach every project with no
-seeding — except for the three prompts that share a name with a real skill,
+seeding — except for the four prompts that share a name with a real skill,
 which need no generated copy. JetBrains namespaces them, so you type:
 
 | | VS Code | JetBrains, any project |
@@ -310,7 +336,7 @@ Setup checklist:
 2. **Settings → Languages & Frameworks → GitHub Copilot → Chat → Agent** —
    enable agent mode. Restart the IDE if the toggle has just appeared.
 3. `python install.py --target copilot --skills-only`.
-4. Reopen the IDE. In agent-mode chat type `/skill:` — the seven custom
+4. Reopen the IDE. In agent-mode chat type `/skill:` — the eight custom
    skills and the five generated from prompts should all list.
 5. Optional, per repo: `python install.py --repo .` also seeds
    `.github/prompts/`, which restores the bare `/create-sb` spelling in that
@@ -339,6 +365,7 @@ Claude Code:
 - [code-review-pr](skills/code-review-pr/USAGE.md)
 - [code-review-pr-fast](skills/code-review-pr-fast/USAGE.md)
 - [tour-codebase](skills/tour-codebase/USAGE.md)
+- [explain-feature-changes](skills/explain-feature-changes/USAGE.md)
 - [community skills](docs/community-skills.md) (code-tour, caveman, ...)
 
 ## Tests
