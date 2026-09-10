@@ -57,6 +57,8 @@ CAVEMAN_REPO_URL = "https://github.com/juliusbrussee/caveman.git"
 CAVEMAN_BRANCH = "main"
 ADDY_REPO_URL = "https://github.com/addyosmani/agent-skills.git"
 ADDY_BRANCH = "main"
+WARP_REPO_URL = "https://github.com/warpdotdev/common-skills.git"
+WARP_BRANCH = "main"
 
 BOTH = ("copilot", "claude")
 # Also safe to vendor into a repo's .github/ for the whole team.
@@ -112,6 +114,20 @@ SOURCES = [
             "ci-cd-and-automation": {"targets": BOTH, "default": False},
             "security-and-hardening": {"targets": BOTH, "default": False},
             "deprecation-and-migration": {"targets": BOTH, "default": False},
+        },
+    },
+    {
+        "label": "warp-common-skills",
+        "url": WARP_REPO_URL,
+        "branch": WARP_BRANCH,
+        "cache": "warp-common-skills",
+        # warpdotdev keeps its skills under .agents/skills, not skills/.
+        "subdir": ".agents/skills",
+        "fallback": ("https://github.com/warpdotdev/common-skills/tree/main/"
+                     ".agents/skills"),
+        "skills": {
+            # Shapes the PR Explanation section of explain-feature-changes.
+            "write-pr-description": {"targets": ANY, "default": True},
         },
     },
     {
@@ -183,6 +199,11 @@ def registry():
 
 def source_by_label(label):
     return next(s for s in SOURCES if s["label"] == label)
+
+
+def source_skills_subdir(source):
+    """Directory inside a source's cache that holds its skill folders."""
+    return source.get("subdir", "skills")
 
 
 def all_community_names():
@@ -382,7 +403,9 @@ def item_tag(kind, name, targets, plugin_map):
             if kind == "skill":
                 src = SKILLS_SRC / name
             elif name in reg:
-                cand = (source_cache_dir(reg[name][0]) / "skills" / name)
+                source = reg[name][0]
+                cand = (source_cache_dir(source)
+                        / source_skills_subdir(source) / name)
                 if cand.is_dir():
                     src = cand
             if (src and src.is_dir() and not dest.is_symlink()
@@ -681,10 +704,11 @@ def source_cache_dir(source):
 
 def update_source_cache(source, dry_run, names=None):
     names = sorted(names) if names else sorted(source["skills"])
+    subdir = source_skills_subdir(source)
     return update_repo_cache(
         source_cache_dir(source), source["url"], source["branch"],
-        [f"skills/{n}" for n in names], dry_run, source["label"],
-        source["fallback"])
+        [f"{subdir}/{n}" for n in names], dry_run, source["label"],
+        source["fallback"], skills_subdir=subdir)
 
 
 def run_git(args):
@@ -692,12 +716,14 @@ def run_git(args):
 
 
 def update_repo_cache(cache, url, branch, sparse, dry_run, label,
-                      fallback_url):
+                      fallback_url, skills_subdir="skills"):
     """Sparse-clone/refresh a skills repo. Returns cache path or None when
-    no usable cache exists."""
+    no usable cache exists. skills_subdir: where the skill folders live
+    inside the repo."""
+    skills_dir = cache / skills_subdir
     if dry_run:
         log(f"dry-run: would clone/update {url} into {cache}")
-        return cache if (cache / "skills").is_dir() else None
+        return cache if skills_dir.is_dir() else None
     try:
         if (cache / ".git").is_dir():
             log(f"Updating {label} cache...")
@@ -716,11 +742,11 @@ def update_repo_cache(cache, url, branch, sparse, dry_run, label,
         return cache
     except (subprocess.CalledProcessError, FileNotFoundError):
         warn(f"Could not clone/update {label} (offline? proxy?).")
-        if (cache / "skills").is_dir():
+        if skills_dir.is_dir():
             warn("Using existing local cache instead.")
             return cache
         warn(f"Fallback: download the skill folders as ZIP from {fallback_url}")
-        warn(f"and unzip into {cache / 'skills'}, then re-run this script.")
+        warn(f"and unzip into {skills_dir}, then re-run this script.")
         return None
 
 
@@ -755,7 +781,7 @@ def install_community_for_target(target, dest_root, sel_community, dry_run):
                 continue
             if not cache:
                 continue
-            src = cache / "skills" / name
+            src = cache / source_skills_subdir(source) / name
             if not src.is_dir():
                 results.append((target, name, "missing in cache — skipped"))
                 continue

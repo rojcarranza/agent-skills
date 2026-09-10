@@ -412,7 +412,7 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(
             install.default_community_names(),
             set(install.COMMUNITY_SKILLS + install.CAVEMAN_SKILLS
-                + ["debugging-and-error-recovery"]))
+                + ["debugging-and-error-recovery", "write-pr-description"]))
 
     def test_legacy_cache_dir_used_for_awesome(self):
         source = install.source_by_label("awesome-copilot")
@@ -433,6 +433,75 @@ class TestRegistry(unittest.TestCase):
                                         names=["security-and-hardening"])
         sparse = m.call_args[0][3]
         self.assertEqual(sparse, ["skills/security-and-hardening"])
+
+
+class TestSourceSubdir(TempDirTest):
+    """Sources may keep their skill folders somewhere other than skills/ —
+    warpdotdev/common-skills uses .agents/skills/."""
+
+    def test_default_subdir_is_skills(self):
+        source = install.source_by_label("addy-agent-skills")
+        self.assertEqual(install.source_skills_subdir(source), "skills")
+
+    def test_warp_source_registers_write_pr_description(self):
+        source, meta = install.registry()["write-pr-description"]
+        self.assertEqual(source["label"], "warp-common-skills")
+        self.assertEqual(source["url"], install.WARP_REPO_URL)
+        self.assertEqual(install.source_skills_subdir(source),
+                         ".agents/skills")
+        self.assertEqual(meta, {"targets": install.ANY, "default": True})
+
+    def test_sparse_paths_and_cache_check_use_the_subdir(self):
+        source = install.source_by_label("warp-common-skills")
+        with mock.patch("install.update_repo_cache") as m:
+            install.update_source_cache(source, dry_run=False)
+        self.assertEqual(m.call_args[0][3],
+                         [".agents/skills/write-pr-description"])
+        self.assertEqual(m.call_args.kwargs["skills_subdir"],
+                         ".agents/skills")
+
+    def test_failed_fetch_reuses_an_existing_subdir_cache(self):
+        cache = self.tmp / "warp"
+        (cache / ".git").mkdir(parents=True)
+        (cache / ".agents" / "skills" / "write-pr-description").mkdir(
+            parents=True)
+        boom = subprocess.CalledProcessError(128, ["git", "fetch"])
+        with mock.patch("install.run_git", side_effect=boom):
+            result = install.update_repo_cache(
+                cache, "u", "main", [], False, "warp", "f",
+                skills_subdir=".agents/skills")
+        self.assertEqual(result, cache)
+
+    def test_community_install_reads_from_the_subdir(self):
+        cache = self.tmp / "cache"
+        skill = cache / ".agents" / "skills" / "tool-w"
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text("w")
+        sources = [{
+            "label": "fake", "url": "u", "branch": "main", "cache": "fake",
+            "fallback": "f", "subdir": ".agents/skills", "_cache": cache,
+            "skills": {"tool-w": {"targets": install.ANY, "default": True}},
+        }]
+        dest = self.tmp / "dest"
+        with mock.patch("install.SOURCES", sources):
+            results = install.install_community_for_target(
+                "claude", dest, {"tool-w"}, dry_run=False)
+        self.assertEqual(results, [("claude", "tool-w", "installed")])
+        self.assertTrue((dest / "tool-w" / "SKILL.md").is_file())
+
+    def test_picker_update_tag_reads_from_the_subdir(self):
+        cache = self.tmp / "cache"
+        src = cache / ".agents" / "skills" / "write-pr-description"
+        src.mkdir(parents=True)
+        (src / "SKILL.md").write_text("new")
+        root = self.tmp / "claude" / "skills"
+        (root / "write-pr-description").mkdir(parents=True)
+        (root / "write-pr-description" / "SKILL.md").write_text("old")
+        with mock.patch("install.target_root", return_value=root), \
+             mock.patch("install.source_cache_dir", return_value=cache):
+            tag = install.item_tag("community", "write-pr-description",
+                                   ["claude"], {})
+        self.assertEqual(tag, "[installed] [update]")
 
 
 class TestInstallCommunityForTarget(TempDirTest):
