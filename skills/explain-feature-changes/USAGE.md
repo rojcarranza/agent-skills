@@ -53,9 +53,10 @@ then `main` (`origin/main`, then local). If neither exists, the skill asks.
    ticket IDs, tests and naming.
 6. Writes the report and a CodeTour.
 
-It runs only `git` commands and reads files. It never commits, pushes,
-checks out or edits code. Every command is plain `git`, so it behaves the
-same in bash, PowerShell and cmd.
+It runs `git` commands and reads files; the only other command is the
+CodeTour validator script at the end. It never commits, pushes, checks out
+or edits code. Every `git` command is plain `git`, so it behaves the same
+in bash, PowerShell and cmd.
 
 ## Output
 

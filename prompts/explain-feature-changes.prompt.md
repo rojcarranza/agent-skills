@@ -12,8 +12,8 @@ Base branch (in priority order):
 3. If neither exists, ask me — do not guess
 
 Requirements:
-- Read-only: only `git` commands and file reads; never commit, push, reset,
-  rebase, checkout or edit code
+- Read-only: `git` commands and file reads (plus the CodeTour validator at
+  the end); never commit, push, reset, rebase, checkout or edit code
 - Plain `git` commands only — no `$(...)`, pipes, `grep` or `sed` (the
   terminal may be PowerShell or cmd)
 - Three-dot diff: `git diff <base>...HEAD`; committed work only — list
