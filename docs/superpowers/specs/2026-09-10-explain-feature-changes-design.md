@@ -30,6 +30,9 @@ In scope:
   VS Code gets the bare `/explain-feature-changes` command.
 - An installer change so `write-pr-description` from
   `warpdotdev/common-skills` installs as a default community skill.
+- A `REQUIRES` map in the installer so the skills this skill calls are
+  installed with it in every install mode. See
+  [Skill dependencies](#skill-dependencies).
 - Documentation: `USAGE.md`, `README.md`, `docs/community-skills.md`.
 
 Out of scope:
@@ -101,9 +104,11 @@ agent-skills/
 │   └── USAGE.md                 examples per IDE, reuse table, JetBrains
 │                                checklist
 ├── prompts/explain-feature-changes.prompt.md
-├── install.py                   new warp-common-skills source, `subdir` key
-├── test_install.py              subdir and portability tests
-├── README.md                    layout entry, JetBrains checklist count
+├── install.py                   new warp-common-skills source, `subdir` key,
+│                                REQUIRES map
+├── test_install.py              subdir, dependency and portability tests
+├── README.md                    layout entry, dependencies, JetBrains
+│                                checklist count, root-install note
 └── docs/community-skills.md     write-pr-description entry
 ```
 
@@ -348,13 +353,66 @@ helper that returns `cache / source.get("subdir", "skills")` — fetch or
 sparse-checkout, install, status and fallback handling. Sources without
 `subdir` behave exactly as before.
 
+## Skill dependencies
+
+The skills this skill calls must be installed wherever it is installed.
+Today that holds only for flag runs (`--target both`, and the root
+`./install.py install agent-skills`, which runs the same flag run), because
+`code-tour`, `context-map` and `write-pr-description` are all in the default
+community set. It does not hold for interactive picks that untick a
+dependency, for `--skills-only`, or after `--uninstall` of a dependency.
+
+### Declaration
+
+A `REQUIRES` map in `install.py`, next to `SOURCES`:
+
+```python
+REQUIRES = {
+    "explain-feature-changes": ["code-tour", "context-map",
+                                "write-pr-description"],
+}
+```
+
+Keys are custom skill names. Values may be community skills, externals, or
+other custom skills, so later skills can declare their own chains.
+
+`README.md` currently says the root `./install.py install agent-skills` runs
+"no community fetch". That is stale — `lib/tools/agent_skills.py`
+deliberately runs a flag install without `--skills-only`. The README line is
+corrected as part of this work, since dependency coverage depends on it.
+
+### Behavior
+
+- **Install (flag, interactive, `--repo`):** every selected custom skill's
+  requirements are added to the same run and the same target. In the
+  interactive picker a required item that was unticked is added back, and the
+  run logs `write-pr-description (required by explain-feature-changes)`.
+- **`--skills-only`:** nothing is fetched. A requirement already present in
+  the target is fine. A missing one produces a summary warning —
+  `explain-feature-changes: missing write-pr-description — re-run without
+  --skills-only when online`. The skill still runs on its fallback.
+- **`--status`:** lists missing requirements per target.
+- **`--uninstall`:** removing a skill that an installed skill requires prints
+  a warning naming the dependent. It does not block the uninstall.
+- **Runtime:** if a required skill is absent anyway, the skill names it and
+  its skills.sh source, uses its fallback, and continues.
+
+### Invariants (enforced by tests)
+
+- Every `REQUIRES` key is a directory under `skills/` — a renamed or removed
+  custom skill fails the test instead of silently dropping its dependencies.
+- Every value is a known custom, community or external name.
+- Every requirement supports every target its dependent installs to.
+
 ## Testing
 
 1. **Installer unit tests (`test_install.py`):** a source with `subdir`
    resolves its skills from that directory; a source without it still uses
    `skills/`; `write-pr-description` is in the default community set;
-   `--status` reports it. Run with
-   `cd agent-skills && python3 -m unittest test_install -v`.
+   `--status` reports it. Dependencies: the `REQUIRES` invariants above;
+   flag and interactive runs add requirements; `--skills-only` warns about
+   missing ones; `--status` lists them; `--uninstall` of a requirement warns.
+   Run with `cd agent-skills && python3 -m unittest test_install -v`.
 2. **Portability test:** scan the command text in `SKILL.md`,
    `references/tracing.md` and the prompt file — fenced code blocks and
    inline code spans that begin with `git`. Assert none contains `$(`, a
