@@ -297,7 +297,7 @@ def uninstall_dependents(names, dest_root, requires=None):
         if skill in removing or not _present(dest_root, skill):
             continue
         for dep in sorted(required_by([skill], requires)):
-            if dep in removing:
+            if dep in removing and _present(dest_root, dep):
                 hits.append((dep, skill))
     return hits
 
@@ -1437,7 +1437,8 @@ def main():
     if not args.dry_run:
         # Last, so a missing dependency cannot scroll out of view.
         hint = (" — re-run without --skills-only when online"
-                if args.skills_only else " — see the fetch warnings above")
+                if args.skills_only
+                else " — re-run install.py with network access to fetch it")
         for target in targets:
             for skill, dep in missing_requirements(target_root(target, repo)):
                 warn(f"{target}: {skill} requires {dep}, which is not "

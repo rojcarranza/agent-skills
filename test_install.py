@@ -1,3 +1,4 @@
+import contextlib
 import io
 import json
 import os
@@ -1732,6 +1733,7 @@ class TestUninstallDependents(TempDirTest):
 
     def test_removing_a_requirement_of_an_installed_skill(self):
         (self.tmp / "needs-dep").mkdir()
+        (self.tmp / "code-tour").mkdir()
         self.assertEqual(
             install.uninstall_dependents(["code-tour"], self.tmp, self.REQ),
             [("code-tour", "needs-dep")])
@@ -1743,6 +1745,12 @@ class TestUninstallDependents(TempDirTest):
                                          self.tmp, self.REQ), [])
 
     def test_dependent_absent_is_silent(self):
+        self.assertEqual(
+            install.uninstall_dependents(["code-tour"], self.tmp, self.REQ),
+            [])
+
+    def test_requirement_not_installed_here_is_silent(self):
+        (self.tmp / "needs-dep").mkdir()
         self.assertEqual(
             install.uninstall_dependents(["code-tour"], self.tmp, self.REQ),
             [])
@@ -1783,7 +1791,7 @@ class TestMainRequirements(TempDirTest):
 
     REQ = {"needs-dep": ("code-tour",)}
 
-    def run_main(self, argv):
+    def run_main(self, argv, fetch=None, extra_patches=()):
         skills = self.tmp / "skills"
         if not (skills / "needs-dep").exists():
             self.make_skill("skills", name="needs-dep")
@@ -1794,17 +1802,28 @@ class TestMainRequirements(TempDirTest):
         def root(target, repo=None):
             return home / target
 
+        if fetch is None:
+            fetch = lambda source, dry_run, names=None: None
+
         out, err = io.StringIO(), io.StringIO()
-        with mock.patch("install.SKILLS_SRC", skills), \
-             mock.patch("install.PROMPTS_SRC", prompts), \
-             mock.patch("install.REQUIRES", self.REQ), \
-             mock.patch("install.EXTERNALS", []), \
-             mock.patch("install.target_root", side_effect=root), \
-             mock.patch("install.claude_commands_dir",
-                        return_value=self.tmp / "commands"), \
-             mock.patch("install.update_source_cache", return_value=None), \
-             mock.patch("sys.argv", ["install.py", *argv]), \
-             mock.patch("sys.stdout", out), mock.patch("sys.stderr", err):
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch("install.SKILLS_SRC", skills))
+            stack.enter_context(mock.patch("install.PROMPTS_SRC", prompts))
+            stack.enter_context(mock.patch("install.REQUIRES", self.REQ))
+            stack.enter_context(mock.patch("install.EXTERNALS", []))
+            stack.enter_context(mock.patch("install.target_root",
+                                           side_effect=root))
+            stack.enter_context(mock.patch(
+                "install.claude_commands_dir",
+                return_value=self.tmp / "commands"))
+            stack.enter_context(mock.patch("install.update_source_cache",
+                                           side_effect=fetch))
+            stack.enter_context(mock.patch("sys.argv",
+                                           ["install.py", *argv]))
+            stack.enter_context(mock.patch("sys.stdout", out))
+            stack.enter_context(mock.patch("sys.stderr", err))
+            for patch in extra_patches:
+                stack.enter_context(patch)
             install.main()
         return out.getvalue(), err.getvalue()
 
@@ -1828,6 +1847,40 @@ class TestMainRequirements(TempDirTest):
         self.assertIn("claude: removing code-tour, but needs-dep still "
                       "requires it — needs-dep will run on its fallback", err)
         self.assertFalse((claude / "code-tour").exists())
+
+    def test_flag_run_fetches_a_requirement(self):
+        fetched = []
+
+        def fetch(source, dry_run, names=None):
+            fetched.append(names)
+            return None
+
+        extra = [mock.patch("install.default_community_names",
+                            return_value=set())]
+        out, _ = self.run_main(["--target", "claude"], fetch=fetch,
+                               extra_patches=extra)
+        self.assertTrue(any("code-tour" in (names or ())
+                            for names in fetched))
+        self.assertIn("code-tour (required by needs-dep)", out)
+
+    def test_interactive_run_fetches_a_requirement(self):
+        fetched = []
+
+        def fetch(source, dry_run, names=None):
+            fetched.append(names)
+            return None
+
+        extra = [
+            mock.patch("install.pick_targets", return_value=["claude"]),
+            mock.patch("install.pick_items",
+                       return_value=[("skill", "needs-dep")]),
+            mock.patch("install.plugin_skills", return_value={}),
+            mock.patch("install.item_tag", return_value=""),
+        ]
+        out, _ = self.run_main([], fetch=fetch, extra_patches=extra)
+        self.assertTrue(any("code-tour" in (names or ())
+                            for names in fetched))
+        self.assertIn("code-tour (required by needs-dep)", out)
 
 
 class TestExplainFeatureChangesSkill(unittest.TestCase):
