@@ -69,10 +69,12 @@ in bash, PowerShell and cmd.
 Both the report and `.tours/` are untracked; the skill offers to add both to
 `.git/info/exclude`.
 
-Report sections: Feature Change Overview, Why This Change Exists, Changes by
-File, New Functions / Classes, End-to-End Flow, Key Things to Understand, PR
-Explanation, PR Comments, Important Observations. Empty sections are left
-out.
+Report sections: Changed Files (an inventory table), Feature Change
+Overview, Why This Change Exists, Changes by File, New Functions / Classes,
+End-to-End Flow, Structure Before → After (only when structure changed), Key
+Things to Understand, PR Explanation, PR Comments, Important Observations.
+Empty sections are left out. Each fact appears in full once; the PR
+Explanation stays under about 300 words, with at most about six PR comments.
 
 The tour opens in VS Code with the CodeTour extension. No maintained
 JetBrains viewer was found (checked 2026-09-10); in IntelliJ, PyCharm and

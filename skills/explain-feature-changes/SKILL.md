@@ -112,7 +112,9 @@ or trivial. For each function, method, class or configuration key record
 whether it is new, modified or removed.
 
 Rank by behavioral impact. Trivial changes get one line in the report and no
-tracing.
+tracing. Files that instruct an agent or a pipeline — `SKILL.md`, prompt
+files, `AGENTS.md`, CI specs — are behavior, not documentation: rank and
+explain them like code (`references/tracing.md`).
 
 ## Phase 4 — Trace
 
@@ -149,13 +151,15 @@ section, with these overrides:
 
 - The verified facts from phases 2–5 are its input. Skip its fact-gathering
   step entirely: no `gh`, and no commands other than this skill's.
-- For its validation part, say what the tests cover and leave a visible
-  `<how you validated>` placeholder for the developer. Never claim a test
-  run you did not see.
+- For its validation part, say only what the tests cover. Never claim a
+  test run you did not see, and put no placeholder inside the PR text.
+  After the PR Explanation, outside the pasteable text, add one blockquote
+  line: "> Before posting: add how you validated this change."
 - A PR template in the repository wins, if one exists
   (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE/`,
   `docs/pull_request_template.md`).
 - Keep the `path:start-end` references this skill requires.
+- Stay inside the length budget in `references/output-template.md`.
 
 Otherwise use the fallback rules in `references/output-template.md`.
 
@@ -177,6 +181,8 @@ Confirm each item and fix the report where one fails:
 - Every intent claim carries confirmed, likely or unknown.
 - Tests are tied to the behavior they cover.
 - No generic review findings, style advice or refactoring suggestions.
+- No fact is stated in full in two sections. The PR Explanation is at most
+  about 300 words, and there are at most about six PR Comments.
 - The PR Explanation and PR Comments paste cleanly: no chat wording, no
   mention of this conversation.
 

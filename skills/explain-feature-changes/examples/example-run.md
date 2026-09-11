@@ -26,6 +26,15 @@ Comparing `feature/LISA-123-integration-decision → develop` (merge base
 Uncommitted, not covered: `app/metrics.py` (untracked).
 Listed only (generated, vendored, formatting): none.
 
+# Changed Files
+
+| Path | Status | Area | What changed |
+|---|---|---|---|
+| `app/decision.py` | added | decision logic | new `should_trigger_integration()`, `validate_conditions()` |
+| `app/processor.py` | modified | event processing | asks the decision instead of an inline condition |
+| `config/settings.yaml` | modified | configuration | new `integration.event_types` list |
+| `tests/test_decision.py` | added | tests | allowed type, test events, cancelled orders |
+
 # Feature Change Overview
 
 The branch moves the integration decision out of `process_event()` into a
@@ -128,6 +137,17 @@ without `integration.event_types`.
         → should_trigger_integration()  app/processor.py:7  defined at app/decision.py:1
           → validate_conditions()       app/decision.py:8   defined at app/decision.py:11
         → trigger_integration()         app/processor.py:8  only when the decision is True; defined at app/integration.py:1
+
+# Structure Before → After
+
+    Before                              After
+    process_event()                     process_event()
+     ├── decides (hard-coded tuple)      ├── asks should_trigger_integration()
+     └── triggers                        │     └── validate_conditions()
+                                         └── triggers
+
+The decision now has its own module, so its rules can change without
+touching the processing flow.
 
 # Key Things to Understand
 

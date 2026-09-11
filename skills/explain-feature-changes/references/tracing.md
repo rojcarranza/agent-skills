@@ -43,7 +43,7 @@ component or configuration key.
 - Deleted code deserves the same attention as added code. Say which
   behavior disappeared.
 
-## Trace paths by language
+## Trace paths by language and file type
 
 - **Java:** class → method → interface → implementation → caller. Wiring is
   often invisible: `git grep -n` for `@Component`, `@Service`, `@Bean`,
@@ -70,6 +70,12 @@ component or configuration key.
   entities or repositories that use them.
 - **Pipelines (Bamboo specs, Dockerfiles, Helm, Kubernetes):** what changes
   about when or how things build, deploy or run.
+- **Agent instructions and prompts (`SKILL.md`, `*.prompt.md`, `AGENTS.md`,
+  `CLAUDE.md`, `.github/copilot-instructions.md`):** the text is the
+  behavior. Rank these files like code, never as documentation. Explain
+  what an agent now does, asks, skips or writes differently, step by step,
+  and quote the rule that causes it. Find what loads the file: an
+  installer, an IDE, another skill or a slash command.
 
 ## Architecture and technology checklist
 
@@ -89,6 +95,10 @@ affects it; never explain the technology in general.
 - Concurrency and asynchronous processing.
 - Error handling: new exceptions, swallowed errors, changed error flow.
 - Processing pipelines and CI/CD: what runs, when, and in what order.
+
+When a job moves between components, or a flow gains or loses a step, note
+the old and the new structure. The report shows them as a short
+before/after sketch (`references/output-template.md`).
 
 ## Tests
 
