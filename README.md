@@ -275,7 +275,7 @@ per-repository seeding.
 Both generated forms carry the prompt body verbatim and end with a
 `Generated from prompts/<file>` marker — derived, never edited by hand.
 Re-running the installer refreshes them. The Claude form drops the
-Copilot-only `mode: agent` key and appends `My request: $ARGUMENTS`, so text
+Copilot-only `agent: agent` key and appends `My request: $ARGUMENTS`, so text
 typed after the command reaches the prompt.
 
 **A prompt named after a skill generates neither.** `code-review-pr`,
@@ -348,7 +348,8 @@ Nothing shows up: confirm chat is in agent mode, that the plugin is current,
 and that `install.py --status` lists the skills under `~/.copilot/skills`.
 For the repo-scoped spelling, check the files are at
 `<project root>/.github/prompts/` — the folder open in the IDE, not a
-submodule — and that their frontmatter says `mode: agent`.
+submodule — and that their frontmatter says `agent: agent`. VS Code
+deprecated the older `mode: agent` spelling and flags it in the editor.
 
 One caveat: `${selection}` in `explain-code.prompt.md` and
 `explain-and-review.prompt.md` is a VS Code prompt variable and is not

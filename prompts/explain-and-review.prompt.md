@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: agent
 description: 'Explain the logic of a PR, feature branch, file, or selection step by step, THEN review it for risky logic, bugs, and edge cases'
 ---
 

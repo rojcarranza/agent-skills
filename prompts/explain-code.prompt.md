@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: agent
 description: 'Explain the logic of a PR, feature branch, file, or selection with a step-by-step walkthrough (Concept → Code flow → Why → Gotchas)'
 ---
 

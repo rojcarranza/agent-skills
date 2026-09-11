@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: agent
 description: 'Review the current feature branch diff — change summary, severity/confidence-tagged findings, a -review.md report and a CodeTour'
 ---
 

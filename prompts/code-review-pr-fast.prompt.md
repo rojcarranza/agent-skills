@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: agent
 description: 'Quick chat-only pass over the current branch diff — at most five findings, no report file, no tour'
 ---
 

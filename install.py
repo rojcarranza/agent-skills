@@ -643,7 +643,7 @@ def claude_commands_dir():
 
 def claude_command_text(path):
     """Slash-command body for a prompt file. Claude reads no .prompt.md, so
-    each prompt ships as ~/.claude/commands/<stem>.md instead. `mode: agent`
+    each prompt ships as ~/.claude/commands/<stem>.md instead. `agent: agent`
     is dropped — it is a Copilot key — and $ARGUMENTS is appended so text
     typed after the command reaches the prompt."""
     description, body = parse_prompt(path)

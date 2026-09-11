@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: agent
 description: Create a soundboarding document from a user story, then immediately implement its core tasks
 ---
 

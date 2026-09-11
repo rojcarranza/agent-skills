@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: agent
 description: 'Explain my feature branch against its base — what changed, why, how it works, before/after, code flow — plus PR-ready text and a CodeTour'
 ---
 

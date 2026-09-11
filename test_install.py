@@ -924,17 +924,18 @@ class TestCommunityRepoPolicy(TestInstallCommunityForTarget):
 
 
 class TestPromptFrontmatter(unittest.TestCase):
-    """'mode:' is the documented key; 'agent:' is silently ignored."""
+    """'agent:' is the documented key; VS Code deprecated 'mode:' and
+    flags it with "The 'mode' attribute has been deprecated"."""
 
-    def test_every_prompt_declares_mode_agent(self):
+    def test_every_prompt_declares_agent_agent(self):
         files = sorted(install.PROMPTS_SRC.glob("*.prompt.md"))
         self.assertTrue(files)
         for f in files:
             with self.subTest(prompt=f.name):
                 head = f.read_text().split("---")[1].splitlines()
+                self.assertIn("agent: agent", [l.strip() for l in head])
                 keys = [line.split(":", 1)[0] for line in head if ":" in line]
-                self.assertIn("mode", keys)
-                self.assertNotIn("agent", keys)
+                self.assertNotIn("mode", keys)
 
 
 class TestParsePrompt(TempDirTest):
@@ -944,7 +945,7 @@ class TestParsePrompt(TempDirTest):
         return p
 
     def test_reads_description_and_body(self):
-        p = self.write("---\nmode: agent\ndescription: Make an SB\n---\n\n"
+        p = self.write("---\nagent: agent\ndescription: Make an SB\n---\n\n"
                        "Body line.\n")
         self.assertEqual(install.parse_prompt(p), ("Make an SB", "Body line."))
 
@@ -968,7 +969,7 @@ class TestParsePrompt(TempDirTest):
 class TestPromptSkillText(TempDirTest):
     def build(self, description="Make an SB"):
         p = self.tmp / "create-sb.prompt.md"
-        p.write_text(f"---\nmode: agent\ndescription: {description}\n---\n\n"
+        p.write_text(f"---\nagent: agent\ndescription: {description}\n---\n\n"
                      "Body line.\n", encoding="utf-8")
         return install.prompt_skill_text(p)
 
@@ -1108,7 +1109,7 @@ class TestPromptSkillNameCollisions(TempDirTest):
 
 
 class TestClaudeCommandText(TempDirTest):
-    def build(self, front="mode: agent\ndescription: Explain it"):
+    def build(self, front="agent: agent\ndescription: Explain it"):
         p = self.tmp / "explain-code.prompt.md"
         p.write_text(f"---\n{front}\n---\n\nBody line.\n", encoding="utf-8")
         return install.claude_command_text(p)
@@ -1119,8 +1120,8 @@ class TestClaudeCommandText(TempDirTest):
         self.assertEqual(json.loads(line[len("description: "):]),
                          "Explain it")
 
-    def test_copilot_only_mode_key_is_dropped(self):
-        self.assertNotIn("mode: agent", self.build())
+    def test_copilot_only_agent_key_is_dropped(self):
+        self.assertNotIn("agent: agent", self.build())
 
     def test_body_arguments_and_provenance_marker(self):
         text = self.build()

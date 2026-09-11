@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: agent
 description: Execute the core tasks of a soundboarding (SB) document task by task, with a review stop after each
 ---
 

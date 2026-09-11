@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: agent
 description: 'Onboard into this repository as a chained four-tour CodeTour series in .tours/, backed by docs/codebase/'
 ---
 
