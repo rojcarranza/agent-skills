@@ -195,7 +195,7 @@ No commit-count or diff-size sanity gate (user decision).
 1. `git status --porcelain` — uncommitted files are listed in the report
    header and not explained. The explanation covers committed work only, so
    the PR text matches what reviewers will see.
-2. `git log --oneline <base>..HEAD` — commit messages as intent evidence.
+2. `git log <base>..HEAD` — commit subjects and bodies as intent evidence.
 3. `git diff --name-status <base>...HEAD` — added, modified, deleted, renamed.
 4. `git diff --stat <base>...HEAD` — size drives depth.
 5. `git diff -U15 <base>...HEAD -- <file>` per file.
@@ -254,8 +254,9 @@ Output:
 
 - File: `<branch-slug>-changes.md` at the repository root, where
   `<branch-slug>` is the branch name with `/` replaced by `-`.
-- Chat: the comparison line, the overview, Key Things to Understand, and the
-  report path.
+- Chat, after phase 8: the comparison line, the overview, Key Things to
+  Understand, the report and tour paths; the offer covers the report and
+  `.tours/`.
 - The report is untracked. The skill says so and offers to add it to
   `.git/info/exclude`. It never edits `.gitignore`.
 

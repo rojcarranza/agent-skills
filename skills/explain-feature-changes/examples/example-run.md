@@ -13,8 +13,9 @@ report.
     <Feature Change Overview, as in the report>
     <Key Things to Understand, as in the report>
 
-    Full report: feature-LISA-123-integration-decision-changes.md (untracked).
-    Add it to .git/info/exclude so it is never committed?
+    Full report: feature-LISA-123-integration-decision-changes.md
+    Tour: .tours/changes-feature-LISA-123-integration-decision.tour
+    Both are untracked. Add them to .git/info/exclude so they are never committed?
 
 ## Report
 
@@ -102,23 +103,23 @@ without `integration.event_types`.
 
 ## `should_trigger_integration()`
 
-    File / lines:       app/decision.py:1-8
-    Purpose:            decides whether one event is sent to the partner integration
-    Inputs:             event (dict), config (dict loaded from config/settings.yaml)
-    Outputs:            bool; no side effects
+    File / lines:         app/decision.py:1-8
+    Purpose:              decides whether one event is sent to the partner integration
+    Inputs:               event (dict), config (dict loaded from config/settings.yaml)
+    Outputs:              bool; no side effects
     Important conditions: test event → False; type not in integration.event_types → False
-    Called by:          process_event() at app/processor.py:7
-    Calls:              validate_conditions() at app/decision.py:8
-    Return value use:   True → trigger_integration(event) at app/processor.py:8
-    Before:             inline condition at app/processor.py:6 (merge base)
-    Tests:              tests/test_decision.py:6-15
+    Called by:            process_event() at app/processor.py:7
+    Calls:                validate_conditions() at app/decision.py:8
+    Return value use:     True → trigger_integration(event) at app/processor.py:8
+    Before:               inline condition at app/processor.py:6 (merge base)
+    Tests:                tests/test_decision.py:6-15
 
 ## `validate_conditions()`
 
-    File / lines:       app/decision.py:11-13
-    Purpose:            rejects events without an id and cancelled orders
-    Called by:          should_trigger_integration() at app/decision.py:8
-    Before:             new behavior — no equivalent check existed
+    File / lines:         app/decision.py:11-13
+    Purpose:              rejects events without an id and cancelled orders
+    Called by:            should_trigger_integration() at app/decision.py:8
+    Before:               new behavior — no equivalent check existed
 
 # End-to-End Flow
 

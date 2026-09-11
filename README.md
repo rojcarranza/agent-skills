@@ -335,7 +335,9 @@ Setup checklist:
    date, signed in.
 2. **Settings → Languages & Frameworks → GitHub Copilot → Chat → Agent** —
    enable agent mode. Restart the IDE if the toggle has just appeared.
-3. `python install.py --target copilot --skills-only`.
+3. `python install.py --target copilot` (behind the proxy, add
+   `--skills-only`; skills with requirements then warn and run on their
+   fallbacks).
 4. Reopen the IDE. In agent-mode chat type `/skill:` — the eight custom
    skills and the five generated from prompts should all list.
 5. Optional, per repo: `python install.py --repo .` also seeds

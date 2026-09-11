@@ -22,6 +22,9 @@ feature should be understood (Important Observations in
 - One plain `git` command per call. No `$(...)`, no pipes, no `grep`,
   `sed` or `awk`: the terminal may be PowerShell or cmd. Search code with
   `git grep -n`.
+- In an IDE terminal (VS Code, IntelliJ, PyCharm, GoLand), put `--no-pager`
+  right after `git` for `log`, `diff` and `show` — for example
+  `git --no-pager diff --stat <base>...HEAD` — so no pager stops the run.
 - Never invent intent, requirements or behavior. Label every intent claim
   confirmed, likely or unknown (phase 5).
 - Reference code as `path/from/repo/root:start-end`. Quote code, commands
@@ -29,7 +32,7 @@ feature should be understood (Important Observations in
 
 No terminal (agent mode off, or a Copilot setup without command access): say
 so and ask for exactly two pastes — the output of `git diff <base>...HEAD`
-and of `git log --oneline <base>..HEAD`. Ask for nothing else up front.
+and of `git log <base>..HEAD`. Ask for nothing else up front.
 Explain from those two outputs, and name the skipped phases in the report
 header.
 
@@ -57,7 +60,8 @@ First hit wins:
 3. `main`: the same check for `origin/main`, then local `main`.
 4. Nothing resolves: ask which branch to compare against. Never guess.
 
-Run `git branch --show-current`. If it prints the base branch itself, or
+Run `git branch --show-current`. If it prints the base branch itself — for a
+remote base such as `origin/develop`, also its local name `develop` — or
 nothing (detached HEAD), ask which branch to explain.
 
 Run `git merge-base <base> HEAD` and keep the printed SHA as `<merge-base>`
@@ -73,12 +77,15 @@ Run, in order:
 
 1. `git status --porcelain` — uncommitted files are not explained. List
    them in the report header, so the reader knows what the PR text leaves
-   out.
-2. `git log --oneline <base>..HEAD` — commit messages are intent evidence.
+   out. Leave out this skill's own output: `<branch-slug>-changes.md` and
+   anything under `.tours/`.
+2. `git log <base>..HEAD` — commit subjects and bodies are intent evidence.
 3. `git diff --name-status <base>...HEAD` — added, modified, deleted,
    renamed. A rename is not new code.
 4. `git diff --stat <base>...HEAD` — size decides depth.
-5. `git diff -U15 <base>...HEAD -- <file>` for each meaningful file.
+5. `git diff -U15 <base>...HEAD -- <file>` for each meaningful file. For a
+   rename, pass both paths — `git diff -U15 <base>...HEAD -- <old> <new>` —
+   so only the edits inside the moved file show, not the whole file as new.
 6. Read the whole current file for anything non-trivial. A hunk alone hides
    what the surrounding code already does.
 
@@ -138,9 +145,13 @@ and style rules. Leave out any section that would be empty. Consult
 its facts.
 
 PR Explanation: if `write-pr-description` is installed, follow it for this
-section, with three overrides:
+section, with these overrides:
 
-- The verified facts from phases 2–5 are its input. Skip its `gh` steps.
+- The verified facts from phases 2–5 are its input. Skip its fact-gathering
+  step entirely: no `gh`, and no commands other than this skill's.
+- For its validation part, say what the tests cover and leave a visible
+  `<how you validated>` placeholder for the developer. Never claim a test
+  run you did not see.
 - A PR template in the repository wins, if one exists
   (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE/`,
   `docs/pull_request_template.md`).
@@ -151,12 +162,6 @@ Otherwise use the fallback rules in `references/output-template.md`.
 Write the report to `<branch-slug>-changes.md` at the repository root, where
 `<branch-slug>` is the current branch name with `/` replaced by `-`. Replace
 an earlier report of the same name.
-
-In chat, print only: the comparison line, the Feature Change Overview, Key
-Things to Understand, and the report path. Uncommitted and skipped files
-belong in the report header, not in chat. Then say the report is untracked
-and offer to add it to `.git/info/exclude` so it is never committed. Never
-edit `.gitignore`.
 
 ## Phase 7 — Self-check
 
@@ -188,9 +193,27 @@ already cited in the report. Never investigate again to build the tour.
 Validate with `scripts/validate_tour.py` from the installed `code-tour`
 skill directory: `~/.claude/skills/code-tour/`,
 `~/.copilot/skills/code-tour/`, or `<repo>/.github/skills/code-tour/`. Its
-own SKILL.md names an `~/.agents/...` path that usually does not exist. Skip
-validation if the script is not found.
+own SKILL.md names an `~/.agents/...` path that usually does not exist.
+Resolve the home directory to an absolute path first — `~` does not expand
+in cmd — and run the script with `python`, or `python3` if `python` is not
+found. Skip validation if the script or an interpreter is not found.
 
 Skip the tour only when the branch changes one file and the tour would have
-fewer than about three steps; say so in one line with the reason. Never add
+fewer than about three steps; say so in one line with the reason. The user
+saying "no tour" skips it; "make a tour" overrides a skip. Never add
 `.tours/` to `.gitignore` and never commit the tour.
+
+## Finish — report in chat
+
+After phase 8, print only:
+
+- the comparison line,
+- the Feature Change Overview,
+- Key Things to Understand,
+- the report path, and the tour path or the one-line reason there is no tour,
+- one line naming any companion skill that was missing or a validator that
+  could not run.
+
+Uncommitted and listed-only files belong in the report header, not in chat.
+Then say the report and `.tours/` are untracked and offer to add both to
+`.git/info/exclude` so they are never committed. Never edit `.gitignore`.

@@ -60,12 +60,14 @@ in bash, PowerShell and cmd.
 
 ## Output
 
-- Chat: the comparison line, the overview, Key Things to Understand, and
-  the report path.
+- Chat: the comparison line, the overview, Key Things to Understand, the
+  report and tour paths.
 - `<branch-slug>-changes.md` at the repository root (branch name with `/`
-  replaced by `-`). Untracked; the skill offers to add it to
-  `.git/info/exclude`.
+  replaced by `-`).
 - `.tours/changes-<branch-slug>.tour`, persona `pr-reviewer`.
+
+Both the report and `.tours/` are untracked; the skill offers to add both to
+`.git/info/exclude`.
 
 Report sections: Feature Change Overview, Why This Change Exists, Changes by
 File, New Functions / Classes, End-to-End Flow, Key Things to Understand, PR
@@ -98,11 +100,16 @@ is missing.
    agent mode on. Without it Copilot cannot run `git`, and the skill asks
    you to paste the diff instead.
 3. `python install.py --target copilot` (both skills and dependencies land
-   in `~/.copilot/skills`, which JetBrains reads).
+   in `~/.copilot/skills`, which JetBrains reads; behind the proxy, add
+   `--skills-only` — skills with requirements then warn and run on their
+   fallbacks).
 4. Reopen the IDE, open a feature branch, type
    `/skill:explain-feature-changes develop` in agent-mode chat.
 5. Approve the `git` commands it proposes in the IDE terminal. The report
    appears at the repository root.
+6. If a `git` command opens a pager (`less`) in the IDE terminal and the run
+   stalls, press `q`; the skill uses `git --no-pager` in IDE terminals to
+   avoid it.
 
 ## Skills considered
 
