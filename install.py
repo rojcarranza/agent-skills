@@ -182,8 +182,11 @@ EXTERNALS = [
 # value alongside it, to the same targets, in every install mode. Values may
 # be community skills, externals or other custom skills; chains are followed.
 REQUIRES = {
-    "explain-feature-changes": ("code-tour", "context-map",
-                                "write-pr-description"),
+    # context-map and write-pr-description were dropped: the first is off by
+    # choice in ~/.claude/settings.json skillOverrides, the second was never
+    # installed. The skill falls back inline for both, so declaring them only
+    # pulled their descriptions into every session for nothing.
+    "explain-feature-changes": ("code-tour",),
 }
 
 

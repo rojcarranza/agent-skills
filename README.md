@@ -31,8 +31,9 @@ Claude Code, plus an installer. One `SKILL.md` format serves every platform.
 - `skills/explain-feature-changes/` — explains your own feature branch
   against `develop` or `main`: traced before/after behavior, intent labelled
   confirmed / likely / unknown, a `-changes.md` report with PR-ready text and
-  per-change PR comments, and a tour. Requires `code-tour`, `context-map` and
-  `write-pr-description` (see [Skill dependencies](#skill-dependencies)).
+  per-change PR comments, and an optional tour. Requires `code-tour` (see
+  [Skill dependencies](#skill-dependencies)); it falls back inline when
+  `context-map` or `write-pr-description` are absent.
 - `prompts/` — `.prompt.md` slash commands (`/explain-code`,
   `/explain-and-review`, `/create-sb`, `/implement-sb`,
   `/create-implement-sb`, `/code-review-pr`, `/code-review-pr-fast`,
@@ -48,12 +49,14 @@ Claude Code, plus an installer. One `SKILL.md` format serves every platform.
   (see [External skills](#external-skills-installed-by-their-own-cli)) —
   today that is `graphify`.
 
-`explain-logic`, `soundboarding`, `investigate-issue` and `code-review-pr`
-each end a run by
-writing a CodeTour file into `.tours/` in the repo they worked on (chaining to
-the community `code-tour` skill), skipping only trivial single-file cases.
+`explain-logic`, `soundboarding`, `investigate-issue`, `code-review-pr` and
+`explain-feature-changes` **offer** a CodeTour at the end of a run and write
+one into `.tours/` only on a yes (chaining to the community `code-tour`
+skill). A tour is a second generation pass over material the run already
+produced, so it is opt-in; asking for one up front skips the confirmation.
 `tour-codebase` is the one whose tours *are* the output — a chained series
-rather than a single file. The
+rather than a single file, built without asking, since that is the request.
+The
 [`git`](../git/README.md) tool keeps `.tours/` out of every repository, and
 `vsls-contrib.codetour` in [`vscode/extensions.txt`](../vscode/extensions.txt)
 opens the files.
@@ -130,7 +133,7 @@ interactive and `--repo`. An item unticked in the picker comes back with a
 
 | Skill | Requires |
 | --- | --- |
-| `explain-feature-changes` | `code-tour`, `context-map`, `write-pr-description` |
+| `explain-feature-changes` | `code-tour` |
 
 `--skills-only` cannot fetch requirements; the run ends with a warning for
 each one missing. `--status` lists missing requirements per target.
