@@ -41,14 +41,13 @@ header.
 
 | Skill | Used in | If missing |
 |---|---|---|
-| `context-map` | phase 2, large branches | group the files yourself |
-| `write-pr-description` | phase 6, PR Explanation | fallback rules in `references/output-template.md` |
 | `code-tour` | phase 8, on a yes | write the tour inline |
+| `context-map` | phase 2, large branches | group the files yourself |
+| `write-pr-description` | phase 6, PR Explanation | fallback in `references/output-template.md` |
 
-A missing companion is not an error. Name it once in chat with its skills.sh
-source (`github/awesome-copilot/context-map`,
-`warpdotdev/common-skills/write-pr-description`,
-`github/awesome-copilot/code-tour`) and continue with the fallback.
+Only `code-tour` is a declared requirement; the other two are usually absent.
+A missing companion is not an error — name it once in chat and use the
+fallback.
 
 ## Phase 1 — Resolve the base branch
 
@@ -147,22 +146,18 @@ and style rules. Leave out any section that would be empty. Consult
 `examples/example-run.md` if the depth or tone needs grounding; never copy
 its facts.
 
-PR Explanation: if `write-pr-description` is installed, follow it for this
-section, with these overrides:
+PR Explanation: use the fallback rules in `references/output-template.md`.
+If `write-pr-description` happens to be installed, follow it instead, but
+keep this skill's constraints: phases 2–5 are its only input (skip its
+fact-gathering, no `gh`), keep the `path:start-end` references, and stay
+inside the template's length budget.
 
-- The verified facts from phases 2–5 are its input. Skip its fact-gathering
-  step entirely: no `gh`, and no commands other than this skill's.
-- For its validation part, say only what the tests cover. Never claim a
-  test run you did not see, and put no placeholder inside the PR text.
-  After the PR Explanation, outside the pasteable text, add one blockquote
-  line: "> Before posting: add how you validated this change."
-- A PR template in the repository wins, if one exists
-  (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE/`,
-  `docs/pull_request_template.md`).
-- Keep the `path:start-end` references this skill requires.
-- Stay inside the length budget in `references/output-template.md`.
-
-Otherwise use the fallback rules in `references/output-template.md`.
+Either way: a repository PR template wins if one exists
+(`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE/`,
+`docs/pull_request_template.md`). For validation, say only what the tests
+cover — never claim a test run you did not see, never leave a placeholder in
+the PR text, and add one blockquote after it, outside the pasteable block:
+"> Before posting: add how you validated this change."
 
 Write the report to `<branch-slug>-changes.md` at the repository root, where
 `<branch-slug>` is the current branch name with `/` replaced by `-`. Replace
@@ -172,20 +167,17 @@ an earlier report of the same name.
 
 Confirm each item and fix the report where one fails:
 
-- The comparison names the right base and merge base.
-- Every behavior claim has a `path:start-end` reference that matches the
-  current file. Re-open each cited file and confirm the cited lines hold
-  the code the claim is about — a docstring, comment or blank line next to
-  it does not count.
+- Right base and merge base in the comparison line.
+- Every behavior claim carries a `path:start-end` that still matches. Re-open
+  each cited file: the lines must hold the code the claim is about, not an
+  adjacent docstring, comment or blank line.
 - Every new or changed symbol lists its callers, or says it has none.
-- Before and after are both stated for each behavior change.
-- Every intent claim carries confirmed, likely or unknown.
-- Tests are tied to the behavior they cover.
-- No generic review findings, style advice or refactoring suggestions.
-- No fact is stated in full in two sections. The PR Explanation is at most
-  about 300 words, and there are at most about six PR Comments.
-- The PR Explanation and PR Comments paste cleanly: no chat wording, no
-  mention of this conversation.
+- Before and after both stated for each behavior change.
+- Every intent claim labelled confirmed, likely or unknown.
+- Tests tied to the behavior they cover.
+- No review findings, style advice or refactoring suggestions.
+- No fact stated in full twice. PR Explanation at most ~300 words, at most
+  ~6 PR Comments, both pasting cleanly — no chat wording.
 
 ## Phase 8 — Tour (ask first)
 
@@ -195,9 +187,7 @@ skips the offer; "no tour" suppresses it. Skip the offer too when the branch
 changes one file and the tour would have fewer than about three steps.
 
 - **Path**: `.tours/changes-<branch-slug>.tour` in the repository.
-
 - **Persona**: `pr-reviewer`.
-
 - **Steps**: the End-to-End Flow order, from references already cited in the
   report. Never re-investigate.
 
