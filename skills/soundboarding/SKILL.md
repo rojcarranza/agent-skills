@@ -142,33 +142,29 @@ is skipped.
 3. On confirmation, run Flow 2 on the SB file just created — including every
    per-task review stop and the no-git rule.
 
-## Tour output
+## Tour output (ask first)
 
-**Off by default.** A tour is a second generation pass over code the SB
-already describes. Offer it in one line at the end of either flow — "Want a
-CodeTour of the affected code?" — and build it only on a yes.
+**Off by default.** Offer in one line at the end of either flow — "Want a
+CodeTour of the affected code?" — and build it only on a yes. "Make a tour"
+up front skips the offer; "no tour" suppresses it. Skip the offer too when
+the SB touches one file with no cross-file flow in under ~3 steps, or has
+only non-code tasks.
 
 - **Path**: `.tours/sb-<LISA-id>.tour` in the primary target repository
-  (`SB-LISA-110278.md` → `.tours/sb-LISA-110278.tour`). Tasks spanning
-  repositories: one tour per repository, same name.
+  (`SB-LISA-110278.md` → `.tours/sb-LISA-110278.tour`); one tour per
+  repository when tasks span several, same name.
+
 - **Persona**: `contributor`.
-- **Steps**: Flow 1 — the `file:line` findings behind the core tasks, in the
-  order the tasks are listed. Flow 2 — the same tour refreshed to the code as
-  implemented, one step per changed location. Never investigate a second time
-  to build the tour.
-- **How**: chain to the `code-tour` skill. Missing? Write the tour inline —
-  a JSON object with `$schema`, `title`, `description` and `steps` of
-  `{file, line, description}` is enough for CodeTour to open it.
-- **Validate**: `code-tour` ships `scripts/validate_tour.py`. Resolve it from
-  the code-tour skill directory that is actually installed
-  (`~/.claude/skills/code-tour/`, or `~/.copilot/skills/code-tour/`) — its
-  SKILL.md documents a `~/.agents/...` path that does not exist here.
 
-"Make a tour" in the original request skips the offer — build it. "No tour"
-suppresses the offer. Skip the offer too when the SB touches one file with no
-cross-file flow in under ~3 steps, or when it has only non-code tasks: there
-is nothing to walk.
+- **Steps**: Flow 1 — the `file:line` findings behind the core tasks, in
+  task order. Flow 2 — the same tour refreshed to the code as implemented,
+  one step per changed location. Never investigate a second time.
 
-`.tours/` is in the global git ignore, so tours stay local — never add them
-to the repo's `.gitignore` or commit them. This does not weaken the no-git
-rule: writing a tour file is not a git operation.
+On a yes, chain to `code-tour`; if it is not installed write the JSON inline
+(`$schema`, `title`, `description`, `steps` of `{file, line, description}`).
+Validate with its `scripts/validate_tour.py` from whichever installed dir
+exists — resolve `~` to an absolute path (cmd does not expand it) and try
+`python`, then `python3`; skip validation rather than failing the run.
+`.tours/` is in the global git ignore: never commit a tour or edit
+`.gitignore`. Writing a tour file is not a git operation, so this does not
+weaken the no-git rule.

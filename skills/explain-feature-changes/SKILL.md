@@ -189,29 +189,25 @@ Confirm each item and fix the report where one fails:
 
 ## Phase 8 — Tour (ask first)
 
-**Off by default.** After the report, offer in one line — "Want a CodeTour of
-these changes?" — and build it only on a yes.
+**Off by default.** After the report, offer in one line — "Want a CodeTour
+of these changes?" — and build it only on a yes. "Make a tour" up front
+skips the offer; "no tour" suppresses it. Skip the offer too when the branch
+changes one file and the tour would have fewer than about three steps.
 
-On a yes: `.tours/changes-<branch-slug>.tour` in the repository, persona
-`pr-reviewer`, through the `code-tour` skill. If `code-tour` is missing,
-write the JSON inline: `$schema`, `title`, `description`, and `steps` of
-`{file, line, description}` is enough for the CodeTour extension to open it.
+- **Path**: `.tours/changes-<branch-slug>.tour` in the repository.
 
-Steps follow the End-to-End Flow order and reuse only `file:line` references
-already cited in the report. Never investigate again to build the tour.
+- **Persona**: `pr-reviewer`.
 
-Validate with `scripts/validate_tour.py` from the installed `code-tour`
-skill directory: `~/.claude/skills/code-tour/`,
-`~/.copilot/skills/code-tour/`, or `<repo>/.github/skills/code-tour/`. Its
-own SKILL.md names an `~/.agents/...` path that usually does not exist.
-Resolve the home directory to an absolute path first — `~` does not expand
-in cmd — and run the script with `python`, or `python3` if `python` is not
-found. Skip validation if the script or an interpreter is not found.
+- **Steps**: the End-to-End Flow order, from references already cited in the
+  report. Never re-investigate.
 
-"Make a tour" in the original request skips the offer — build it. "No tour"
-suppresses the offer. Skip the offer too when the branch changes one file and
-the tour would have fewer than about three steps. Never add
-`.tours/` to `.gitignore` and never commit the tour.
+On a yes, chain to `code-tour`; if it is not installed write the JSON inline
+(`$schema`, `title`, `description`, `steps` of `{file, line, description}`).
+Validate with its `scripts/validate_tour.py` from whichever installed dir
+exists — resolve `~` to an absolute path (cmd does not expand it) and try
+`python`, then `python3`; skip validation rather than failing the run.
+`.tours/` is in the global git ignore: never commit a tour or edit
+`.gitignore`.
 
 ## Finish — report in chat
 

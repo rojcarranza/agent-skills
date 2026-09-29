@@ -142,29 +142,27 @@ suggests rewriting history.
 
 ## Phase 8 — Tour (ask first)
 
-**Off by default.** After the report, offer in one line — "Want a CodeTour of
-this review?" — and build it only on a yes. The report already states every
-finding; the tour is a second pass over the same diff.
+**Off by default.** After the report, offer in one line — "Want a CodeTour
+of this review?" — and build it only on a yes; the report already states
+every finding. "Make a tour" up front skips the offer; "no tour" suppresses
+it. Skip the offer too when the branch is one file with fewer than about
+three steps.
 
-On a yes: `.tours/review-<branch-slug>.tour` in the repository under review,
-persona `pr-reviewer`. Chain to the `code-tour` skill; if it is missing,
-write the tour inline — a JSON object with `$schema`, `title`, `description`
-and `steps` of `{file, line, description}` is enough.
+- **Path**: `.tours/review-<branch-slug>.tour` in the repository under
+  review.
 
-Steps come from evidence already gathered — one step per `file:line` already
-cited, ordered by the change summary and then by severity. Never
-re-investigate the repository to build the tour.
+- **Persona**: `pr-reviewer`.
 
-Validate with `code-tour`'s `scripts/validate_tour.py`, resolved from
-whichever installed skill directory exists — `~/.copilot/skills/code-tour/`,
-`~/.claude/skills/code-tour/`, or `<repo>/.github/skills/code-tour/`. Its own
-SKILL.md documents a `~/.agents/...` path that usually does not exist. Skip
-validation rather than failing the run if the script cannot be found.
+- **Steps**: evidence already gathered, ordered by the change summary then
+  by severity. Reuse `file:line` already cited; never re-investigate.
 
-"Make a tour" in the original request skips the offer — build it. "No tour"
-suppresses it. Skip the offer too when the branch is one file with fewer than
-about three steps. `.tours/` is in the global
-Git ignore — never add it to the repository's `.gitignore` or commit it.
+On a yes, chain to `code-tour`; if it is not installed write the JSON inline
+(`$schema`, `title`, `description`, `steps` of `{file, line, description}`).
+Validate with its `scripts/validate_tour.py` from whichever installed dir
+exists — resolve `~` to an absolute path (cmd does not expand it) and try
+`python`, then `python3`; skip validation rather than failing the run.
+`.tours/` is in the global git ignore: never commit a tour or edit
+`.gitignore`.
 
 ## Companion skills — use if installed
 

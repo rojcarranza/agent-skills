@@ -132,27 +132,26 @@ the Solution and note that a matching awesome-copilot
 ## Phase 7 — Tour (ask first)
 
 **Off by default.** After the report, offer in one line — "Want a CodeTour
-walking the failure path?" — and build it only on a yes. The report already
-carries the evidence; the tour is a second pass over it.
+walking the failure path?" — and build it only on a yes; the report already
+carries the evidence. "Make a tour" up front skips the offer; "no tour"
+suppresses it. Skip the offer too when the fix is one file with no cross-
+file flow in under ~3 steps, or the root cause is outside the repo (Bamboo
+config, agent host) and has no code path to walk.
 
-- **Path**: `.tours/rca-<problem-name>.tour` — same stem as the report, so
-  `LISA-123.md` gives `LISA-123-investigation.md` and `.tours/rca-LISA-123.tour`.
+- **Path**: `.tours/rca-<problem-name>.tour`, same stem as the report —
+  `LISA-123.md` gives `.tours/rca-LISA-123.tour`.
+
 - **Persona**: `bug-fixer`.
-- **Steps**: the report's Evidence section, in failure order — one step per
-  `file:line` finding, ending at the fix location. Each description says what
-  this line contributes to the failure. Never re-investigate to build the tour.
-- **How**: chain to the `code-tour` skill. Missing? Write the tour inline —
-  a JSON object with `$schema`, `title`, `description` and `steps` of
-  `{file, line, description}` is enough for CodeTour to open it.
-- **Validate**: `code-tour` ships `scripts/validate_tour.py`. Resolve it from
-  the code-tour skill directory that is actually installed
-  (`~/.claude/skills/code-tour/`, or `~/.copilot/skills/code-tour/`) — its
-  SKILL.md documents a `~/.agents/...` path that does not exist here.
 
-"Make a tour" in the original request skips the offer — build it. "No tour"
-suppresses the offer. Skip the offer too when the fix is one file with no
-cross-file flow in under ~3 steps, or when the root cause is outside the repo
-(Bamboo config, agent host): there is no code path to walk.
+- **Steps**: the report's Evidence section in failure order, ending at the
+  fix location; each description says what that line contributes to the
+  failure. Reuse `file:line` already cited; never re-investigate.
 
-`.tours/` is in the global git ignore, so tours stay local — never add them
-to the repo's `.gitignore` or commit them unless asked.
+On a yes, chain to `code-tour`; if it is not installed write the JSON inline
+(`$schema`, `title`, `description`, `steps` of `{file, line, description}`).
+Validate with its `scripts/validate_tour.py` from whichever installed dir
+exists — resolve `~` to an absolute path (cmd does not expand it) and try
+`python`, then `python3`; skip validation rather than failing the run.
+`.tours/` is in the global git ignore: never commit a tour or edit
+`.gitignore`.
+

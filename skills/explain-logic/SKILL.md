@@ -87,32 +87,29 @@ Never jump straight to line-by-line.
 Chain: context-map → acquire-codebase-knowledge → this skill → code-tour
 (that last hop only on a yes).
 
-## Tour output
+## Tour output (ask first)
 
-**Off by default.** A tour is a second generation pass over material the
-walkthrough already covered, and most walkthroughs are read once. Finish the
-walkthrough, then offer in one line — "Want a replayable CodeTour of this?" —
-and wait for a yes. Build it only then.
+**Off by default.** After the walkthrough, offer in one line — "Want a
+replayable CodeTour of this?" — and build it only on a yes. "Make a tour" up
+front skips the offer; "no tour" suppresses it. Skip the offer too when the
+walkthrough covered one file with no cross-file flow in under ~3 steps.
 
-- **Path**: `.tours/explain-<branch-or-file>.tour` in the repo being explained.
-- **Persona**: `pr-reviewer` for a PR/branch, `new-joiner` for a file/function.
-- **Steps**: the Flow section from step 3, in execution order — one step per
-  `file:line` already quoted. Never re-investigate the repo to build the tour.
-- **How**: chain to the `code-tour` skill. Missing? Write the tour inline —
-  a JSON object with `$schema`, `title`, `description` and `steps` of
-  `{file, line, description}` is enough for CodeTour to open it.
-- **Validate**: `code-tour` ships `scripts/validate_tour.py`. Resolve it from
-  the code-tour skill directory that is actually installed
-  (`~/.claude/skills/code-tour/`, or `~/.copilot/skills/code-tour/`) — its
-  SKILL.md documents a `~/.agents/...` path that does not exist here.
+- **Path**: `.tours/explain-<branch-or-file>.tour` in the repo being
+  explained.
 
-"Make a tour" in the original request skips the offer — build it. "No tour"
-suppresses the offer entirely. Skip the offer too when the walkthrough covered
-one file with no cross-file flow in under ~3 steps; there is nothing left to
-replay.
+- **Persona**: `pr-reviewer` for a PR/branch, `new-joiner` for a
+  file/function.
 
-`.tours/` is in the global git ignore, so tours stay local — never add them
-to the repo's `.gitignore` or commit them unless asked.
+- **Steps**: the Flow section from step 3, in execution order. Reuse
+  `file:line` already cited; never re-investigate.
+
+On a yes, chain to `code-tour`; if it is not installed write the JSON inline
+(`$schema`, `title`, `description`, `steps` of `{file, line, description}`).
+Validate with its `scripts/validate_tour.py` from whichever installed dir
+exists — resolve `~` to an absolute path (cmd does not expand it) and try
+`python`, then `python3`; skip validation rather than failing the run.
+`.tours/` is in the global git ignore: never commit a tour or edit
+`.gitignore`.
 
 ## Explain-and-review mode
 
