@@ -15,7 +15,7 @@ You create a soundboarding (SB) document from a user story file. The SB document
 
 On Windows these Git Bash paths map to `C:\dev\projects\wr\soundboard` and `C:\dev\projects`.
 
-These paths are defaults, not requirements — override SOUNDBOARD_DIR or PROJECTS_ROOT by stating different paths in your message.
+These paths are defaults, not requirements. Resolve each in this order: a path stated in your message, then the environment variable of the same name (`echo "$SOUNDBOARD_DIR"`, `echo "$PROJECTS_ROOT"`) if set, then the default above.
 
 ## Input
 

@@ -11,7 +11,7 @@ Combined flow for stories where team refinement between soundboarding and implem
 
 - SOUNDBOARD_DIR: `/c/dev/projects/wr/soundboard`
 
-This path is a default, not a requirement — override SOUNDBOARD_DIR by stating a different path in your message.
+This path is a default, not a requirement. Resolve it in this order: a path stated in your message, then the `SOUNDBOARD_DIR` environment variable if set, then the default above.
 
 ## Steps
 

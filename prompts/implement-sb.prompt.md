@@ -14,7 +14,7 @@ You execute the Core tasks of an existing SB document, one task at a time, stopp
 
 On Windows these Git Bash paths map to `C:\dev\projects\wr\soundboard` and `C:\dev\projects`.
 
-These paths are defaults, not requirements — override SOUNDBOARD_DIR or PROJECTS_ROOT by stating different paths in your message.
+These paths are defaults, not requirements. Resolve each in this order: a path stated in your message, then the environment variable of the same name (`echo "$SOUNDBOARD_DIR"`, `echo "$PROJECTS_ROOT"`) if set, then the default above.
 
 ## Input
 
@@ -55,8 +55,9 @@ For each unticked core task, in order:
 1. Announce the task.
 2. If it is a non-code task — it does not start with a repository name in backticks (typically inform, email, request permissions, present to team): do not execute it and do not tick it. Say it is manual and go to the review stop.
 3. If it is a code task: make the edits in the target repository.
-4. Show what changed: the files touched and a brief summary of each change.
-5. STOP and ask: approve, request changes, or skip?
+4. Verify before reporting: run `git diff` in the target repository and compare it with the task's before/after table in the SB. Every listed change must be present with the exact After value, and no file outside the task may have new changes (ignore files that preflight already reported as modified, unless the task edits them). Report any mismatch instead of glossing over it.
+5. Show what changed: the files touched and a brief summary of each change.
+6. STOP and ask: approve, request changes, or skip?
    - Approve → for a code task, tick the task's checkbox to `- [x]` in the SB file; for a manual task, leave it unticked (per step 2). Either way, continue to the next task.
    - Request changes → revise, show the result, stop again.
    - Skip → leave the checkbox unticked, note the skip, continue.
@@ -66,6 +67,7 @@ For each unticked core task, in order:
 After the core tasks are done:
 
 - For each row of the Testing table, run whatever is locally runnable (unit tests, linters, builds) and write a one-line result summary into the Log column.
+- If a test, lint, or build fails: find the root cause before changing anything. Read the full error, form a hypothesis, and confirm it (re-run, inspect the file or config). Then propose the fix and stop for approval; never stack guess-fixes. Log the failure and its cause in the Log column.
 - For tests that need environments you cannot reach (deployments, agent connectivity, other teams): set the Log cell to `manual — pending`. Leave the Build result link cells for the user.
 - If the SB file is outside the current workspace and your editing tools refuse to modify it, update it from the terminal instead.
 
