@@ -187,6 +187,7 @@ REQUIRES = {
     # installed. The skill falls back inline for both, so declaring them only
     # pulled their descriptions into every session for nothing.
     "explain-feature-changes": ("code-tour",),
+    "review-pr-comment": ("code-review-pr",),
 }
 
 

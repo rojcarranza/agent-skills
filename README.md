@@ -22,6 +22,12 @@ Claude Code, plus an installer. One `SKILL.md` format serves every platform.
 - `skills/code-review-pr-fast/` — chat-only short pass over the same diff,
   `git` calls only, no files written. Reads its method from
   `code-review-pr` when installed.
+- `skills/review-pr-comment/` — reviews an open GitHub PR with the
+  `code-review-pr` method and posts one `COMMENT` review with inline
+  comments via `gh`. Triggered automatically by the `claude` tool's
+  `pr_review_hook.py` when Claude opens a PR in an allowlisted repo (see
+  [claude/README.md](../claude/README.md#pr-auto-review)); also runnable by
+  hand. The only custom skill that writes to the PR host.
 - `skills/tour-codebase/` — onboarding into a repository you do not know:
   delegates discovery to `acquire-codebase-knowledge`, then writes a chained
   four-tour CodeTour series (orientation, architecture, core flow,
@@ -134,6 +140,7 @@ interactive and `--repo`. An item unticked in the picker comes back with a
 | Skill | Requires |
 | --- | --- |
 | `explain-feature-changes` | `code-tour` |
+| `review-pr-comment` | `code-review-pr` |
 
 `--skills-only` cannot fetch requirements; the run ends with a warning for
 each one missing. `--status` lists missing requirements per target.

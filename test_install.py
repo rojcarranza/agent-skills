@@ -1660,6 +1660,10 @@ class TestRequiredBy(unittest.TestCase):
     def test_nothing_required(self):
         self.assertEqual(install.required_by(["a"], {}), {})
 
+    def test_review_pr_comment_requires_code_review_pr(self):
+        self.assertIn("code-review-pr",
+                      install.REQUIRES["review-pr-comment"])
+
 
 class TestAddRequirements(unittest.TestCase):
     def test_unticked_community_requirement_comes_back_and_is_logged(self):
