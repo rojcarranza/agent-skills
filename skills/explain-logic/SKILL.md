@@ -79,17 +79,20 @@ Never jump straight to line-by-line.
 |---|---|
 | context-map | fuzzy scope: map all relevant files before explaining |
 | acquire-codebase-knowledge | new repo or repo-wide question: build the codebase map first |
-| code-tour | always — writes the `.tour` (see Tour output below) |
+| code-tour | only after the user accepts the offer (see Tour output below) |
 | architecture-blueprint-generator | change touches system structure: refresh the architecture doc |
 | add-educational-comments | offer AFTER the walkthrough; never add comments without asking |
 | caveman | user asks terse/brief/save tokens: apply it to the output |
 
-Chain: context-map → acquire-codebase-knowledge → this skill → code-tour.
+Chain: context-map → acquire-codebase-knowledge → this skill → code-tour
+(that last hop only on a yes).
 
 ## Tour output
 
-Every walkthrough ends with a replayable CodeTour file, so the explanation
-outlives the session.
+**Off by default.** A tour is a second generation pass over material the
+walkthrough already covered, and most walkthroughs are read once. Finish the
+walkthrough, then offer in one line — "Want a replayable CodeTour of this?" —
+and wait for a yes. Build it only then.
 
 - **Path**: `.tours/explain-<branch-or-file>.tour` in the repo being explained.
 - **Persona**: `pr-reviewer` for a PR/branch, `new-joiner` for a file/function.
@@ -103,10 +106,10 @@ outlives the session.
   (`~/.claude/skills/code-tour/`, or `~/.copilot/skills/code-tour/`) — its
   SKILL.md documents a `~/.agents/...` path that does not exist here.
 
-Skip the tour only when ALL hold: one file, no cross-file flow, under ~3
-steps. Then say so in one line with the reason — "No tour — single function,
-the walkthrough covers it." The user asking for a tour overrides a skip;
-"no tour" overrides the default.
+"Make a tour" in the original request skips the offer — build it. "No tour"
+suppresses the offer entirely. Skip the offer too when the walkthrough covered
+one file with no cross-file flow in under ~3 steps; there is nothing left to
+replay.
 
 `.tours/` is in the global git ignore, so tours stay local — never add them
 to the repo's `.gitignore` or commit them unless asked.

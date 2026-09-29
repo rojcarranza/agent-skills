@@ -99,7 +99,9 @@ in place (missing = install, present = update, unchanged = up to date):
 
 **Default (both targets, unless noted):**
 - From `github/awesome-copilot`: code-tour, acquire-codebase-knowledge,
-  context-map, architecture-blueprint-generator, add-educational-comments.
+  context-map. `architecture-blueprint-generator` and
+  `add-educational-comments` are cherry-picks, not defaults — every installed
+  skill's description loads into every session, and neither has a dependent.
 - From `juliusbrussee/caveman`: caveman terse-output skill (Copilot only; Claude
   uses the caveman plugin). explain-logic points at it for terse mode.
 - From `addyosmani/agent-skills`: debugging-and-error-recovery (Copilot only;

@@ -83,8 +83,8 @@ story.
    and ask before overwriting.
 6. **Report.** End with a short summary: repositories investigated, findings
    verified vs assumed, and the open questions for team refinement.
-7. **Tour.** Write the tour of the code the core tasks will touch (see Tour
-   output) — it makes the investigation reviewable in the editor.
+7. **Tour (ask first).** Offer a tour of the code the core tasks will touch
+   (see Tour output) and build it only on a yes.
 
 See `examples/LISA-110278.md` (story) and `examples/sb-LISA-110278.md`
 (resulting SB) for the expected shape.
@@ -127,8 +127,8 @@ Multiple matches: list them and ask which. No match: STOP and ask.
 6. **Wrap-up.** Update the SB file (checkboxes, Testing table, add learnings
    to Notes). Report a per-repository list of changed files for manual
    review and commit, plus the manual tasks still open.
-7. **Tour.** Refresh the tour (see Tour output) so it walks the code as
-   implemented, not as planned.
+7. **Tour (ask first).** Offer to refresh the tour (see Tour output) so it
+   walks the code as implemented, not as planned. Build it only on a yes.
 
 ## Flow 3: Create + implement in one run
 
@@ -144,8 +144,9 @@ is skipped.
 
 ## Tour output
 
-Both flows end with a replayable CodeTour of the affected code, so the SB is
-reviewable in the editor and not only as prose.
+**Off by default.** A tour is a second generation pass over code the SB
+already describes. Offer it in one line at the end of either flow — "Want a
+CodeTour of the affected code?" — and build it only on a yes.
 
 - **Path**: `.tours/sb-<LISA-id>.tour` in the primary target repository
   (`SB-LISA-110278.md` → `.tours/sb-LISA-110278.tour`). Tasks spanning
@@ -163,10 +164,10 @@ reviewable in the editor and not only as prose.
   (`~/.claude/skills/code-tour/`, or `~/.copilot/skills/code-tour/`) — its
   SKILL.md documents a `~/.agents/...` path that does not exist here.
 
-Skip the tour only when ALL hold: one file, no cross-file flow, under ~3
-steps. Then say so in one line with the reason. The user asking for a tour
-overrides a skip; "no tour" overrides the default. An SB with only non-code
-tasks has nothing to walk: skip it and say so.
+"Make a tour" in the original request skips the offer — build it. "No tour"
+suppresses the offer. Skip the offer too when the SB touches one file with no
+cross-file flow in under ~3 steps, or when it has only non-code tasks: there
+is nothing to walk.
 
 `.tours/` is in the global git ignore, so tours stay local — never add them
 to the repo's `.gitignore` or commit them. This does not weaken the no-git

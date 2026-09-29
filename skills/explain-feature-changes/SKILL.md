@@ -18,7 +18,8 @@ feature should be understood (Important Observations in
 - Read-only. Run `git` commands and read files. The only other command is
   the tour validator in phase 8. Never commit, push, reset, rebase,
   checkout, switch, stash, fetch or edit source code unless the user asks.
-- Write only two files: the report (phase 6) and the tour (phase 8).
+- Write at most two files: the report (phase 6) and, only if the user
+  accepts the offer, the tour (phase 8).
 - One plain `git` command per call. No `$(...)`, no pipes, no `grep`,
   `sed` or `awk`: the terminal may be PowerShell or cmd. Search code with
   `git grep -n`.
@@ -42,7 +43,7 @@ header.
 |---|---|---|
 | `context-map` | phase 2, large branches | group the files yourself |
 | `write-pr-description` | phase 6, PR Explanation | fallback rules in `references/output-template.md` |
-| `code-tour` | phase 8 | write the tour inline |
+| `code-tour` | phase 8, on a yes | write the tour inline |
 
 A missing companion is not an error. Name it once in chat with its skills.sh
 source (`github/awesome-copilot/context-map`,
@@ -186,9 +187,12 @@ Confirm each item and fix the report where one fails:
 - The PR Explanation and PR Comments paste cleanly: no chat wording, no
   mention of this conversation.
 
-## Phase 8 — Tour
+## Phase 8 — Tour (ask first)
 
-Write `.tours/changes-<branch-slug>.tour` in the repository, persona
+**Off by default.** After the report, offer in one line — "Want a CodeTour of
+these changes?" — and build it only on a yes.
+
+On a yes: `.tours/changes-<branch-slug>.tour` in the repository, persona
 `pr-reviewer`, through the `code-tour` skill. If `code-tour` is missing,
 write the JSON inline: `$schema`, `title`, `description`, and `steps` of
 `{file, line, description}` is enough for the CodeTour extension to open it.
@@ -204,9 +208,9 @@ Resolve the home directory to an absolute path first — `~` does not expand
 in cmd — and run the script with `python`, or `python3` if `python` is not
 found. Skip validation if the script or an interpreter is not found.
 
-Skip the tour only when the branch changes one file and the tour would have
-fewer than about three steps; say so in one line with the reason. The user
-saying "no tour" skips it; "make a tour" overrides a skip. Never add
+"Make a tour" in the original request skips the offer — build it. "No tour"
+suppresses the offer. Skip the offer too when the branch changes one file and
+the tour would have fewer than about three steps. Never add
 `.tours/` to `.gitignore` and never commit the tour.
 
 ## Finish — report in chat

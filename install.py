@@ -81,9 +81,11 @@ SOURCES = [
             "code-tour": {"targets": ANY, "default": True},
             "acquire-codebase-knowledge": {"targets": ANY, "default": True},
             "context-map": {"targets": ANY, "default": True},
+            # Cherry-picks: their descriptions load into every session, and
+            # neither has a dependent. Install explicitly when needed.
             "architecture-blueprint-generator": {"targets": ANY,
-                                                 "default": True},
-            "add-educational-comments": {"targets": ANY, "default": True},
+                                                 "default": False},
+            "add-educational-comments": {"targets": ANY, "default": False},
         },
     },
     {

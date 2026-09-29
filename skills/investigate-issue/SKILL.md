@@ -129,10 +129,11 @@ the Solution and note that a matching awesome-copilot
   numbered instructions in the report are the deliverable. Never attempt
   to apply these.
 
-## Phase 7 — Tour
+## Phase 7 — Tour (ask first)
 
-Write a replayable CodeTour walking the failure path, so the next person
-hitting this bug can step through the evidence instead of rereading prose.
+**Off by default.** After the report, offer in one line — "Want a CodeTour
+walking the failure path?" — and build it only on a yes. The report already
+carries the evidence; the tour is a second pass over it.
 
 - **Path**: `.tours/rca-<problem-name>.tour` — same stem as the report, so
   `LISA-123.md` gives `LISA-123-investigation.md` and `.tours/rca-LISA-123.tour`.
@@ -148,11 +149,10 @@ hitting this bug can step through the evidence instead of rereading prose.
   (`~/.claude/skills/code-tour/`, or `~/.copilot/skills/code-tour/`) — its
   SKILL.md documents a `~/.agents/...` path that does not exist here.
 
-Skip the tour only when ALL hold: one file, no cross-file flow, under ~3
-steps. Then say so in one line with the reason — "No tour — one-line fix in a
-single script." The user asking for a tour overrides a skip; "no tour"
-overrides the default. A root cause outside the repo (Bamboo config, agent
-host) has no code path to walk: skip it and say so.
+"Make a tour" in the original request skips the offer — build it. "No tour"
+suppresses the offer. Skip the offer too when the fix is one file with no
+cross-file flow in under ~3 steps, or when the root cause is outside the repo
+(Bamboo config, agent host): there is no code path to walk.
 
 `.tours/` is in the global git ignore, so tours stay local — never add them
 to the repo's `.gitignore` or commit them unless asked.

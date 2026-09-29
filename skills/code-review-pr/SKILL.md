@@ -1,6 +1,6 @@
 ---
 name: code-review-pr
-description: Review the changes on the current Git feature branch, before or after a PR is opened, and write a review report plus a CodeTour. Use when the user says "review my branch", "review this PR", "code review", "review before I push", "check my changes", or asks for defects/risks in a diff. Detects the stacks the diff touches (Java/Maven, Python, Bash, Go, Bamboo, Docker, Kubernetes, Helm) and loads only the matching rules. Git-only — never calls a PR host API. For pure comprehension ("explain this branch") use explain-logic; for a quick chat-only pass use code-review-pr-fast.
+description: Review the changes on the current Git feature branch, before or after a PR is opened, and write a review report, plus a CodeTour on request. Use when the user says "review my branch", "review this PR", "code review", "review before I push", "check my changes", or asks for defects/risks in a diff. Detects the stacks the diff touches (Java/Maven, Python, Bash, Go, Bamboo, Docker, Kubernetes, Helm) and loads only the matching rules. Git-only — never calls a PR host API. For pure comprehension ("explain this branch") use explain-logic; for a quick chat-only pass use code-review-pr-fast.
 ---
 
 # Code Review PR
@@ -140,9 +140,13 @@ may offer to apply fixes — after asking. Post-PR mode shapes findings as
 pasteable review comments split into requested changes versus nits, and never
 suggests rewriting history.
 
-## Phase 8 — Tour
+## Phase 8 — Tour (ask first)
 
-End with `.tours/review-<branch-slug>.tour` in the repository under review,
+**Off by default.** After the report, offer in one line — "Want a CodeTour of
+this review?" — and build it only on a yes. The report already states every
+finding; the tour is a second pass over the same diff.
+
+On a yes: `.tours/review-<branch-slug>.tour` in the repository under review,
 persona `pr-reviewer`. Chain to the `code-tour` skill; if it is missing,
 write the tour inline — a JSON object with `$schema`, `title`, `description`
 and `steps` of `{file, line, description}` is enough.
@@ -157,15 +161,16 @@ whichever installed skill directory exists — `~/.copilot/skills/code-tour/`,
 SKILL.md documents a `~/.agents/...` path that usually does not exist. Skip
 validation rather than failing the run if the script cannot be found.
 
-Skip the tour only when the branch is one file with fewer than about three
-steps; then say so in one line with the reason. `.tours/` is in the global
+"Make a tour" in the original request skips the offer — build it. "No tour"
+suppresses it. Skip the offer too when the branch is one file with fewer than
+about three steps. `.tours/` is in the global
 Git ignore — never add it to the repository's `.gitignore` or commit it.
 
 ## Companion skills — use if installed
 
 | Skill | When |
 |---|---|
-| `code-tour` | always, for phase 8 |
+| `code-tour` | phase 8, only after the user accepts the offer |
 | `explain-logic` | the changed logic is hard to follow: trace it, then review |
 | `context-map` | the diff touches many files and the relationships are unclear |
 | `investigate-issue` | a finding turns out to be an already-failing build |
