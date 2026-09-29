@@ -70,20 +70,27 @@ git diff -U15 origin/<baseRefName>...HEAD
 Otherwise use `gh pr diff <n>`. Read whole changed files where the method
 says to. The PR title and body are the stated intent.
 
+The 15-line context is for reading only. GitHub accepts inline comments
+only on lines inside **its own** diff, which has 3 lines of context. Get
+the commentable ranges from `gh pr diff <n>`, whose hunks are GitHub's, and
+use them in step 6.
+
 ## 5. Review
 
 Follow the loaded method: severity (🔴 Blocker, 🟠 Major, 🟡 Minor,
 🔵 Nit), confidence (Confirmed, Probable; Speculative never becomes a
 finding), and its gates and never-report list.
 
-For each finding record `path`, `line` (line number in the **new** file,
-inside a hunk's `+`/context range), severity, confidence, the defect, the
+For each finding record `path`, `line` (line number in the **new** file),
+severity, confidence, the defect, the
 failure scenario, and the fix.
 
 ## 6. Build and post the review
 
-Order findings by severity. The first 15 become inline comments; any beyond
-15, and any whose line is not in a hunk, go in the body.
+Order findings by severity. A finding is inline-eligible only when its
+`line` falls inside a `+`/context range of a `gh pr diff` hunk (step 4).
+The first 15 eligible findings become inline comments. Everything else,
+the ineligible findings and any past 15, goes in the body.
 
 Inline comment body:
 
@@ -118,10 +125,12 @@ Review body:
 
 No findings: body is the summary line, "No findings.", and the marker.
 
-Write the payload to a temp file **outside the repo** (`mktemp`), then post
-and delete it:
+Post it in **one** Bash call, with the JSON on stdin through a quoted
+heredoc. No temp file, and no shell variable carried across calls, since
+those do not survive between Bash calls:
 
-```json
+```bash
+gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input - <<'REVIEW_JSON'
 {
   "commit_id": "<headRefOid>",
   "event": "COMMENT",
@@ -130,18 +139,18 @@ and delete it:
     {"path": "<path>", "line": <line>, "side": "RIGHT", "body": "<comment body>"}
   ]
 }
+REVIEW_JSON
 ```
 
-```bash
-gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input "$payload"
-rm -f "$payload"
-```
+The payload must be valid JSON: escape `"`, `\` and newlines (`\n`) inside
+string values.
 
 ## 7. Failures
 
 - **HTTP 422** (a line not in the diff): move every inline comment into the
   body as `path:line` entries, set `comments` to `[]`, post once more. Do
-  not retry again.
+  not retry again. If that also fails, show GitHub's error message and the
+  findings in chat.
 - **`gh` not authenticated / network error**: print the findings in chat in
   the inline-comment format and say nothing was posted.
 
