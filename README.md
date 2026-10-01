@@ -5,62 +5,59 @@ Claude Code, plus an installer. One `SKILL.md` format serves every platform.
 
 ## Layout
 
-- `skills/explain-logic/` — guided code-comprehension walkthroughs
+- `skills/roj-explain-logic/` — guided code-comprehension walkthroughs
   (PR/branch diffs, files, functions) with language lenses.
-- `skills/soundboarding/` — story → SB document → task-by-task
+- `skills/roj-soundboarding/` — story → SB document → task-by-task
   implementation workflow (bundled `SB-template.md` + examples).
-- `skills/interview-prep/` — DevOps interview doc generator from a CV
+- `skills/roj-interview-prep/` — DevOps interview doc generator from a CV
   (vault-aware, bundled calibration references).
-- `skills/investigate-issue/` — problem `.md` in, validated root cause +
+- `skills/roj-investigate-issue/` — problem `.md` in, validated root cause +
   fix-steps `-investigation.md` out (Bamboo plans/agents, Java, Python,
   Bash, Go, Docker, k8s).
-- `skills/code-review-pr/` — feature-branch review before or after a PR:
+- `skills/roj-code-review-pr/` — feature-branch review before or after a PR:
   change summary, severity/confidence-tagged findings, `-review.md` report
   and a tour. Rules split into always-loaded method + cross-cutting, and
   language/platform lenses (Java/Maven, Python, Bash, Go, Bamboo, k8s, Helm,
   Docker) loaded from the diff. Git-only — no PR host API.
-- `skills/code-review-pr-fast/` — chat-only short pass over the same diff,
+- `skills/roj-code-review-pr-fast/` — chat-only short pass over the same diff,
   `git` calls only, no files written. Reads its method from
-  `code-review-pr` when installed.
-- `skills/review-pr-comment/` — reviews an open GitHub PR with the
-  `code-review-pr` method and posts one `COMMENT` review with inline
+  `roj-code-review-pr` when installed.
+- `skills/roj-review-pr-comment/` — reviews an open GitHub PR with the
+  `roj-code-review-pr` method and posts one `COMMENT` review with inline
   comments via `gh`. Triggered automatically by the `claude` tool's
   `pr_review_hook.py` when Claude opens a PR in an allowlisted repo (see
   [claude/README.md](../claude/README.md#pr-auto-review)); also runnable by
   hand. The only custom skill that writes to the PR host.
-- `skills/tour-codebase/` — onboarding into a repository you do not know:
+- `skills/roj-tour-codebase/` — onboarding into a repository you do not know:
   delegates discovery to `acquire-codebase-knowledge`, then writes a chained
   four-tour CodeTour series (orientation, architecture, core flow,
   conventions) into `.tours/`. Tour planning, flow tracing and step writing
   are its own references; the community skills do the scanning and the
   `.tour` writing.
-- `skills/explain-feature-changes/` — explains your own feature branch
+- `skills/roj-explain-feature-changes/` — explains your own feature branch
   against `develop` or `main`: traced before/after behavior, intent labelled
   confirmed / likely / unknown, a `-changes.md` report with PR-ready text and
   per-change PR comments, and an optional tour. Requires `code-tour` (see
   [Skill dependencies](#skill-dependencies)); it falls back inline when
   `context-map` or `write-pr-description` are absent.
-- `prompts/` — `.prompt.md` slash commands (`/explain-code`,
-  `/explain-and-review`, `/create-sb`, `/implement-sb`,
-  `/create-implement-sb`, `/code-review-pr`, `/code-review-pr-fast`,
-  `/tour-codebase`, `/explain-feature-changes`). Prompt files are Copilot's format and are
-  **repo-scoped**: Copilot reads them from `<repo>/.github/prompts/`. VS Code
-  additionally reads a user-profile copy, which is why the slash commands
-  appear there without seeding a repo. The installer covers the two agents
-  that read neither — JetBrains Copilot gets a generated skill per prompt,
-  Claude gets a generated `~/.claude/commands/<stem>.md`. See
+- `prompts/` — workflow sources (`roj-explain-code`, `roj-explain-and-review`,
+  `roj-create-sb`, `roj-implement-sb`, `roj-create-implement-sb`,
+  `roj-code-review-pr`, `roj-code-review-pr-fast`, `roj-tour-codebase`,
+  `roj-explain-feature-changes`). Copilot no longer reads `.prompt.md` files
+  in either IDE, so none are installed: Copilot gets a generated skill per
+  prompt, Claude a generated `~/.claude/commands/<stem>.md`. See
   [Where each prompt lands](#where-each-prompt-lands).
 - `install.py` — installer for macOS, Linux and Windows/Git Bash
   (Python >= 3.8, stdlib only). Also bootstraps the CLI-installed externals
   (see [External skills](#external-skills-installed-by-their-own-cli)) —
   today that is `graphify`.
 
-`explain-logic`, `soundboarding`, `investigate-issue`, `code-review-pr` and
-`explain-feature-changes` **offer** a CodeTour at the end of a run and write
+`roj-explain-logic`, `roj-soundboarding`, `roj-investigate-issue`, `roj-code-review-pr` and
+`roj-explain-feature-changes` **offer** a CodeTour at the end of a run and write
 one into `.tours/` only on a yes (chaining to the community `code-tour`
 skill). A tour is a second generation pass over material the run already
 produced, so it is opt-in; asking for one up front skips the confirmation.
-`tour-codebase` is the one whose tours *are* the output — a chained series
+`roj-tour-codebase` is the one whose tours *are* the output — a chained series
 rather than a single file, built without asking, since that is the request.
 The
 [`git`](../git/README.md) tool keeps `.tours/` out of every repository, and
@@ -76,17 +73,16 @@ python3 install.py --target both
 python3 install.py                    # interactive: pick target + items
 python3 install.py --status                      # what is installed where + conflicts
 python3 install.py --uninstall caveman --target copilot
-python3 install.py --uninstall prompt:create-sb --target copilot
+python3 install.py --uninstall prompt:roj-create-sb --target copilot
 ```
 
-Repo scope — seeds `<repo>/.github/skills` and `<repo>/.github/prompts`, the
-only scope JetBrains Copilot reads prompt files from:
+Repo scope — seeds `<repo>/.github/skills`, shareable with the team:
 
 ```bash
 python3 install.py --repo .                 # seed the repo you are standing in
 python3 install.py --repo . --skills-only   # our skills + prompts, no third-party
 python3 install.py --repo . --status        # what a project already carries
-python3 install.py --repo . --uninstall prompt:create-sb
+python3 install.py --repo . --uninstall prompt:roj-create-sb
 python3 install.py --target copilot --repo .   # personal + repo in one run
 ```
 
@@ -112,12 +108,12 @@ in place (missing = install, present = update, unchanged = up to date):
   `add-educational-comments` are cherry-picks, not defaults — every installed
   skill's description loads into every session, and neither has a dependent.
 - From `juliusbrussee/caveman`: caveman terse-output skill (Copilot only; Claude
-  uses the caveman plugin). explain-logic points at it for terse mode.
+  uses the caveman plugin). roj-explain-logic points at it for terse mode.
 - From `addyosmani/agent-skills`: debugging-and-error-recovery (Copilot only;
-  Claude uses superpowers:systematic-debugging). investigate-issue chains it
+  Claude uses superpowers:systematic-debugging). roj-investigate-issue chains it
   when present.
 - From `warpdotdev/common-skills`: write-pr-description (fetched from its
-  `.agents/skills/` folder). explain-feature-changes uses it for the PR
+  `.agents/skills/` folder). roj-explain-feature-changes uses it for the PR
   Explanation.
 
 **Cherry-picks (interactive mode only, default unchecked):**
@@ -139,8 +135,8 @@ interactive and `--repo`. An item unticked in the picker comes back with a
 
 | Skill | Requires |
 | --- | --- |
-| `explain-feature-changes` | `code-tour` |
-| `review-pr-comment` | `code-review-pr` |
+| `roj-explain-feature-changes` | `code-tour` |
+| `roj-review-pr-comment` | `roj-code-review-pr` |
 
 `--skills-only` cannot fetch requirements; the run ends with a warning for
 each one missing. `--status` lists missing requirements per target.
@@ -233,8 +229,7 @@ Run everything with `python` (Git Bash has no `python3` unless you alias it).
 2. `python install.py --target both --dry-run` — sanity-check paths.
 3. `python install.py --status` — check what's currently installed.
 4. `python install.py --target both` — or `python install.py` for the
-   interactive picker (recommended: it also offers the community skills and
-   the VS Code prompt files).
+   interactive picker (recommended: it also offers the community skills).
 5. `python install.py --status` — verify new installs.
 6. If the proxy blocks the clone, follow the printed ZIP fallback, or use
    `--skills-only`.
@@ -257,89 +252,85 @@ snapshots: **re-run the installer after editing a skill** to refresh them.
 those, the agents load them as extra skills.
 
 Paths on Windows resolve under `%USERPROFILE%`: `~/.claude/skills`,
-`~/.copilot/skills`, and `%APPDATA%\Code\User\prompts`. Repo scope resolves
-to `<repo>\.github\skills` and `<repo>\.github\prompts`.
+and `~/.copilot/skills`. Repo scope resolves to `<repo>\.github\skills`.
+`%APPDATA%\Code\User\prompts` is only touched to delete the `.prompt.md`
+copies older installs left there — they are what VS Code's "Migrate Prompt
+Files" dialog lists. **Do not use that dialog's Convert button**: four of the
+prompts share a name with a real skill, and the converted stubs would shadow
+it. Re-run the installer instead.
 
 Team distribution per repo: `python install.py --repo <path>`, then PR the
 `.github/` additions. Two things to check before committing them — the three
 SB prompts hardcode `SOUNDBOARD_DIR: /c/dev/projects/wr/soundboard`, which is
-a personal machine path, and a team repo may already own a prompt file of the
+a personal machine path, and a team repo may already own a skill of the
 same name (`--dry-run` shows `updated` when a seed would overwrite one). To
 keep a seed local instead, `echo .github/ >> .git/info/exclude` — per-repo and
 invisible to teammates. Do not add these paths to the global
-[`git/ignore`](../git/ignore): `.github/prompts/` is GitHub's own mechanism
+[`git/ignore`](../git/ignore): `.github/skills/` is GitHub's own mechanism
 for team sharing, and a global rule would suppress intentional additions
 everywhere.
 
 ## Where each prompt lands
 
-No agent reads every format, so one `prompts/*.prompt.md` is installed three
-ways. All three are personal scope — they reach every project with no
-per-repository seeding.
+Copilot dropped prompt files (`.prompt.md`) in both VS Code and JetBrains, and
+Claude never read them, so each `prompts/*.prompt.md` is a source the
+installer turns into two generated files. Both are personal scope — they
+reach every project with no per-repository seeding.
 
-| Destination | Serves | Spelling |
-| --- | --- | --- |
-| VS Code user prompts dir | Copilot in VS Code | `/create-sb` |
-| `~/.copilot/skills/<stem>/SKILL.md` (generated) | Copilot in JetBrains | `/skill:create-sb` |
-| `~/.claude/commands/<stem>.md` (generated) | Claude in VS Code and JetBrains | `/create-sb` |
-| `<repo>/.github/prompts/` (`--repo` only) | Copilot in JetBrains, that repo, shareable | `/create-sb` |
+| Destination | Serves |
+| --- | --- |
+| `~/.copilot/skills/<stem>/SKILL.md` (generated) | Copilot in VS Code and JetBrains |
+| `~/.claude/commands/<stem>.md` (generated) | Claude in VS Code and JetBrains |
+| `<repo>/.github/skills/<stem>/SKILL.md` (`--repo` only) | Copilot, that repo, shareable |
 
-Both generated forms carry the prompt body verbatim and end with a
-`Generated from prompts/<file>` marker — derived, never edited by hand.
-Re-running the installer refreshes them. The Claude form drops the
-Copilot-only `agent: agent` key and appends `My request: $ARGUMENTS`, so text
-typed after the command reaches the prompt.
+Both carry the prompt body verbatim and end with a `Generated from
+prompts/<file>` marker — derived, never edited by hand. Re-running the
+installer refreshes them, and deletes any `.prompt.md` copy an older install
+left in the VS Code user prompts dir or `<repo>/.github/prompts/`. The Claude
+form drops the Copilot-only `agent: agent` key and appends
+`My request: $ARGUMENTS`, so text typed after the command reaches the prompt.
 
-**A prompt named after a skill generates neither.** `code-review-pr`,
-`code-review-pr-fast`, `tour-codebase` and `explain-feature-changes` exist in both `skills/` and
-`prompts/`; the skill already owns `~/.copilot/skills/<name>/` and answers to
-`/<name>` in Claude, so generating over it would replace the real `SKILL.md`
-with the prompt stub. Those four install as prompt files only, and
-`--status` reports the generator as `skipped (real skill of same name)`.
-The result is one spelling per agent:
+**A prompt named after a skill generates neither.** `roj-code-review-pr`,
+`roj-code-review-pr-fast`, `roj-tour-codebase` and
+`roj-explain-feature-changes` exist in both `skills/` and `prompts/`; the
+skill already owns the name, so generating over it would replace the real
+`SKILL.md` with the prompt stub. `--status` reports the generator as
+`skipped (real skill of same name)`.
+
+Spelling per agent:
 
 | | VS Code | JetBrains |
 | --- | --- | --- |
-| Copilot | `/code-review-pr` (prompt file) | `/skill:code-review-pr` (skill) |
-| Claude | `/code-review-pr` (skill) | `/code-review-pr` (skill) |
+| Copilot | `/roj-create-sb` | `/skill:roj-create-sb` |
+| Claude | `/roj-create-sb` | `/roj-create-sb` |
 
-Remove a generated command with `--uninstall prompt:<stem> --target claude`.
+Remove a generated skill with `--uninstall <stem> --target copilot`, a
+generated command with `--uninstall prompt:<stem> --target claude`.
+
+### The roj- rename
+
+Every custom skill and prompt carries a `roj-` prefix, so they sort together
+and never collide with a community or plugin skill. Installs made before the
+rename used bare names (`create-sb`, `explain-logic`, ...). Every install run
+removes those leftovers — Copilot copies whose `SKILL.md` declares the old
+name, Claude symlinks, generated Claude commands, and old `.prompt.md`
+files — and logs each as `removed (renamed to roj-...)`. A skill of the same
+bare name that the installer did not write is left alone.
 
 ## JetBrains (IntelliJ / PyCharm / GoLand)
 
-Copilot reads the two customization kinds from different scopes:
-
-| Kind | Personal scope | Repo scope | JetBrains |
-| --- | --- | --- | --- |
-| Skills (`SKILL.md`) | `~/.copilot/skills` | `.github/skills/` | both work |
-| Prompt files (`.prompt.md`) | VS Code profile only | `.github/prompts/` | repo scope only |
-
-Prompt files have no personal scope outside VS Code — JetBrains drives its
-chat through the Copilot CLI harness, which reads no global prompts
-directory. A bare `/create-sb` therefore only exists in a repo that has been
-seeded, which is per-project by construction.
-
-To get the same commands in **every** project, `--target copilot` also
-generates one skill per prompt file into `~/.copilot/skills/<stem>/SKILL.md`,
-carrying the prompt body verbatim plus a description that triggers on the
-command name. Skills are personal scope, so those reach every project with no
-seeding — except for the four prompts that share a name with a real skill,
-which need no generated copy. JetBrains namespaces them, so you type:
+Copilot reads skills from `~/.copilot/skills` (personal, every project) and
+`<repo>/.github/skills/` (repo scope). JetBrains namespaces skills, so they
+are typed as `/skill:<name>`:
 
 | | VS Code | JetBrains, any project |
 | --- | --- | --- |
-| Soundboarding | `/create-sb LISA-110278.md` | `/skill:create-sb LISA-110278.md` |
-| Explain | `/explain-code PR #142` | `/skill:explain-code PR #142` |
+| Soundboarding | `/roj-create-sb LISA-110278.md` | `/skill:roj-create-sb LISA-110278.md` |
+| Explain | `/roj-explain-code PR #142` | `/skill:roj-explain-code PR #142` |
 
-The generated skills are derived, never edited by hand — each ends with a
-`Generated from prompts/<file>` marker, and re-running the installer
-refreshes them after a prompt changes. `--status` lists them as
-`custom (from prompt)`; `--uninstall <stem>` removes one.
-
-Note that the filter text differs: typing `/create-s` matches nothing,
-because the skill picker filters on the namespaced name. Type `/skill:` to
-list everything, and remember that skills still trigger from their
-`description` in plain English.
+The skill picker filters on the namespaced name: type `/skill:roj-` to list
+every custom workflow. Skills still trigger from their `description` in plain
+English.
 
 Setup checklist:
 
@@ -350,37 +341,33 @@ Setup checklist:
 3. `python install.py --target copilot` (behind the proxy, add
    `--skills-only`; skills with requirements then warn and run on their
    fallbacks).
-4. Reopen the IDE. In agent-mode chat type `/skill:` — the eight custom
+4. Reopen the IDE. In agent-mode chat type `/skill:roj-` — the nine custom
    skills and the five generated from prompts should all list.
-5. Optional, per repo: `python install.py --repo .` also seeds
-   `.github/prompts/`, which restores the bare `/create-sb` spelling in that
-   project and shares both with teammates.
+5. Optional, per repo: `python install.py --repo .` seeds `.github/skills/`
+   to share them with teammates.
 
 Nothing shows up: confirm chat is in agent mode, that the plugin is current,
-and that `install.py --status` lists the skills under `~/.copilot/skills`.
-For the repo-scoped spelling, check the files are at
-`<project root>/.github/prompts/` — the folder open in the IDE, not a
-submodule — and that their frontmatter says `agent: agent`. VS Code
-deprecated the older `mode: agent` spelling and flags it in the editor.
+and that `install.py --status` lists the skills under `~/.copilot/skills`
+with no `.prompt.md` warnings.
 
-One caveat: `${selection}` in `explain-code.prompt.md` and
-`explain-and-review.prompt.md` is a VS Code prompt variable and is not
-guaranteed to expand in JetBrains. Both prompts already fall back to asking
-which branch, PR, or file you mean.
+One caveat: `${selection}` in `roj-explain-code.prompt.md` and
+`roj-explain-and-review.prompt.md` was a prompt-file variable and does not
+expand in a skill. Both already fall back to asking which branch, PR, or file
+you mean.
 
 ## Usage
 
 Per-skill guides with copy-paste examples for VS Code, JetBrains IDEs, and
 Claude Code:
 
-- [explain-logic](skills/explain-logic/USAGE.md)
-- [soundboarding](skills/soundboarding/USAGE.md)
-- [interview-prep](skills/interview-prep/USAGE.md)
-- [investigate-issue](skills/investigate-issue/USAGE.md)
-- [code-review-pr](skills/code-review-pr/USAGE.md)
-- [code-review-pr-fast](skills/code-review-pr-fast/USAGE.md)
-- [tour-codebase](skills/tour-codebase/USAGE.md)
-- [explain-feature-changes](skills/explain-feature-changes/USAGE.md)
+- [roj-explain-logic](skills/roj-explain-logic/USAGE.md)
+- [roj-soundboarding](skills/roj-soundboarding/USAGE.md)
+- [roj-interview-prep](skills/roj-interview-prep/USAGE.md)
+- [roj-investigate-issue](skills/roj-investigate-issue/USAGE.md)
+- [roj-code-review-pr](skills/roj-code-review-pr/USAGE.md)
+- [roj-code-review-pr-fast](skills/roj-code-review-pr-fast/USAGE.md)
+- [roj-tour-codebase](skills/roj-tour-codebase/USAGE.md)
+- [roj-explain-feature-changes](skills/roj-explain-feature-changes/USAGE.md)
 - [community skills](docs/community-skills.md) (code-tour, caveman, ...)
 
 ## Tests

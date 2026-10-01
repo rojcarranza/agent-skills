@@ -9,9 +9,9 @@ Creates CodeTour `.tour` walkthroughs through a repo, PR, or bug.
 - `Create a code tour of the auth flow for a new joiner`
 - `Make an RCA tour for the bug fixed in PR #97`
 
-`explain-logic`, `investigate-issue`, `soundboarding` and `code-review-pr`
+`roj-explain-logic`, `roj-investigate-issue`, `roj-soundboarding` and `roj-code-review-pr`
 chain to this skill at the end of a run and fall back to writing a minimal
-`.tour` inline when it is absent. `tour-codebase` drives it four times in one
+`.tour` inline when it is absent. `roj-tour-codebase` drives it four times in one
 run, for a chained series.
 
 Upstream gotcha: its `SKILL.md` documents the bundled scripts at
@@ -25,7 +25,7 @@ Maps and documents an existing codebase, writing seven documents into
 `docs/codebase/`.
 - `Map this codebase and create onboarding docs`
 
-`tour-codebase` calls it as its discovery phase and owns the onboarding
+`roj-tour-codebase` calls it as its discovery phase and owns the onboarding
 vocabulary ("onboard me", "tour this repo", "teach me how this works"). Reach
 for this skill directly only when documents are wanted without tours.
 
@@ -53,6 +53,6 @@ From `warpdotdev/common-skills` (MIT), fetched from its `.agents/skills/`
 folder.
 - `Write the PR description for this branch`
 
-`explain-feature-changes` requires it and hands it verified facts for the
+`roj-explain-feature-changes` requires it and hands it verified facts for the
 PR Explanation section, skipping its `gh` steps. Without it,
-`explain-feature-changes` uses its own fallback rules.
+`roj-explain-feature-changes` uses its own fallback rules.

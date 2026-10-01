@@ -232,38 +232,50 @@ class TestVscodePromptsDir(TempDirTest):
             self.assertIsNone(install.vscode_prompts_dir())
 
 
-class TestInstallPrompts(TempDirTest):
-    def test_installs_and_reports(self):
-        prompts_src = self.tmp / "prompts"
-        prompts_src.mkdir()
-        (prompts_src / "explain-code.prompt.md").write_text("prompt body")
-        user_dir = self.tmp / "Code" / "User"
-        user_dir.mkdir(parents=True)
-        with mock.patch("install.PROMPTS_SRC", prompts_src), \
-             mock.patch("install.vscode_prompts_dir",
-                        return_value=user_dir / "prompts"):
-            results = install.install_prompts(dry_run=False)
-        self.assertEqual(results,
-                         [("copilot", "prompt:explain-code", "installed")])
-        self.assertEqual((user_dir / "prompts" / "explain-code.prompt.md").read_text(),
-                         "prompt body")
+class TestRetirePromptFiles(TempDirTest):
+    def setUp(self):
+        super().setUp()
+        self.prompts_src = self.tmp / "prompts"
+        self.prompts_src.mkdir()
+        (self.prompts_src / "roj-explain-code.prompt.md").write_text("ours")
+        self.pdir = self.tmp / "Code" / "User" / "prompts"
+        self.pdir.mkdir(parents=True)
 
-    def test_up_to_date_second_run(self):
-        prompts_src = self.tmp / "prompts"
-        prompts_src.mkdir()
-        (prompts_src / "explain-code.prompt.md").write_text("prompt body")
-        user_dir = self.tmp / "Code" / "User"
-        user_dir.mkdir(parents=True)
-        with mock.patch("install.PROMPTS_SRC", prompts_src), \
-             mock.patch("install.vscode_prompts_dir",
-                        return_value=user_dir / "prompts"):
-            install.install_prompts(dry_run=False)
-            results = install.install_prompts(dry_run=False)
-        self.assertEqual(results[0][2], "up to date")
+    def retire(self, dry_run=False, names=None):
+        with mock.patch("install.PROMPTS_SRC", self.prompts_src), \
+             mock.patch("install.vscode_prompts_dir", return_value=self.pdir):
+            return install.retire_prompt_files(dry_run, names=names)
 
-    def test_no_vscode_dir_warns_and_returns_empty(self):
+    def test_removes_our_copy_and_empty_dir(self):
+        (self.pdir / "roj-explain-code.prompt.md").write_text("old version")
+        results = self.retire()
+        self.assertEqual([r[:2] for r in results],
+                         [("copilot", "prompt:roj-explain-code")])
+        self.assertTrue(results[0][2].startswith("removed"))
+        self.assertFalse(self.pdir.exists())
+
+    def test_leaves_foreign_prompt_files(self):
+        (self.pdir / "roj-explain-code.prompt.md").write_text("old")
+        (self.pdir / "mine.prompt.md").write_text("user's own")
+        self.retire()
+        self.assertTrue((self.pdir / "mine.prompt.md").is_file())
+
+    def test_dry_run_keeps_file(self):
+        f = self.pdir / "roj-explain-code.prompt.md"
+        f.write_text("old")
+        self.assertEqual(len(self.retire(dry_run=True)), 1)
+        self.assertTrue(f.is_file())
+
+    def test_nothing_to_retire(self):
+        self.assertEqual(self.retire(), [])
+
+    def test_no_vscode_dir(self):
         with mock.patch("install.vscode_prompts_dir", return_value=None):
-            self.assertEqual(install.install_prompts(dry_run=False), [])
+            self.assertEqual(install.retire_prompt_files(False), [])
+
+    def test_names_filter(self):
+        (self.pdir / "roj-explain-code.prompt.md").write_text("old")
+        self.assertEqual(self.retire(names={"other.prompt.md"}), [])
 
 
 class TestCommunityCache(TempDirTest):
@@ -328,8 +340,8 @@ class TestCommunityCache(TempDirTest):
 class TestBuildItems(unittest.TestCase):
     def test_orders_skills_prompts_community(self):
         items = install.build_items(
-            custom_skills=["explain-logic", "soundboarding"],
-            prompt_files=["create-sb.prompt.md", "explain-code.prompt.md"])
+            custom_skills=["roj-explain-logic", "roj-soundboarding"],
+            prompt_files=["roj-create-sb.prompt.md", "roj-explain-code.prompt.md"])
         kinds = [k for k, _ in items]
         self.assertEqual(kinds[:2], ["skill", "skill"])
         self.assertEqual(kinds[2:4], ["prompt", "prompt"])
@@ -345,8 +357,8 @@ class TestBuildItems(unittest.TestCase):
 
 
 class TestPickItems(unittest.TestCase):
-    ITEMS = [("skill", "explain-logic"), ("skill", "soundboarding"),
-             ("prompt", "create-sb.prompt.md"), ("community", "caveman")]
+    ITEMS = [("skill", "roj-explain-logic"), ("skill", "roj-soundboarding"),
+             ("prompt", "roj-create-sb.prompt.md"), ("community", "caveman")]
 
     def pick(self, inputs):
         it = iter(inputs)
@@ -358,7 +370,7 @@ class TestPickItems(unittest.TestCase):
 
     def test_number_toggles_off(self):
         result = self.pick(["2", ""])
-        self.assertNotIn(("skill", "soundboarding"), result)
+        self.assertNotIn(("skill", "roj-soundboarding"), result)
         self.assertEqual(len(result), 3)
 
     def test_toggle_twice_back_on(self):
@@ -366,7 +378,7 @@ class TestPickItems(unittest.TestCase):
 
     def test_a_toggles_all_then_one_on(self):
         result = self.pick(["a", "3", ""])
-        self.assertEqual(result, [("prompt", "create-sb.prompt.md")])
+        self.assertEqual(result, [("prompt", "roj-create-sb.prompt.md")])
 
     def test_zero_selected_exits(self):
         with self.assertRaises(SystemExit):
@@ -374,23 +386,6 @@ class TestPickItems(unittest.TestCase):
 
     def test_invalid_input_reprompts(self):
         self.assertEqual(self.pick(["zzz", "99", ""]), self.ITEMS)
-
-
-class TestInstallPromptsFilter(TempDirTest):
-    def test_names_filter_limits_install(self):
-        prompts_src = self.tmp / "prompts"
-        prompts_src.mkdir()
-        (prompts_src / "a.prompt.md").write_text("a")
-        (prompts_src / "b.prompt.md").write_text("b")
-        user_dir = self.tmp / "Code" / "User"
-        user_dir.mkdir(parents=True)
-        with mock.patch("install.PROMPTS_SRC", prompts_src), \
-             mock.patch("install.vscode_prompts_dir",
-                        return_value=user_dir / "prompts"):
-            results = install.install_prompts(dry_run=False,
-                                              names={"b.prompt.md"})
-        self.assertEqual([r[1] for r in results], ["prompt:b"])
-        self.assertFalse((user_dir / "prompts" / "a.prompt.md").exists())
 
 
 class TestRegistry(unittest.TestCase):
@@ -568,14 +563,14 @@ class TestStatus(TempDirTest):
 
     def test_classifies_custom_community_unknown(self):
         dest = self.make_dest()
-        src = self.make_skill("repo", name="explain-logic")
-        (dest / "explain-logic").symlink_to(src)
+        src = self.make_skill("repo", name="roj-explain-logic")
+        (dest / "roj-explain-logic").symlink_to(src)
         (dest / "code-tour").mkdir()
         (dest / "mystery").mkdir()
         rows, warnings = install.gather_status(
-            "claude", dest, {"explain-logic"}, {})
+            "claude", dest, {"roj-explain-logic"}, {})
         by_name = {r[0]: r for r in rows}
-        self.assertEqual(by_name["explain-logic"][1:],
+        self.assertEqual(by_name["roj-explain-logic"][1:],
                          ("custom", "symlink"))
         self.assertEqual(by_name["code-tour"][1:],
                          ("community (awesome-copilot)", "copy"))
@@ -584,17 +579,17 @@ class TestStatus(TempDirTest):
 
     def test_broken_symlink_warns(self):
         dest = self.make_dest()
-        (dest / "explain-logic").symlink_to(self.tmp / "gone")
+        (dest / "roj-explain-logic").symlink_to(self.tmp / "gone")
         _, warnings = install.gather_status(
-            "claude", dest, {"explain-logic"}, {})
-        self.assertIn("claude: explain-logic is a broken symlink", warnings)
+            "claude", dest, {"roj-explain-logic"}, {})
+        self.assertIn("claude: roj-explain-logic is a broken symlink", warnings)
 
     def test_leftover_backup_warns(self):
         dest = self.make_dest()
-        (dest / "explain-logic.bak").mkdir()
+        (dest / "roj-explain-logic.bak").mkdir()
         _, warnings = install.gather_status(
-            "claude", dest, {"explain-logic"}, {})
-        self.assertTrue(any("explain-logic.bak" in w and "delete it" in w
+            "claude", dest, {"roj-explain-logic"}, {})
+        self.assertTrue(any("roj-explain-logic.bak" in w and "delete it" in w
                             for w in warnings))
 
     def test_wrong_target_warns(self):
@@ -658,14 +653,14 @@ class TestPickerTags(TempDirTest):
         self.assertEqual(tag, "[conflict]")
 
     def test_update_tag_for_stale_custom_copy(self):
-        src = self.make_skill("repo", name="explain-logic",
+        src = self.make_skill("repo", name="roj-explain-logic",
                               content="new")
         root = self.tmp / "copilot" / "skills"
-        (root / "explain-logic").mkdir(parents=True)
-        (root / "explain-logic" / "SKILL.md").write_text("old")
+        (root / "roj-explain-logic").mkdir(parents=True)
+        (root / "roj-explain-logic" / "SKILL.md").write_text("old")
         with mock.patch("install.target_root", return_value=root), \
              mock.patch("install.SKILLS_SRC", src.parent):
-            tag = install.item_tag("skill", "explain-logic",
+            tag = install.item_tag("skill", "roj-explain-logic",
                                    ["copilot"], {})
         self.assertEqual(tag, "[installed] [update]")
 
@@ -700,17 +695,17 @@ class TestPickerTags(TempDirTest):
 class TestUninstall(TempDirTest):
     def test_removes_copy_and_symlink(self):
         dest = self.tmp / "skills"
-        src = self.make_skill("repo", name="explain-logic")
+        src = self.make_skill("repo", name="roj-explain-logic")
         dest.mkdir()
-        (dest / "explain-logic").symlink_to(src)
+        (dest / "roj-explain-logic").symlink_to(src)
         (dest / "code-tour").mkdir()
         results = install.uninstall_skills(
-            ["explain-logic", "code-tour"], "claude", dest,
-            {"explain-logic", "code-tour"}, force=False, dry_run=False)
+            ["roj-explain-logic", "code-tour"], "claude", dest,
+            {"roj-explain-logic", "code-tour"}, force=False, dry_run=False)
         self.assertEqual(results,
-                         [("claude", "explain-logic", "removed (symlink)"),
+                         [("claude", "roj-explain-logic", "removed (symlink)"),
                           ("claude", "code-tour", "removed")])
-        self.assertFalse((dest / "explain-logic").is_symlink())
+        self.assertFalse((dest / "roj-explain-logic").is_symlink())
         self.assertFalse((dest / "code-tour").exists())
         self.assertTrue(src.exists())  # repo source untouched
 
@@ -835,34 +830,103 @@ class TestPromptsDirFor(TempDirTest):
         self.assertIsNone(install.prompts_dir_for("claude"))
 
 
-class TestInstallPromptsRepo(TempDirTest):
+class TestRemoveLegacy(TempDirTest):
     def setUp(self):
         super().setUp()
-        self.prompts_src = self.tmp / "prompts"
-        self.prompts_src.mkdir()
-        (self.prompts_src / "create-sb.prompt.md").write_text("sb body")
-        self.repo = self.tmp / "work-repo"
-        self.repo.mkdir()
+        self.skills = self.tmp / "skills"
+        (self.skills / "roj-explain-logic").mkdir(parents=True)
+        self.prompts = self.tmp / "prompts"
+        self.prompts.mkdir()
+        (self.prompts / "roj-create-sb.prompt.md").write_text("b")
+        self.dest = self.tmp / "dest"
+        self.dest.mkdir()
+        self.cmds = self.tmp / "commands"
+        self.cmds.mkdir()
 
-    def install(self, dry_run=False):
-        with mock.patch("install.PROMPTS_SRC", self.prompts_src):
-            return install.install_prompts(dry_run, target="repo",
-                                           repo=self.repo)
+    def run_remove(self, target="copilot", dry_run=False):
+        with mock.patch("install.SKILLS_SRC", self.skills), \
+             mock.patch("install.PROMPTS_SRC", self.prompts), \
+             mock.patch("install.claude_commands_dir",
+                        return_value=self.cmds):
+            return install.remove_legacy(target, self.dest, dry_run)
 
-    def test_writes_into_dot_github_prompts(self):
-        results = self.install()
-        self.assertEqual(results,
-                         [("repo", "prompt:create-sb", "installed")])
-        dest = self.repo / ".github" / "prompts" / "create-sb.prompt.md"
-        self.assertEqual(dest.read_text(), "sb body")
+    def test_legacy_names(self):
+        with mock.patch("install.SKILLS_SRC", self.skills), \
+             mock.patch("install.PROMPTS_SRC", self.prompts):
+            self.assertEqual(install.legacy_names(),
+                             ["create-sb", "explain-logic"])
 
-    def test_dry_run_creates_nothing(self):
-        self.install(dry_run=True)
-        self.assertFalse((self.repo / ".github").exists())
+    def test_removes_copy_declaring_old_name(self):
+        old = self.dest / "explain-logic"
+        old.mkdir()
+        (old / "SKILL.md").write_text("---\nname: explain-logic\n---\n")
+        results = self.run_remove()
+        self.assertEqual(results, [("copilot", "explain-logic",
+                                    "removed (renamed to roj-explain-logic)")])
+        self.assertFalse(old.exists())
 
-    def test_second_run_up_to_date(self):
-        self.install()
-        self.assertEqual(self.install()[0][2], "up to date")
+    def test_removes_dangling_symlink(self):
+        link = self.dest / "explain-logic"
+        link.symlink_to(self.tmp / "gone")
+        self.run_remove(target="claude")
+        self.assertFalse(link.is_symlink())
+
+    def test_keeps_foreign_skill_of_same_name(self):
+        other = self.dest / "explain-logic"
+        other.mkdir()
+        (other / "SKILL.md").write_text("---\nname: something-else\n---\n")
+        self.assertEqual(self.run_remove(), [])
+        self.assertTrue(other.exists())
+
+    def test_removes_generated_claude_command_only(self):
+        (self.cmds / "create-sb.md").write_text(
+            "x <!-- Generated from prompts/create-sb.prompt.md -->")
+        results = self.run_remove(target="claude")
+        self.assertEqual([r[1] for r in results], ["command:create-sb"])
+        self.assertFalse((self.cmds / "create-sb.md").exists())
+
+    def test_keeps_hand_written_claude_command(self):
+        (self.cmds / "create-sb.md").write_text("my own command")
+        self.assertEqual(self.run_remove(target="claude"), [])
+
+    def test_dry_run_keeps_everything(self):
+        old = self.dest / "explain-logic"
+        old.mkdir()
+        (old / "SKILL.md").write_text("name: explain-logic\n")
+        self.assertEqual(len(self.run_remove(dry_run=True)), 1)
+        self.assertTrue(old.exists())
+
+
+class TestRetireLegacyPromptFiles(TempDirTest):
+    def test_removes_pre_rename_prompt_file(self):
+        src = self.tmp / "prompts"
+        src.mkdir()
+        (src / "roj-create-sb.prompt.md").write_text("b")
+        pdir = self.tmp / "vscode-prompts"
+        pdir.mkdir()
+        (pdir / "create-sb.prompt.md").write_text("old")
+        with mock.patch("install.PROMPTS_SRC", src), \
+             mock.patch("install.vscode_prompts_dir", return_value=pdir):
+            results = install.retire_prompt_files(False)
+        self.assertEqual([r[1] for r in results], ["prompt:create-sb"])
+        self.assertFalse(pdir.exists())
+
+
+class TestRetirePromptFilesRepo(TempDirTest):
+    def test_removes_from_dot_github_prompts(self):
+        src = self.tmp / "prompts"
+        src.mkdir()
+        (src / "roj-create-sb.prompt.md").write_text("sb body")
+        repo = self.tmp / "work-repo"
+        pdir = repo / ".github" / "prompts"
+        pdir.mkdir(parents=True)
+        (pdir / "roj-create-sb.prompt.md").write_text("sb body")
+        with mock.patch("install.PROMPTS_SRC", src):
+            results = install.retire_prompt_files(False, target="repo",
+                                                  repo=repo)
+        self.assertEqual([r[:2] for r in results],
+                         [("repo", "prompt:roj-create-sb")])
+        self.assertFalse(pdir.exists())
 
 
 class TestUninstallPrompts(TempDirTest):
@@ -870,18 +934,18 @@ class TestUninstallPrompts(TempDirTest):
         super().setUp()
         self.pdir = self.tmp / ".github" / "prompts"
         self.pdir.mkdir(parents=True)
-        self.f = self.pdir / "create-sb.prompt.md"
+        self.f = self.pdir / "roj-create-sb.prompt.md"
         self.f.write_text("body")
 
     def test_removes_existing(self):
-        results = install.uninstall_prompts(["prompt:create-sb"], "repo",
+        results = install.uninstall_prompts(["prompt:roj-create-sb"], "repo",
                                             self.pdir, dry_run=False)
-        self.assertEqual(results, [("repo", "prompt:create-sb", "removed")])
+        self.assertEqual(results, [("repo", "prompt:roj-create-sb", "removed")])
         self.assertFalse(self.f.exists())
 
     def test_skips_non_prompt_names(self):
         self.assertEqual(
-            install.uninstall_prompts(["explain-logic"], "repo", self.pdir,
+            install.uninstall_prompts(["roj-explain-logic"], "repo", self.pdir,
                                       dry_run=False), [])
 
     def test_not_installed(self):
@@ -891,15 +955,15 @@ class TestUninstallPrompts(TempDirTest):
                          [("repo", "prompt:ghost", "not installed")])
 
     def test_missing_prompts_dir_reports_not_installed(self):
-        results = install.uninstall_prompts(["prompt:create-sb"], "copilot",
+        results = install.uninstall_prompts(["prompt:roj-create-sb"], "copilot",
                                             None, dry_run=False)
         self.assertEqual(results,
-                         [("copilot", "prompt:create-sb", "not installed")])
+                         [("copilot", "prompt:roj-create-sb", "not installed")])
 
     def test_dry_run_keeps_file(self):
-        results = install.uninstall_prompts(["prompt:create-sb"], "repo",
+        results = install.uninstall_prompts(["prompt:roj-create-sb"], "repo",
                                             self.pdir, dry_run=True)
-        self.assertEqual(results, [("repo", "prompt:create-sb", "removed")])
+        self.assertEqual(results, [("repo", "prompt:roj-create-sb", "removed")])
         self.assertTrue(self.f.exists())
 
 
@@ -940,7 +1004,7 @@ class TestPromptFrontmatter(unittest.TestCase):
 
 class TestParsePrompt(TempDirTest):
     def write(self, text):
-        p = self.tmp / "create-sb.prompt.md"
+        p = self.tmp / "roj-create-sb.prompt.md"
         p.write_text(text, encoding="utf-8")
         return p
 
@@ -955,34 +1019,34 @@ class TestParsePrompt(TempDirTest):
 
     def test_no_frontmatter_falls_back_to_stem(self):
         p = self.write("Just a body\n")
-        self.assertEqual(install.parse_prompt(p), ("create-sb", "Just a body"))
+        self.assertEqual(install.parse_prompt(p), ("roj-create-sb", "Just a body"))
 
     def test_unterminated_frontmatter_falls_back_to_stem(self):
         p = self.write("---\ndescription: dangling\nBody\n")
-        self.assertEqual(install.parse_prompt(p)[0], "create-sb")
+        self.assertEqual(install.parse_prompt(p)[0], "roj-create-sb")
 
     def test_empty_description_falls_back_to_stem(self):
         p = self.write("---\ndescription:   \n---\nBody\n")
-        self.assertEqual(install.parse_prompt(p)[0], "create-sb")
+        self.assertEqual(install.parse_prompt(p)[0], "roj-create-sb")
 
 
 class TestPromptSkillText(TempDirTest):
     def build(self, description="Make an SB"):
-        p = self.tmp / "create-sb.prompt.md"
+        p = self.tmp / "roj-create-sb.prompt.md"
         p.write_text(f"---\nagent: agent\ndescription: {description}\n---\n\n"
                      "Body line.\n", encoding="utf-8")
         return install.prompt_skill_text(p)
 
     def test_frontmatter_names_the_skill(self):
-        self.assertIn("name: create-sb", self.build())
+        self.assertIn("name: roj-create-sb", self.build())
 
     def test_description_is_valid_quoted_yaml_with_triggers(self):
         line = [l for l in self.build().splitlines()
                 if l.startswith("description:")][0]
         value = json.loads(line[len("description: "):])
         self.assertTrue(value.startswith("Make an SB."))
-        self.assertIn('"/create-sb"', value)
-        self.assertIn('"/skill:create-sb"', value)
+        self.assertIn('"/roj-create-sb"', value)
+        self.assertIn('"/skill:roj-create-sb"', value)
 
     def test_description_with_quotes_stays_parseable(self):
         line = [l for l in self.build('Say "hi" then go').splitlines()
@@ -992,7 +1056,7 @@ class TestPromptSkillText(TempDirTest):
     def test_body_and_provenance_marker(self):
         text = self.build()
         self.assertIn("Body line.", text)
-        self.assertIn("Generated from prompts/create-sb.prompt.md", text)
+        self.assertIn("Generated from prompts/roj-create-sb.prompt.md", text)
 
 
 class TestInstallPromptSkills(TempDirTest):
@@ -1000,9 +1064,9 @@ class TestInstallPromptSkills(TempDirTest):
         super().setUp()
         self.src = self.tmp / "prompts"
         self.src.mkdir()
-        (self.src / "create-sb.prompt.md").write_text(
+        (self.src / "roj-create-sb.prompt.md").write_text(
             "---\ndescription: Make an SB\n---\n\nBody\n", encoding="utf-8")
-        (self.src / "explain-code.prompt.md").write_text(
+        (self.src / "roj-explain-code.prompt.md").write_text(
             "---\ndescription: Explain\n---\n\nBody\n", encoding="utf-8")
         self.dest = self.tmp / "skills"
 
@@ -1014,9 +1078,9 @@ class TestInstallPromptSkills(TempDirTest):
     def test_one_skill_dir_per_prompt(self):
         results = self.run_install()
         self.assertEqual(results,
-                         [("copilot", "create-sb", "installed"),
-                          ("copilot", "explain-code", "installed")])
-        self.assertTrue((self.dest / "create-sb" / "SKILL.md").is_file())
+                         [("copilot", "roj-create-sb", "installed"),
+                          ("copilot", "roj-explain-code", "installed")])
+        self.assertTrue((self.dest / "roj-create-sb" / "SKILL.md").is_file())
 
     def test_dry_run_writes_nothing(self):
         self.run_install(dry_run=True)
@@ -1029,42 +1093,42 @@ class TestInstallPromptSkills(TempDirTest):
 
     def test_edited_prompt_reports_updated(self):
         self.run_install()
-        (self.src / "create-sb.prompt.md").write_text(
+        (self.src / "roj-create-sb.prompt.md").write_text(
             "---\ndescription: Make an SB\n---\n\nNew body\n",
             encoding="utf-8")
         statuses = dict((r[1], r[2]) for r in self.run_install())
-        self.assertEqual(statuses["create-sb"], "updated")
-        self.assertEqual(statuses["explain-code"], "up to date")
+        self.assertEqual(statuses["roj-create-sb"], "updated")
+        self.assertEqual(statuses["roj-explain-code"], "up to date")
         self.assertIn("New body",
-                      (self.dest / "create-sb" / "SKILL.md").read_text())
+                      (self.dest / "roj-create-sb" / "SKILL.md").read_text())
 
     def test_names_filter(self):
-        results = self.run_install(names={"explain-code.prompt.md"})
-        self.assertEqual([r[1] for r in results], ["explain-code"])
-        self.assertFalse((self.dest / "create-sb").exists())
+        results = self.run_install(names={"roj-explain-code.prompt.md"})
+        self.assertEqual([r[1] for r in results], ["roj-explain-code"])
+        self.assertFalse((self.dest / "roj-create-sb").exists())
 
 
 class TestPromptSkillNames(TempDirTest):
     def test_names_are_the_stems(self):
         src = self.tmp / "prompts"
         src.mkdir()
-        (src / "create-sb.prompt.md").write_text("x")
-        (src / "implement-sb.prompt.md").write_text("x")
+        (src / "roj-create-sb.prompt.md").write_text("x")
+        (src / "roj-implement-sb.prompt.md").write_text("x")
         with mock.patch("install.PROMPTS_SRC", src):
             self.assertEqual(install.prompt_skill_names(),
-                             {"create-sb", "implement-sb"})
+                             {"roj-create-sb", "roj-implement-sb"})
 
 
 class TestGatherStatusGenerated(TempDirTest):
     def test_generated_skills_are_not_unknown(self):
         dest = self.tmp / "skills"
-        (dest / "create-sb").mkdir(parents=True)
-        (dest / "soundboarding").mkdir()
-        rows, _ = install.gather_status("copilot", dest, {"soundboarding"},
-                                        {}, {"create-sb"})
+        (dest / "roj-create-sb").mkdir(parents=True)
+        (dest / "roj-soundboarding").mkdir()
+        rows, _ = install.gather_status("copilot", dest, {"roj-soundboarding"},
+                                        {}, {"roj-create-sb"})
         self.assertEqual([(n, k) for n, k, _ in rows],
-                         [("create-sb", "custom (from prompt)"),
-                          ("soundboarding", "custom")])
+                         [("roj-create-sb", "custom (from prompt)"),
+                          ("roj-soundboarding", "custom")])
 
 
 class TestPromptSkillNameCollisions(TempDirTest):
@@ -1075,13 +1139,13 @@ class TestPromptSkillNameCollisions(TempDirTest):
         super().setUp()
         self.prompts = self.tmp / "prompts"
         self.prompts.mkdir()
-        for stem in ("create-sb", "tour-codebase"):
+        for stem in ("roj-create-sb", "roj-tour-codebase"):
             (self.prompts / f"{stem}.prompt.md").write_text(
                 f"---\ndescription: Do {stem}\n---\n\nBody\n",
                 encoding="utf-8")
         self.skills = self.tmp / "skills"
-        (self.skills / "tour-codebase").mkdir(parents=True)
-        (self.skills / "tour-codebase" / "SKILL.md").write_text(
+        (self.skills / "roj-tour-codebase").mkdir(parents=True)
+        (self.skills / "roj-tour-codebase" / "SKILL.md").write_text(
             "real skill", encoding="utf-8")
         self.dest = self.tmp / "dest"
 
@@ -1091,26 +1155,26 @@ class TestPromptSkillNameCollisions(TempDirTest):
 
     def test_colliding_stem_excluded_from_generated_names(self):
         with self.patched():
-            self.assertEqual(install.prompt_skill_names(), {"create-sb"})
+            self.assertEqual(install.prompt_skill_names(), {"roj-create-sb"})
 
     def test_colliding_prompt_is_skipped_not_generated(self):
-        (self.dest / "tour-codebase").mkdir(parents=True)
-        (self.dest / "tour-codebase" / "SKILL.md").write_text(
+        (self.dest / "roj-tour-codebase").mkdir(parents=True)
+        (self.dest / "roj-tour-codebase" / "SKILL.md").write_text(
             "real skill", encoding="utf-8")
         with self.patched():
             results = install.install_prompt_skills(self.dest, False)
         self.assertEqual(
-            results, [("copilot", "create-sb", "installed"),
-                      ("copilot", "tour-codebase",
+            results, [("copilot", "roj-create-sb", "installed"),
+                      ("copilot", "roj-tour-codebase",
                        "skipped (real skill of same name)")])
         self.assertEqual(
-            (self.dest / "tour-codebase" / "SKILL.md").read_text(),
+            (self.dest / "roj-tour-codebase" / "SKILL.md").read_text(),
             "real skill")
 
 
 class TestClaudeCommandText(TempDirTest):
     def build(self, front="agent: agent\ndescription: Explain it"):
-        p = self.tmp / "explain-code.prompt.md"
+        p = self.tmp / "roj-explain-code.prompt.md"
         p.write_text(f"---\n{front}\n---\n\nBody line.\n", encoding="utf-8")
         return install.claude_command_text(p)
 
@@ -1127,7 +1191,7 @@ class TestClaudeCommandText(TempDirTest):
         text = self.build()
         self.assertIn("Body line.", text)
         self.assertIn("$ARGUMENTS", text)
-        self.assertIn("Generated from prompts/explain-code.prompt.md", text)
+        self.assertIn("Generated from prompts/roj-explain-code.prompt.md", text)
 
 
 class TestInstallClaudeCommands(TempDirTest):
@@ -1135,12 +1199,12 @@ class TestInstallClaudeCommands(TempDirTest):
         super().setUp()
         self.prompts = self.tmp / "prompts"
         self.prompts.mkdir()
-        for stem in ("create-sb", "tour-codebase"):
+        for stem in ("roj-create-sb", "roj-tour-codebase"):
             (self.prompts / f"{stem}.prompt.md").write_text(
                 f"---\ndescription: Do {stem}\n---\n\nBody\n",
                 encoding="utf-8")
         self.skills = self.tmp / "skills"
-        (self.skills / "tour-codebase").mkdir(parents=True)
+        (self.skills / "roj-tour-codebase").mkdir(parents=True)
         self.commands = self.tmp / "commands"
 
     def patched(self):
@@ -1155,11 +1219,11 @@ class TestInstallClaudeCommands(TempDirTest):
     def test_one_command_file_per_non_colliding_prompt(self):
         results = self.run_install()
         self.assertEqual(
-            results, [("claude", "command:create-sb", "installed"),
-                      ("claude", "command:tour-codebase",
+            results, [("claude", "command:roj-create-sb", "installed"),
+                      ("claude", "command:roj-tour-codebase",
                        "skipped (real skill of same name)")])
-        self.assertTrue((self.commands / "create-sb.md").is_file())
-        self.assertFalse((self.commands / "tour-codebase.md").exists())
+        self.assertTrue((self.commands / "roj-create-sb.md").is_file())
+        self.assertFalse((self.commands / "roj-tour-codebase.md").exists())
 
     def test_dry_run_writes_nothing(self):
         self.run_install(dry_run=True)
@@ -1168,38 +1232,38 @@ class TestInstallClaudeCommands(TempDirTest):
     def test_second_run_up_to_date(self):
         self.run_install()
         statuses = dict((r[1], r[2]) for r in self.run_install())
-        self.assertEqual(statuses["command:create-sb"], "up to date")
+        self.assertEqual(statuses["command:roj-create-sb"], "up to date")
 
     def test_edited_prompt_reports_updated(self):
         self.run_install()
-        (self.prompts / "create-sb.prompt.md").write_text(
-            "---\ndescription: Do create-sb\n---\n\nNew body\n",
+        (self.prompts / "roj-create-sb.prompt.md").write_text(
+            "---\ndescription: Do roj-create-sb\n---\n\nNew body\n",
             encoding="utf-8")
         statuses = dict((r[1], r[2]) for r in self.run_install())
-        self.assertEqual(statuses["command:create-sb"], "updated")
+        self.assertEqual(statuses["command:roj-create-sb"], "updated")
         self.assertIn("New body",
-                      (self.commands / "create-sb.md").read_text())
+                      (self.commands / "roj-create-sb.md").read_text())
 
     def test_names_filter(self):
-        results = self.run_install(names={"create-sb.prompt.md"})
-        self.assertEqual([r[1] for r in results], ["command:create-sb"])
+        results = self.run_install(names={"roj-create-sb.prompt.md"})
+        self.assertEqual([r[1] for r in results], ["command:roj-create-sb"])
 
     def test_uninstall_removes_the_command_file(self):
         self.run_install()
         with self.patched():
             results = install.uninstall_claude_commands(
-                ["prompt:create-sb", "prompt:nope"], False)
+                ["prompt:roj-create-sb", "prompt:nope"], False)
         self.assertEqual(results,
-                         [("claude", "command:create-sb", "removed"),
+                         [("claude", "command:roj-create-sb", "removed"),
                           ("claude", "command:nope", "not installed")])
-        self.assertFalse((self.commands / "create-sb.md").exists())
+        self.assertFalse((self.commands / "roj-create-sb.md").exists())
 
     def test_uninstall_ignores_plain_skill_names(self):
         self.run_install()
         with self.patched():
-            results = install.uninstall_claude_commands(["create-sb"], False)
+            results = install.uninstall_claude_commands(["roj-create-sb"], False)
         self.assertEqual(results, [])
-        self.assertTrue((self.commands / "create-sb.md").is_file())
+        self.assertTrue((self.commands / "roj-create-sb.md").is_file())
 
 
 
@@ -1635,10 +1699,10 @@ class TestExternalRegistry(unittest.TestCase):
 
 class TestPromptStem(unittest.TestCase):
     def test_strips_both_suffixes(self):
-        self.assertEqual(install.prompt_stem("create-sb.prompt.md"),
-                         "create-sb")
-        self.assertEqual(install.prompt_stem(Path("/x/explain-code.prompt.md")),
-                         "explain-code")
+        self.assertEqual(install.prompt_stem("roj-create-sb.prompt.md"),
+                         "roj-create-sb")
+        self.assertEqual(install.prompt_stem(Path("/x/roj-explain-code.prompt.md")),
+                         "roj-explain-code")
 
 
 class TestRequiredBy(unittest.TestCase):
@@ -1661,8 +1725,8 @@ class TestRequiredBy(unittest.TestCase):
         self.assertEqual(install.required_by(["a"], {}), {})
 
     def test_review_pr_comment_requires_code_review_pr(self):
-        self.assertIn("code-review-pr",
-                      install.REQUIRES["review-pr-comment"])
+        self.assertIn("roj-code-review-pr",
+                      install.REQUIRES["roj-review-pr-comment"])
 
 
 class TestAddRequirements(unittest.TestCase):
@@ -1893,9 +1957,9 @@ class TestExplainFeatureChangesSkill(unittest.TestCase):
     in bash, PowerShell and cmd — the JetBrains terminal on the Windows VDI
     may be any of them."""
 
-    SKILL = install.SKILLS_SRC / "explain-feature-changes"
+    SKILL = install.SKILLS_SRC / "roj-explain-feature-changes"
     FILES = [SKILL / "SKILL.md", SKILL / "references" / "tracing.md",
-             install.PROMPTS_SRC / "explain-feature-changes.prompt.md"]
+             install.PROMPTS_SRC / "roj-explain-feature-changes.prompt.md"]
 
     def snippets(self, text):
         fenced = re.findall(r"```[^\n]*\n(.*?)```", text, re.S)
@@ -1911,7 +1975,7 @@ class TestExplainFeatureChangesSkill(unittest.TestCase):
         keys = [line.split(":", 1)[0] for line in head.splitlines()
                 if line.strip() and not line.startswith(" ")]
         self.assertEqual(keys, ["name", "description"])
-        self.assertIn("name: explain-feature-changes", head)
+        self.assertIn("name: roj-explain-feature-changes", head)
 
     def test_description_fits_the_agent_skills_limit(self):
         text = (self.SKILL / "SKILL.md").read_text(encoding="utf-8")
@@ -1929,7 +1993,7 @@ class TestExplainFeatureChangesSkill(unittest.TestCase):
                     self.assertFalse(s.startswith(("grep ", "sed ", "awk ")))
 
     def test_no_custom_skill_is_named(self):
-        others = install.custom_skill_names() - {"explain-feature-changes"}
+        others = install.custom_skill_names() - {"roj-explain-feature-changes"}
         for f in self.SKILL.rglob("*.md"):
             text = f.read_text(encoding="utf-8")
             for name in others:
@@ -1938,14 +2002,54 @@ class TestExplainFeatureChangesSkill(unittest.TestCase):
 
     def test_prompt_uses_no_vscode_only_variables(self):
         text = (install.PROMPTS_SRC
-                / "explain-feature-changes.prompt.md").read_text(
+                / "roj-explain-feature-changes.prompt.md").read_text(
                     encoding="utf-8")
         self.assertNotIn("${", text)
 
     def test_prompt_generates_no_stub_over_the_real_skill(self):
-        self.assertNotIn("explain-feature-changes",
+        self.assertNotIn("roj-explain-feature-changes",
                          install.prompt_skill_names())
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEverySkillLoadsInCopilot(TempDirTest):
+    """VS Code and JetBrains Copilot skip a SKILL.md silently when its name
+    does not match its directory, uses characters outside [a-z0-9-], or its
+    description is missing or over 1024 characters. Checks every custom
+    skill and every skill generated from a prompt."""
+
+    def frontmatter(self, text):
+        name = desc = None
+        for line in text.split("---", 2)[1].splitlines():
+            key, _, value = line.partition(":")
+            value = value.strip()
+            if key == "name":
+                name = value
+            elif key == "description":
+                desc = json.loads(value) if value.startswith('"') else value
+        return name, desc
+
+    def check(self, dirname, text):
+        name, desc = self.frontmatter(text)
+        self.assertEqual(name, dirname)
+        self.assertRegex(name, r"^[a-z0-9-]{1,64}$")
+        self.assertTrue(name.startswith("roj-"))
+        self.assertTrue(desc)
+        self.assertLessEqual(len(desc), 1024)
+
+    def test_custom_skills(self):
+        for d in sorted(install.SKILLS_SRC.iterdir()):
+            with self.subTest(skill=d.name):
+                self.check(d.name, (d / "SKILL.md").read_text(
+                    encoding="utf-8"))
+
+    def test_generated_prompt_skills(self):
+        for p in sorted(install.PROMPTS_SRC.glob("*.prompt.md")):
+            stem = install.prompt_stem(p)
+            if stem in install.custom_skill_names():
+                continue
+            with self.subTest(prompt=p.name):
+                self.check(stem, install.prompt_skill_text(p))
