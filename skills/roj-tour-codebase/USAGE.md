@@ -85,7 +85,7 @@ never edits a repository's `.gitignore`.
 ## Opening the tours
 
 - **VS Code** — install `vsls-contrib.codetour` (already in this repo's
-  [`vscode/extensions.txt`](../../../vscode/extensions.txt)), then command
+  [`vscode/extensions.txt`](https://github.com/r0jjames/.dotfiles/blob/main/vscode/extensions.txt)), then command
   palette, `CodeTour: Open Tour`. The CodeTour sidebar lists all four.
 - **JetBrains** — no CodeTour plugin exists. Read the `.tour` files as JSON,
   or use `docs/codebase/` as the entry point and jump to the `file:line`
@@ -115,9 +115,9 @@ what is there and asks once.
 
 From the repo root:
 
-    python3 agent-skills/install.py --target claude    # mac / Claude Code
-    python3 agent-skills/install.py --target copilot   # work / GitHub Copilot
-    python3 agent-skills/install.py --target both
+    python3 install.py --target claude    # mac / Claude Code
+    python3 install.py --target copilot   # work / GitHub Copilot
+    python3 install.py --target both
 
 On the Windows VDI use `python` rather than `python3`. Copilot installs to
 `~/.copilot/skills/` (under `%USERPROFILE%` on Windows), which is personal

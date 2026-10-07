@@ -36,8 +36,8 @@ error text. Useful content:
 
 From the repo root:
 
-    python3 agent-skills/install.py --target claude    # mac / Claude Code
-    python3 agent-skills/install.py --target copilot   # work / GitHub Copilot
+    python3 install.py --target claude    # mac / Claude Code
+    python3 install.py --target copilot   # work / GitHub Copilot
 
 The installer also fetches the chained helper skills:
 `debugging-and-error-recovery` (addyosmani/agent-skills) and

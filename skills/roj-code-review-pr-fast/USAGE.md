@@ -52,5 +52,5 @@ recommended.
 
 From the repo root:
 
-    python3 agent-skills/install.py --target claude    # mac / Claude Code
-    python3 agent-skills/install.py --target copilot   # work / GitHub Copilot
+    python3 install.py --target claude    # mac / Claude Code
+    python3 install.py --target copilot   # work / GitHub Copilot

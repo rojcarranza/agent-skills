@@ -16,9 +16,9 @@ assessment. Never touches git — you review and commit manually.
 
 From the repo root:
 
-    python3 agent-skills/install.py --target claude    # mac / Claude Code
-    python3 agent-skills/install.py --target copilot   # work / GitHub Copilot
-    python3 agent-skills/install.py --target both
+    python3 install.py --target claude    # mac / Claude Code
+    python3 install.py --target copilot   # work / GitHub Copilot
+    python3 install.py --target both
 
 Claude gets a symlink (edit the repo, changes are live); Copilot gets a copy
 (re-run install after edits).

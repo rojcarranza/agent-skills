@@ -410,7 +410,8 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(
             install.default_community_names(),
             set(install.COMMUNITY_SKILLS + install.CAVEMAN_SKILLS
-                + ["debugging-and-error-recovery", "write-pr-description"]))
+                + ["debugging-and-error-recovery", "write-pr-description"])
+            - {"architecture-blueprint-generator", "add-educational-comments"})
 
     def test_legacy_cache_dir_used_for_awesome(self):
         source = install.source_by_label("awesome-copilot")

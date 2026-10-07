@@ -26,7 +26,7 @@ Claude Code, plus an installer. One `SKILL.md` format serves every platform.
   `roj-code-review-pr` method and posts one `COMMENT` review with inline
   comments via `gh`. Triggered automatically by the `claude` tool's
   `pr_review_hook.py` when Claude opens a PR in an allowlisted repo (see
-  [claude/README.md](../claude/README.md#pr-auto-review)); also runnable by
+  [claude/README.md](https://github.com/r0jjames/.dotfiles/blob/main/claude/README.md#pr-auto-review)); also runnable by
   hand. The only custom skill that writes to the PR host.
 - `skills/roj-tour-codebase/` — onboarding into a repository you do not know:
   delegates discovery to `acquire-codebase-knowledge`, then writes a chained
@@ -60,8 +60,8 @@ produced, so it is opt-in; asking for one up front skips the confirmation.
 `roj-tour-codebase` is the one whose tours *are* the output — a chained series
 rather than a single file, built without asking, since that is the request.
 The
-[`git`](../git/README.md) tool keeps `.tours/` out of every repository, and
-`vsls-contrib.codetour` in [`vscode/extensions.txt`](../vscode/extensions.txt)
+[`git`](https://github.com/r0jjames/.dotfiles/blob/main/git/README.md) tool keeps `.tours/` out of every repository, and
+`vsls-contrib.codetour` in [`vscode/extensions.txt`](https://github.com/r0jjames/.dotfiles/blob/main/vscode/extensions.txt)
 opens the files.
 
 ## Install
@@ -121,9 +121,11 @@ in place (missing = install, present = update, unchanged = up to date):
   ci-cd-and-automation, security-and-hardening, deprecation-and-migration.
 - From `anthropics/skills`: pdf, docx, pptx, xlsx.
 
-`./install.py install agent-skills` from the repo root runs a flag install —
-custom skills, default community skills and externals — as part of normal
-dotfiles setup: Claude only on macOS/Linux, **both** Claude and Copilot on
+In [dotfiles](https://github.com/r0jjames/.dotfiles),
+`./install.py install agent-skills` clones this repo next to the dotfiles
+checkout (override with `AGENT_SKILLS_DIR`), checks out the pinned ref and
+runs a flag install — custom skills, default community skills and externals —
+as part of normal machine setup: Claude only on macOS/Linux, **both** Claude and Copilot on
 Windows (Git Bash).
 
 ### Skill dependencies
@@ -241,7 +243,7 @@ the run prints the manual command and carries on without it — and
 `--skills-only` skips it outright. A `graphify` skill without its CLI is
 inert, and `--status` says so.
 
-From the repo root, `python install.py install agent-skills` does steps 1–4
+From the dotfiles repo root, `python install.py install agent-skills` does steps 1–4
 for the custom skills only.
 
 **Symlinks on Windows** need Developer Mode or an admin shell. Without them the
@@ -266,7 +268,7 @@ a personal machine path, and a team repo may already own a skill of the
 same name (`--dry-run` shows `updated` when a seed would overwrite one). To
 keep a seed local instead, `echo .github/ >> .git/info/exclude` — per-repo and
 invisible to teammates. Do not add these paths to the global
-[`git/ignore`](../git/ignore): `.github/skills/` is GitHub's own mechanism
+[`git/ignore`](https://github.com/r0jjames/.dotfiles/blob/main/git/ignore): `.github/skills/` is GitHub's own mechanism
 for team sharing, and a global rule would suppress intentional additions
 everywhere.
 
@@ -373,5 +375,5 @@ Claude Code:
 ## Tests
 
 ```bash
-cd agent-skills && python3 -m unittest test_install -v
+python3 -m unittest test_install -v
 ```

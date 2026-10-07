@@ -111,9 +111,9 @@ something you do not care about.
 
 From the repo root:
 
-    python3 agent-skills/install.py --target claude    # mac / Claude Code
-    python3 agent-skills/install.py --target copilot   # work / GitHub Copilot
-    python3 agent-skills/install.py --target both
+    python3 install.py --target claude    # mac / Claude Code
+    python3 install.py --target copilot   # work / GitHub Copilot
+    python3 install.py --target both
 
 On the Windows VDI use `python` rather than `python3`. Copilot installs to
 `~/.copilot/skills/` (under `%USERPROFILE%` on Windows), which is personal
