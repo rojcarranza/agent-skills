@@ -53,7 +53,7 @@ Never jump straight to line-by-line.
 
 - Diff < 100 lines: full line-level walkthrough.
 - Large diff: flow first, then offer "which part should I zoom into line-by-line?"
-- User is a mid/senior DevOps engineer: skip syntax basics, DO define
+- Pitch to the user's level: skip syntax basics they already use, DO define
   language idioms they may not use daily.
 
 ## Language lenses

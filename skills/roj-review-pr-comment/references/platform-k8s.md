@@ -1,8 +1,8 @@
 # Kubernetes
 
 Loaded when the diff touches YAML carrying both `apiVersion:` and `kind:`.
-When the same file is a Helm template, load `platform-helm.md` too and review
-the rendered shape, not just the source.
+When the file is a Helm template, review the rendered shape, not just the
+source.
 
 ## Workload correctness
 

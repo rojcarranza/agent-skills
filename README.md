@@ -97,6 +97,9 @@ test_skills.py    spec + publishing checks for every skill
 - Keep `SKILL.md` lean — every installed skill's description loads into
   every session, and the body loads in full on activation. Push detail into
   `references/` and point at it with a path relative to the skill root.
+  Keep references one level deep — a reference file may name a sibling only
+  when `SKILL.md` names it too — and open any reference over 100 lines with
+  a `## Contents` list.
 - A skill reads only its own folder. When two skills need the same file,
   the owner keeps it and `tools/sync_shared.py` copies it in — edit the
   owner's copy, then run `python3 tools/sync_shared.py`.

@@ -3,7 +3,7 @@ name: roj-review-pr-comment
 description: "Review an open GitHub pull request and post the findings to it as one COMMENT review with inline comments. Use when the user asks to \"review PR #123 and comment\", \"post a review on this PR\", gives a GitHub PR URL to review, or when a post-PR hook asks for an automated review. Uses the roj-code-review-pr method. For a local branch without a PR, use roj-code-review-pr instead."
 license: MIT
 compatibility: Requires git and an authenticated GitHub CLI (gh) with network access.
-allowed-tools: Read Grep Glob Bash(git diff:*) Bash(git fetch:*) Bash(git rev-parse:*) Bash(gh pr view:*) Bash(gh pr diff:*) Bash(gh api repos/*/pulls/*/reviews --paginate *)
+allowed-tools: Read Grep Glob Bash(git diff:*) Bash(git fetch:*) Bash(git rev-parse:*) Bash(gh pr view:*) Bash(gh pr diff:*) Bash(gh api repos/*/pulls/*/reviews --paginate *) Bash(gh api repos/*/pulls/*/reviews --method POST *)
 ---
 
 # Review PR — post comments
@@ -32,8 +32,8 @@ runs on its own. If they cannot be read, say so and stop. No review without
 the method.
 
 Load technology lenses (`lang-*.md`, `platform-*.md`) from the same
-directory only for stacks the diff touches, as the method's lens-selection
-phase says.
+directory only for stacks the diff touches, as the method's *Lens selection*
+section says.
 
 ## 2. Resolve the PR
 

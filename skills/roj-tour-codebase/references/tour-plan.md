@@ -3,6 +3,16 @@
 Loaded at phase 2. Decides what gets toured, in what order, and how the
 tours chain.
 
+## Contents
+
+- The progression
+- Opening and closing steps
+- Chaining
+- Step budgets
+- No duplicate steps
+- Collapse rule
+- Re-runs
+
 ## The progression
 
 Four tours, each answering one question a new reader asks in this order.

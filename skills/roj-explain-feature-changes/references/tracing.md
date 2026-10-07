@@ -3,6 +3,15 @@
 Loaded at phase 3. Goal: know what each changed symbol does in the running
 system, not only what its body says.
 
+## Contents
+
+- Symbol card
+- Finding callers and callees
+- Before and after
+- Trace paths by language and file type
+- Architecture and technology checklist
+- Tests
+
 ## Symbol card
 
 Fill one card for each new or behavior-changing function, method, class,

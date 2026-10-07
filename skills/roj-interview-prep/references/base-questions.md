@@ -4,6 +4,34 @@ Fixed set. Every candidate gets all of these regardless of CV. Embed them in
 full in the generated interview doc (section "Baseline technical questions");
 order may be tuned per candidate, content may not.
 
+## Contents
+
+- B1. Linux — disk usage triage [Easy]
+- B2. Linux — permissions [Easy]
+- B3. Git — trunk-based development [Medium]
+- B4. Docker Compose — purpose and limits [Easy-Medium]
+- B5. Kubernetes — core concepts [Medium]
+- B6. CI/CD — multi-environment pipeline [Medium]
+- B7. CI/CD — GitOps [Medium]
+- B8. Infrastructure as Code [Medium]
+- B9. The incident scenario — answer framework [Hard]
+- B10. OOP & Testing — overloading, TDD, mocking [Easy]
+- B11. Python — production-grade scripting [Medium]
+- B12. Java — JVM basics for tooling [Medium]
+- B13. Go — why DevOps tooling loves it [Easy-Medium, Optional]
+- B14. Kubernetes — Helm charts [Medium]
+- B15. Ansible — configuration management [Medium]
+- B16. Bamboo — CI server and agents [Medium]
+- B17. Splunk — centralized logging [Easy-Medium]
+- B18. DCOS / Zookeeper / Mesos / Ambari [Medium, Optional]
+- B19. HDFS — architecture [Easy-Medium]
+- B20. Cloud — Azure or AWS core services [Medium]
+- B21. Databases — Postgres, MongoDB, neo4j [Medium]
+- B22. CS basics — data structures and Big O [Easy]
+- B23. Linux — VM creation on vSphere [Medium]
+- BC1. Java coding task — CoffeeMachine [Pen & paper]
+- BC2. Python coding task — whoami generator [Pen & paper]
+
 ### B1. Linux — disk usage triage [Easy]
 
 **Ask:** A server's disk is filling up. How do you find what's eating it?

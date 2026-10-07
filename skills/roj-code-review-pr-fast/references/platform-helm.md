@@ -2,8 +2,7 @@
 
 Loaded when the diff touches `Chart.yaml`, `values*.y*ml`, or files under a
 chart's `templates/`. Review the chart as an interface: the values are its
-API, and the rendered manifests are its output. Load `platform-k8s.md`
-alongside when templates render workloads.
+API, and the rendered manifests are its output.
 
 ## Values as an interface
 
@@ -56,7 +55,8 @@ alongside when templates render workloads.
 ## Release safety
 
 - A change requiring `--force` or a delete-and-recreate — say so explicitly.
-- An immutable field changed (see `platform-k8s.md`): the upgrade fails
+- An immutable field changed (a Deployment selector, a StatefulSet's
+  `volumeClaimTemplates`, a Job's pod template): the upgrade fails
   mid-release and leaves it `pending-upgrade`.
 - No `--atomic` or `--wait` in the deploy invocation for a change that can
   half-apply.

@@ -23,7 +23,9 @@ line that the full method was not found.
 
 Load at most one technology lens (`lang-*.md`, `platform-*.md`) from the
 same `references/` directory, and only when the diff is dominated by one
-stack. When the diff spans several, load none and rely on the method plus
+stack — pick it with the method's *Lens selection* table. A pair the method
+says travels together (Helm + Kubernetes, Bamboo + Bash) counts as one. When
+the diff spans several stacks, load none and rely on the method plus
 `cross-cutting.md`.
 
 ## Run

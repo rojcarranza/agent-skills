@@ -3,6 +3,16 @@
 Loaded at phase 6. The report serves the developer first and the reviewer
 second. Leave out any section that would be empty; never write "N/A".
 
+## Contents
+
+- Skeleton
+- Length and repetition
+- Evidence rules
+- Style
+- PR Explanation — fallback rules
+- PR Comments
+- Important Observations
+
 ## Skeleton
 
     # <branch> — change explanation

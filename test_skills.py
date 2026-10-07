@@ -157,6 +157,38 @@ class TestSelfContained(SkillTest):
         stale = [str(p.relative_to(ROOT)) for p in sync_shared.stale()]
         self.assertEqual(stale, [], "run: python3 tools/sync_shared.py")
 
+    def test_long_references_have_contents(self):
+        """Anthropic's authoring guide: a reference file over 100 lines opens
+        with a table of contents, so a partial read still shows its scope."""
+        for d in skill_dirs():
+            for f in sorted((d / "references").glob("*.md")):
+                lines = f.read_text(encoding="utf-8").splitlines()
+                if len(lines) <= 100:
+                    continue
+                with self.subTest(file=str(f.relative_to(ROOT))):
+                    self.assertIn("## Contents", lines[:20])
+
+    def test_references_one_level_deep(self):
+        """A reference file may name a sibling only when SKILL.md names it
+        too (exactly or by a `prefix-*.md` pattern), so every file the agent
+        reads is reached straight from SKILL.md."""
+        for d, _, body in self.each():
+            refs = d / "references"
+            if not refs.is_dir():
+                continue
+            names = {f.name for f in refs.glob("*.md")}
+            globs = re.findall(r"`([\w-]+)-\*\.md`", body)
+            for f in sorted(refs.glob("*.md")):
+                text = f.read_text(encoding="utf-8")
+                for other in sorted(names - {f.name}):
+                    if other not in text:
+                        continue
+                    covered = other in body or any(
+                        other.startswith(g + "-") for g in globs)
+                    with self.subTest(file=f.name, names=other):
+                        self.assertTrue(covered, f"{d.name}/SKILL.md never "
+                                        f"names {other}, which {f.name} does")
+
     def test_every_skill_has_usage_guide(self):
         for d in skill_dirs():
             with self.subTest(skill=d.name):
