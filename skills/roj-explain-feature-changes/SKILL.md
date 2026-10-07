@@ -1,6 +1,7 @@
 ---
 name: roj-explain-feature-changes
 description: Explain the changes on the user's own Git feature branch compared with its base branch (develop or main) so they understand them and can explain them confidently in PR review. Covers what changed, why, how the new code works, before and after behavior, callers and code flow, and writes copy/paste-ready PR text plus per-change PR comments. Use when the user says "explain my changes compared to develop", "help me understand what I changed in this branch", "explain the new functions and code flow in my branch", "generate something I can paste into my PR", "help me explain these changes to my reviewer", or types /roj-explain-feature-changes with an optional base branch. Not a code review. Not for a single file, a single function, or a branch the user did not write.
+license: MIT
 ---
 
 # Explain Feature Changes

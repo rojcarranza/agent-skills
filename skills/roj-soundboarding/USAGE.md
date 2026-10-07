@@ -1,6 +1,6 @@
 # Using the roj-soundboarding skill
 
-Turns a user story (`LISA-<id>.md`) into a soundboarding (SB) document with
+Turns a user story (`<TICKET-ID>.md`) into a soundboarding (SB) document with
 codebase-investigated core tasks, then implements the SB task by task with a
 review stop after every task. Never touches git — you review and commit
 manually.
@@ -14,37 +14,42 @@ manually.
 
 ## Commands per platform
 
-Slash commands work in VS Code everywhere, and in JetBrains (IntelliJ,
-PyCharm, GoLand) inside a repo seeded with `install.py --repo .` — prompt
-files are repo-scoped there. Anywhere else, name the skill in plain English.
-In JetBrains the same three flows arrive as generated skills in every
-project, no seeding: `/skill:roj-create-sb`, `/skill:roj-implement-sb`,
-`/skill:roj-create-implement-sb`. The skill itself is `/skill:roj-soundboarding`.
+One skill, three flows — pick the flow in the request. Claude Code and VS Code
+Copilot: `/roj-soundboarding <request>`. JetBrains Copilot:
+`/skill:roj-soundboarding <request>`. Plain English works everywhere.
 
-| Flow | VS Code / JetBrains (seeded repo) | Any chat, unseeded | Claude Code |
-|---|---|---|---|
-| Create SB | `/roj-create-sb LISA-110278.md` | `Use the roj-soundboarding skill: create an SB from LISA-110278.md` | `create an SB document from LISA-110278.md` |
-| Implement SB | `/roj-implement-sb SB-LISA-110278` | `Use the roj-soundboarding skill: implement SB-LISA-110278` | `implement SB-LISA-110278` |
-| Both chained | `/roj-create-implement-sb LISA-110278.md` | `Use the roj-soundboarding skill: create and implement LISA-110278.md` | `create and implement an SB from LISA-110278.md` |
+| Flow | Request |
+|---|---|
+| Create SB | `/roj-soundboarding create an SB from PROJ-1001.md` |
+| Implement SB | `/roj-soundboarding implement SB-PROJ-1001` |
+| Both chained | `/roj-soundboarding create and implement PROJ-1001.md` |
 
-Paths default to the work layout (`/c/dev/projects/wr/soundboard`,
-`/c/dev/projects`). Override by saying so, e.g.
+Set the two directories once in your shell profile so the skill never asks:
+
+```bash
+export SOUNDBOARD_DIR=~/work/soundboard   # stories + SB documents
+export PROJECTS_ROOT=~/work/projects      # local checkouts of team repos
+```
+
+Windows (PowerShell): `setx SOUNDBOARD_DIR C:\work\soundboard`. A path in
+the request wins over both, e.g.
 `create an SB from story.md — soundboard dir is ~/Dev/soundboard`.
 
 ## Worked example
 
-Story input: [`examples/LISA-110278.md`](examples/LISA-110278.md) — upgrade
-Bamboo API to v12.1.6 and verify agents/plans still work.
+Story input: [`examples/PROJ-1001.md`](examples/PROJ-1001.md) — upgrade
+the Bamboo API to v12.1.6 and verify agents and plans still work.
 
-1. `/roj-create-sb LISA-110278.md` — the skill reads the story, finds the
-   impacted repos under the projects root, records exact current versions
-   from the POMs and config files it can read, and writes
-   `SB-LISA-110278.md` following `SB-template.md`. Unverifiable claims land
-   in Questions, not in Core tasks. Output shape:
-   [`examples/sb-LISA-110278.md`](examples/sb-LISA-110278.md).
+1. `/roj-soundboarding create an SB from PROJ-1001.md` — the skill reads the
+   story, finds the impacted repos under PROJECTS_ROOT, records exact
+   current versions from the POMs and config files it can read, and writes
+   `SB-PROJ-1001.md` following `assets/SB-template.md`. Unverifiable claims
+   land in Questions, not in Core tasks. Output shape:
+   [`examples/SB-PROJ-1001.md`](examples/SB-PROJ-1001.md).
 2. Team refines the SB (acceptance criteria, task list, testing table).
-3. From the repo where the work happens: `/roj-implement-sb SB-LISA-110278` —
-   executes core tasks one at a time, stops after each for
-   approve/revise/skip, ticks checkboxes in the SB file, fills the Testing
-   table Log column with real command results.
+3. From the repo where the work happens:
+   `/roj-soundboarding implement SB-PROJ-1001` — executes core tasks one at
+   a time, verifies each diff against the SB's before/after table, stops
+   after each for approve/revise/skip, ticks checkboxes in the SB file, and
+   fills the Testing table Log column with real command results.
 4. You review the working tree and commit manually.

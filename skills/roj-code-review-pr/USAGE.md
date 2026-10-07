@@ -109,7 +109,12 @@ something you do not care about.
 
 ## Install
 
-From the repo root:
+Any agent, with Node.js:
+
+    npx skills add r0jjames/agent-skills -s roj-code-review-pr
+
+Or from a clone of this repo (adds the skills it depends on, plus the
+Windows copy fallback):
 
     python3 install.py --target claude    # mac / Claude Code
     python3 install.py --target copilot   # work / GitHub Copilot

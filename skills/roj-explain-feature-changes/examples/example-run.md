@@ -1,27 +1,27 @@
 # Example run
 
 Worked example on a small Python service. The branch
-`feature/LISA-123-integration-decision` moves the decision "should this
+`feature/PROJ-123-integration-decision` moves the decision "should this
 event go to the partner integration?" out of `process_event()` into its own
 module. Use it to calibrate depth and tone. Never copy its facts into a real
 report.
 
 ## Chat output
 
-    Comparing `feature/LISA-123-integration-decision → develop` (merge base `3f9c2e1`)
+    Comparing `feature/PROJ-123-integration-decision → develop` (merge base `3f9c2e1`)
 
     <Feature Change Overview, as in the report>
     <Key Things to Understand, as in the report>
 
-    Full report: feature-LISA-123-integration-decision-changes.md
-    Tour: .tours/changes-feature-LISA-123-integration-decision.tour
+    Full report: feature-PROJ-123-integration-decision-changes.md
+    Tour: .tours/changes-feature-PROJ-123-integration-decision.tour
     Both are untracked. Add them to .git/info/exclude so they are never committed?
 
 ## Report
 
-# feature/LISA-123-integration-decision — change explanation
+# feature/PROJ-123-integration-decision — change explanation
 
-Comparing `feature/LISA-123-integration-decision → develop` (merge base
+Comparing `feature/PROJ-123-integration-decision → develop` (merge base
 `3f9c2e1`), 3 commits.
 Uncommitted, not covered: `app/metrics.py` (untracked).
 Listed only (generated, vendored, formatting): none.
@@ -46,10 +46,10 @@ events without an `id` (`app/decision.py:11-13`).
 
 # Why This Change Exists
 
-- Confirmed: the decision moved into its own function — commit "LISA-123
+- Confirmed: the decision moved into its own function — commit "PROJ-123
   move integration decision into should_trigger_integration".
 - Confirmed: cancelled orders and events without an id are skipped — commit
-  "LISA-123 skip cancelled orders and events without an id".
+  "PROJ-123 skip cancelled orders and events without an id".
 - Likely: the event types moved to configuration so they can change without
   a code change. The new key sits next to `integration.endpoint` in
   `config/settings.yaml`.

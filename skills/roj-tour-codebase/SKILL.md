@@ -1,6 +1,7 @@
 ---
 name: roj-tour-codebase
 description: Learn an unfamiliar repository by touring it. Use when the user says "onboard me to this repo", "tour this codebase", "teach me how this works", "help me understand this repo", "where do I start", "walk me through the architecture", or joins a project they have never worked on. Runs a discovery pass first, then leaves a chained series of CodeTour files in .tours/ that replay in the IDE at the reader's own pace. For documentation without tours use acquire-codebase-knowledge; for a single PR, branch, file or function use roj-explain-logic.
+license: MIT
 ---
 
 # Tour Codebase

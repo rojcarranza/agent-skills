@@ -39,18 +39,21 @@ Capped at five findings.
 
 ## Relationship to roj-code-review-pr
 
-The severity, confidence and suppression rules are read from the installed
-`roj-code-review-pr` skill's `references/review-method.md`, so there is one
-source of truth. It looks in repo scope (`.github/skills/`), then
-`~/.copilot/skills/`, then `~/.claude/skills/`, then `~/.agents/skills/`, so
-it resolves on Claude Code and on Copilot in both VS Code and JetBrains.
-When none of those exist, condensed tables inlined in this skill's
-`SKILL.md` take over and the run says so. Installing both skills is
-recommended.
+The severity, confidence and suppression rules live in
+`roj-code-review-pr/references/` and are copied into this skill's own
+`references/` by `tools/sync_shared.py`, so this skill runs on its own —
+installed alone, in any agent, at any scope. Edit the rules in
+`roj-code-review-pr`, then run the sync; CI fails on a stale copy. The
+condensed tables in `SKILL.md` are a last-resort fallback.
 
 ## Install
 
-From the repo root:
+Any agent, with Node.js:
+
+    npx skills add r0jjames/agent-skills -s roj-code-review-pr-fast
+
+Or from a clone of this repo (adds the skills it depends on, plus the
+Windows copy fallback):
 
     python3 install.py --target claude    # mac / Claude Code
     python3 install.py --target copilot   # work / GitHub Copilot

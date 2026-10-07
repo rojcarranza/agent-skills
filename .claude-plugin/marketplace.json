@@ -1,0 +1,29 @@
+{
+  "name": "roj-agent-skills",
+  "owner": {
+    "name": "Roj Carranza"
+  },
+  "metadata": {
+    "description": "Code review, code comprehension, onboarding tours, issue investigation and DevOps workflow skills for Claude Code and GitHub Copilot",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "roj-skills",
+      "description": "Branch and PR review, guided code explanation, repository onboarding tours, root-cause investigation, soundboarding and interview prep",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/roj-code-review-pr",
+        "./skills/roj-code-review-pr-fast",
+        "./skills/roj-explain-feature-changes",
+        "./skills/roj-explain-logic",
+        "./skills/roj-interview-prep",
+        "./skills/roj-investigate-issue",
+        "./skills/roj-review-pr-comment",
+        "./skills/roj-soundboarding",
+        "./skills/roj-tour-codebase"
+      ]
+    }
+  ]
+}

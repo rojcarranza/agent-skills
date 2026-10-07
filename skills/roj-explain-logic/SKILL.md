@@ -1,6 +1,7 @@
 ---
 name: roj-explain-logic
-description: Explain the logic of code the user is reading — a pull request, a feature branch diff, a file, or a function — as a guided, step-by-step walkthrough. Use this skill whenever the user says things like "explain this PR", "walk me through this branch", "what does this code do", "help me understand this logic", "explain the changes", "why does this work", "trace this flow", or pastes/points at code they are trying to understand. Trigger even if they don't say "explain" — any request to understand, read, review-for-comprehension, or onboard onto code counts. Covers Java, Python, Go, shell scripts, and Atlassian Bamboo API/specs code.
+description: Explain the logic of code the user is reading — a pull request, a feature branch diff, a file, or a function — as a guided, step-by-step walkthrough. Use when the user says "explain this PR", "walk me through this branch", "what does this code do", "help me understand this logic", "why does this work", "trace this flow", or pastes/points at code they are trying to understand, even without the word "explain". Covers Java, Python, Go, shell scripts, and Atlassian Bamboo API/specs code. For the user's own branch explained for their PR use roj-explain-feature-changes; for onboarding to a whole repo use roj-tour-codebase; for finding defects use roj-code-review-pr.
+license: MIT
 ---
 
 # Explain Logic

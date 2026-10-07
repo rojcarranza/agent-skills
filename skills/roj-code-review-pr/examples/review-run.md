@@ -3,7 +3,7 @@
 One complete run, end to end, on a realistic branch. Consult this only when
 the output format needs grounding — it is not loaded by default.
 
-The branch: `feature/LISA-4471-atomic-upgrade` in the Go deploy CLI. It adds
+The branch: `feature/PROJ-4471-atomic-upgrade` in the Go deploy CLI. It adds
 a `--wait-timeout` flag, switches the Helm upgrade call to atomic, and bumps
 the chart used by the staging environment.
 
@@ -25,7 +25,7 @@ M       internal/helm/client_test.go
 $ git diff --stat origin/main...HEAD
  5 files changed, 118 insertions(+), 21 deletions(-)
 $ git rev-parse @{u}
-fatal: no upstream configured for branch 'feature/LISA-4471-atomic-upgrade'
+fatal: no upstream configured for branch 'feature/PROJ-4471-atomic-upgrade'
 ```
 
 Lenses selected from the changed paths: `lang-go.md` (3 files),
@@ -44,7 +44,7 @@ produced the Blocker below.
 ## The report
 
 ```
-## Review — feature/LISA-4471-atomic-upgrade vs origin/main
+## Review — feature/PROJ-4471-atomic-upgrade vs origin/main
 
 deploy-cli · base `origin/main` @ `9f31c0a` · 4 commits ·
 5 files · +118/-21 · lenses: lang-go, platform-helm · mode: pre-PR
@@ -137,8 +137,8 @@ releases upgrade in place.
   distinguish it from a genuine failure.
 - The test covers the failure path, not just the happy one.
 
-Report: `feature-LISA-4471-atomic-upgrade-review.md`
-Tour: `.tours/review-feature-LISA-4471-atomic-upgrade.tour`
+Report: `feature-PROJ-4471-atomic-upgrade-review.md`
+Tour: `.tours/review-feature-PROJ-4471-atomic-upgrade.tour`
 ```
 
 ## What was deliberately not reported

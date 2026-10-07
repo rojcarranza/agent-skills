@@ -1,6 +1,9 @@
 ---
 name: roj-review-pr-comment
-description: Review an open GitHub pull request and post the findings to it as one COMMENT review with inline comments. Runs automatically after Claude opens a PR in an allowlisted repository (the pr_review_hook tells Claude to follow this file), or by hand with a PR URL or number. Uses the roj-code-review-pr method. For a local branch without a PR, use roj-code-review-pr instead.
+description: "Review an open GitHub pull request and post the findings to it as one COMMENT review with inline comments. Use when the user asks to \"review PR #123 and comment\", \"post a review on this PR\", gives a GitHub PR URL to review, or when a post-PR hook asks for an automated review. Uses the roj-code-review-pr method. For a local branch without a PR, use roj-code-review-pr instead."
+license: MIT
+compatibility: Requires git and an authenticated GitHub CLI (gh) with network access.
+allowed-tools: Read Grep Glob Bash(git diff:*) Bash(git fetch:*) Bash(git rev-parse:*) Bash(gh pr view:*) Bash(gh pr diff:*) Bash(gh api repos/*/pulls/*/reviews --paginate *)
 ---
 
 # Review PR — post comments
@@ -24,15 +27,9 @@ Rules for the whole run:
 ## 1. Load the method
 
 Read `references/review-method.md` and `references/cross-cutting.md` from
-the installed `roj-code-review-pr` skill. First location that exists wins:
-
-1. `<repo>/.github/skills/roj-code-review-pr/references/`
-2. `~/.copilot/skills/roj-code-review-pr/references/`
-3. `~/.claude/skills/roj-code-review-pr/references/`
-4. `~/.agents/skills/roj-code-review-pr/references/`
-
-None found: say "roj-code-review-pr is not installed — run
-`agent-skills/install.py`" and stop. No review without the method.
+this skill's folder — copies of `roj-code-review-pr`'s method, so this skill
+runs on its own. If they cannot be read, say so and stop. No review without
+the method.
 
 Load technology lenses (`lang-*.md`, `platform-*.md`) from the same
 directory only for stacks the diff touches, as the method's lens-selection

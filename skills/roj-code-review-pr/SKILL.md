@@ -1,6 +1,7 @@
 ---
 name: roj-code-review-pr
 description: Review the changes on the current Git feature branch, before or after a PR is opened, and write a review report, plus a CodeTour on request. Use when the user says "review my branch", "review this PR", "code review", "review before I push", "check my changes", or asks for defects/risks in a diff. Detects the stacks the diff touches (Java/Maven, Python, Bash, Go, Bamboo, Docker, Kubernetes, Helm) and loads only the matching rules. Git-only — never calls a PR host API. For pure comprehension ("explain this branch") use roj-explain-logic; for a quick chat-only pass use roj-code-review-pr-fast.
+license: MIT
 ---
 
 # Code Review PR
