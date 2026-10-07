@@ -117,6 +117,25 @@ npx skills add . --list               # what skills.sh will discover
 
 CI runs all three on every push and pull request.
 
+### Evals
+
+`evals/<skill>/` holds [skill-creator](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator)
+eval sets, kept outside `skills/` so no install ships them:
+
+- `triggers.json` — realistic prompts marked `should_trigger`, mostly
+  near-misses aimed at sibling skills, to test the `description`.
+- `evals.json` — behaviour checks in skill-creator's schema.
+
+Run a trigger set from the skill-creator skill directory (it calls
+`claude -p` once per query, so it costs tokens):
+
+```bash
+python3 -m scripts.run_eval --eval-set <repo>/evals/<skill>/triggers.json \
+  --skill-path <repo>/skills/<skill>
+```
+
+`test_skills.py` checks the files' shape, not the scores.
+
 ## License
 
 [MIT](LICENSE)

@@ -1,0 +1,74 @@
+[
+  {
+    "query": "can you review my branch before I push? it's feature/retry-uploads and the base is develop",
+    "should_trigger": true
+  },
+  {
+    "query": "code review please - I changed the helm chart values and the deployment template, want to know if anything breaks on rollout",
+    "should_trigger": true
+  },
+  {
+    "query": "check my changes on this branch for bugs, PR isn't open yet",
+    "should_trigger": true
+  },
+  {
+    "query": "PR is already up but I want a proper review of the diff with a written report I can go through",
+    "should_trigger": true
+  },
+  {
+    "query": "review this PR - it's the branch I'm on, compare it against release/2.4",
+    "should_trigger": true
+  },
+  {
+    "query": "before I raise the merge request can you look over the java changes in this branch for defects and risks",
+    "should_trigger": true
+  },
+  {
+    "query": "pls do a full review of feature/PROJ-123-bamboo-spec, it has bamboo specs and a deploy.sh change",
+    "should_trigger": true
+  },
+  {
+    "query": "find the risky stuff in my diff vs main and tag it by severity",
+    "should_trigger": true
+  },
+  {
+    "query": "review before I push - mostly go changes in internal/queue plus a Dockerfile tweak",
+    "should_trigger": true
+  },
+  {
+    "query": "quick sanity check of my branch, chat only, don't write any files",
+    "should_trigger": false
+  },
+  {
+    "query": "review PR #482 on github and leave inline comments on it",
+    "should_trigger": false
+  },
+  {
+    "query": "explain what this branch does, it's a colleague's and I don't get the flow",
+    "should_trigger": false
+  },
+  {
+    "query": "help me explain my changes vs develop so my reviewer understands them",
+    "should_trigger": false
+  },
+  {
+    "query": "the bamboo build for my branch failed with exit code 127, find the root cause",
+    "should_trigger": false
+  },
+  {
+    "query": "write a PR description for this branch",
+    "should_trigger": false
+  },
+  {
+    "query": "is this idiomatic python? def load(p): return json.load(open(p))",
+    "should_trigger": false
+  },
+  {
+    "query": "set up a github action that runs an AI code review on every pull request",
+    "should_trigger": false
+  },
+  {
+    "query": "reply to the review comments my teammate left on my PR",
+    "should_trigger": false
+  }
+]

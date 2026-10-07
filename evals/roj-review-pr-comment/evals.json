@@ -1,0 +1,35 @@
+{
+  "skill_name": "roj-review-pr-comment",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "review PR #123 and comment",
+      "expected_output": "One COMMENT review posted with inline comments and the head-SHA marker.",
+      "expectations": [
+        "Posts exactly one review with event COMMENT",
+        "Never approves or requests changes",
+        "Review body ends with <!-- review-pr-comment:<headRefOid> -->",
+        "Inline comments only on lines inside gh pr diff hunks"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "review PR #123 and comment (a review with this head SHA's marker already exists)",
+      "expected_output": "Skips because the commit was already reviewed.",
+      "expectations": [
+        "Checks existing reviews for the marker before reviewing",
+        "Prints '<short sha> already reviewed: <url>' and posts nothing"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "post a review on PR 9 (gh is not authenticated)",
+      "expected_output": "Findings printed in chat; clear statement that nothing was posted.",
+      "expectations": [
+        "Prints findings in the inline-comment format in chat",
+        "Says nothing was posted",
+        "Does not retry with other credentials or tools"
+      ]
+    }
+  ]
+}

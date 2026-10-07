@@ -1,0 +1,36 @@
+{
+  "skill_name": "roj-code-review-pr-fast",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "quick review of my branch",
+      "expected_output": "Chat-only short review, nothing written.",
+      "expectations": [
+        "Writes no file",
+        "Runs only git commands",
+        "Prints the one-line header with branch, base, file count and lens",
+        "Caps findings at five and names any overflow count",
+        "Ends by saying callers, config coupling and tests were not checked"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "sanity check my changes before I commit",
+      "expected_output": "The user's changes are uncommitted; the skill must not silently review only committed work and call it clean.",
+      "expectations": [
+        "Notices the working tree has uncommitted changes",
+        "Either reviews them or says plainly that uncommitted work was not reviewed",
+        "Does not report 'Nothing to flag' for a diff it never looked at"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "fast review, my branch changes Python, Go and a Dockerfile about equally",
+      "expected_output": "Mixed stacks: no technology lens, method plus cross-cutting only.",
+      "expectations": [
+        "Loads no lang-*.md or platform-*.md lens",
+        "Header says lens: none"
+      ]
+    }
+  ]
+}

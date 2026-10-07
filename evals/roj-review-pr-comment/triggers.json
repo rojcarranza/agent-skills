@@ -1,0 +1,66 @@
+[
+  {
+    "query": "review PR #123 and comment",
+    "should_trigger": true
+  },
+  {
+    "query": "post a review on https://github.com/acme/billing/pull/58",
+    "should_trigger": true
+  },
+  {
+    "query": "go through PR 214 in this repo and leave inline comments where something's wrong",
+    "should_trigger": true
+  },
+  {
+    "query": "here's the PR link https://github.com/org/infra-charts/pull/9 - review it",
+    "should_trigger": true
+  },
+  {
+    "query": "the post-PR hook fired for PR 31, run the automated review",
+    "should_trigger": true
+  },
+  {
+    "query": "review my teammate's open PR #77 on github and put the findings as review comments",
+    "should_trigger": true
+  },
+  {
+    "query": "leave review comments on the PR for the branch I'm on",
+    "should_trigger": true
+  },
+  {
+    "query": "do an automated code review on pull request 402 and post it to GitHub",
+    "should_trigger": true
+  },
+  {
+    "query": "review my local branch, there's no PR yet",
+    "should_trigger": false
+  },
+  {
+    "query": "summarize the comments people left on PR #88",
+    "should_trigger": false
+  },
+  {
+    "query": "reply to the review comments on my PR",
+    "should_trigger": false
+  },
+  {
+    "query": "approve PR 55 if CI is green",
+    "should_trigger": false
+  },
+  {
+    "query": "open a PR for this branch",
+    "should_trigger": false
+  },
+  {
+    "query": "explain what PR #12 changes, I don't need comments",
+    "should_trigger": false
+  },
+  {
+    "query": "why is CI failing on PR 90?",
+    "should_trigger": false
+  },
+  {
+    "query": "write the description for PR #33",
+    "should_trigger": false
+  }
+]
