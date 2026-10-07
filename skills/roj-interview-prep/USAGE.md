@@ -14,7 +14,12 @@ assessment. Never touches git — you review and commit manually.
 
 ## Install
 
-From the repo root:
+Any agent, with Node.js:
+
+    npx skills add r0jjames/agent-skills -s roj-interview-prep
+
+Or from a clone of this repo (adds the skills it depends on, plus the
+Windows copy fallback):
 
     python3 install.py --target claude    # mac / Claude Code
     python3 install.py --target copilot   # work / GitHub Copilot
@@ -25,7 +30,7 @@ Claude gets a symlink (edit the repo, changes are live); Copilot gets a copy
 
 ## Run — Claude Code (mac, inside the vault)
 
-    cd ~/Dev/second-brain/6-Work/technical-interviews
+    cd <your-notes-vault>/technical-interviews
     claude
     > prepare interview for <candidate name>
 

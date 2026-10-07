@@ -1,7 +1,7 @@
 # Report template
 
 File name: `<problem-name>-investigation.md`, same directory as the
-input `.md` (input `LISA-123.md` → `LISA-123-investigation.md`).
+input `.md` (input `PROJ-123.md` → `PROJ-123-investigation.md`).
 Sections in this order; drop a section only if truly empty and say so.
 
 ```markdown

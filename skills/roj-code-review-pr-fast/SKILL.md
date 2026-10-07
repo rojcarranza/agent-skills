@@ -1,6 +1,8 @@
 ---
 name: roj-code-review-pr-fast
 description: Quick chat-only review of the current Git feature branch diff — no report file, no CodeTour, no commands beyond git. Use when the user says "quick review", "fast review", "sanity check my changes", "review this before I commit", or wants a short pass mid-work. For the full review with a written report, a change summary and a tour, use roj-code-review-pr instead.
+license: MIT
+allowed-tools: Read Grep Glob Bash(git diff:*) Bash(git log:*) Bash(git status:*) Bash(git rev-parse:*) Bash(git symbolic-ref:*) Bash(git merge-base:*) Bash(git show:*)
 ---
 
 # Code Review PR — fast
@@ -14,25 +16,15 @@ involved.
 
 ## Load the method
 
-Read `references/review-method.md` from the installed `roj-code-review-pr`
-skill. Try these in order and stop at the first that exists — the right one
-depends on the agent and the platform, so do not assume:
+Read `references/review-method.md` from this skill's folder — a copy of
+`roj-code-review-pr`'s method, so this skill runs on its own. If it cannot
+be read, use the condensed tables at the bottom of this file and say in one
+line that the full method was not found.
 
-1. `<repo>/.github/skills/roj-code-review-pr/references/review-method.md`
-   (repo scope, seeded by `install.py --repo .`)
-2. `~/.copilot/skills/roj-code-review-pr/references/review-method.md`
-   (GitHub Copilot personal scope, VS Code and JetBrains)
-3. `~/.claude/skills/roj-code-review-pr/references/review-method.md`
-   (Claude Code personal scope)
-4. `~/.agents/skills/roj-code-review-pr/references/review-method.md`
-
-On Windows and Git Bash, `~` resolves under `%USERPROFILE%`; the same four
-paths apply. If none exist, use the condensed tables at the bottom of this
-file and say in one line that the full method was not found.
-
-Load at most one technology lens from the same `references/` directory, and
-only when the diff is dominated by one stack. When the diff spans several,
-load none and rely on the method plus `cross-cutting.md`.
+Load at most one technology lens (`lang-*.md`, `platform-*.md`) from the
+same `references/` directory, and only when the diff is dominated by one
+stack. When the diff spans several, load none and rely on the method plus
+`cross-cutting.md`.
 
 ## Run
 

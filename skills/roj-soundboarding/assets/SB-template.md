@@ -1,4 +1,4 @@
-# Litho Insight Analytics / LISA-X
+# <Project name> / <TICKET-ID>
 
 > Goal:
 

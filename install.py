@@ -9,6 +9,8 @@ Usage:
   python3 install.py --target claude --skills-only   # skip community fetch
   python3 install.py --repo .       # seed .github/skills
   python3 install.py --target both --upgrade   # newer graphify, then refresh
+  python3 install.py --target claude --skill roj-code-review-pr  # cherry-pick
+  python3 install.py --list         # what can be installed
 
 Python >= 3.8, standard library only.
 Copilot gets copies; Claude gets per-skill symlinks (edit the repo, changes
@@ -19,12 +21,14 @@ Two scopes. Personal scope (--target) writes to ~/.copilot/skills and
 ~/.claude/skills. Repo scope (--repo) writes copies into <repo>/.github/skills
 for the whole team.
 
-The prompts in prompts/ reach every agent in every IDE as generated files:
-a skill in the Copilot skills dir (Copilot in VS Code and JetBrains — Copilot
-no longer reads .prompt.md files, so none are installed and copies left by
-older installs are removed) and a slash command in ~/.claude/commands (Claude
-in both IDEs, as /<name>). A prompt named after a real skill in skills/
-generates neither — the skill already answers to that name in both places.
+Any single skill also installs without this script, in any agent the
+`skills` CLI supports: npx skills add r0jjames/agent-skills -s <name>. Every
+skill directory is self-contained (tools/sync_shared.py keeps shared files
+copied in), so nothing here is needed at runtime.
+
+Earlier versions generated skills and Claude slash commands from prompts/.
+That directory is gone; every install run removes what those versions
+generated (see retire_prompts).
 
 Skills come from three kinds of source: this repo (skills/), a community git
 repo (SOURCES, sparse-cloned into ~/.agent-skills-cache), and an external CLI
@@ -46,7 +50,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
 SKILLS_SRC = REPO_ROOT / "skills"
-PROMPTS_SRC = REPO_ROOT / "prompts"
 
 AWESOME_REPO_URL = "https://github.com/github/awesome-copilot.git"
 AWESOME_BRANCH = "main"
@@ -185,7 +188,9 @@ REQUIRES = {
     # installed. The skill falls back inline for both, so declaring them only
     # pulled their descriptions into every session for nothing.
     "roj-explain-feature-changes": ("code-tour",),
-    "roj-review-pr-comment": ("roj-code-review-pr",),
+    # Custom skills never require each other: shared files are copied into
+    # each skill by tools/sync_shared.py, so every skill also installs alone
+    # through `npx skills add`.
 }
 
 
@@ -193,6 +198,17 @@ REQUIRES = {
 # before the rename still carry the bare names; every install run removes
 # those leftovers (see remove_legacy) so no agent lists a workflow twice.
 LEGACY_PREFIX = "roj-"
+
+
+# Stems of the prompts/*.prompt.md files earlier versions shipped. Installs
+# made then left generated skills, Claude commands and .prompt.md copies
+# under these names; retire_prompts removes them on every install run.
+RETIRED_PROMPTS = (
+    "roj-code-review-pr", "roj-code-review-pr-fast", "roj-create-implement-sb",
+    "roj-create-sb", "roj-explain-and-review", "roj-explain-code",
+    "roj-explain-feature-changes", "roj-implement-sb", "roj-tour-codebase",
+)
+GENERATED_MARKER = "Generated from prompts/"
 
 
 def legacy_name(name):
@@ -450,7 +466,7 @@ def pick_targets(arg_target, repo=None):
                    else [arg_target])
     elif not repo:
         print("Install skills for:")
-        print("  1) GitHub Copilot   (~/.copilot/skills + VS Code prompts)")
+        print("  1) GitHub Copilot   (~/.copilot/skills)")
         print("  2) Claude Code      (~/.claude/skills, symlinked)")
         print("  3) Both")
         choice = input("Choice [1-3]: ").strip()
@@ -472,11 +488,10 @@ def status_targets(arg_target, repo):
     return base + (["repo"] if repo else [])
 
 
-def build_items(custom_skills, prompt_files):
-    """Ordered installable items as (kind, name): custom skills, prompt
-    files, community skills, then CLI-installed externals."""
+def build_items(custom_skills):
+    """Ordered installable items as (kind, name): custom skills, community
+    skills, then CLI-installed externals."""
     items = [("skill", n) for n in custom_skills]
-    items += [("prompt", n) for n in prompt_files]
     items += [("community", n) for n in sorted(all_community_names())]
     items += [("external", n) for n in sorted(all_external_names())]
     return items
@@ -485,35 +500,27 @@ def build_items(custom_skills, prompt_files):
 def item_tag(kind, name, targets, plugin_map):
     """Picker annotation: [installed] [update] [conflict], or ''."""
     tags = []
-    if kind == "prompt":
-        stem = prompt_stem(name)
-        cmd = claude_commands_dir() / f"{stem}.md"
-        gen = target_root("copilot") / stem / "SKILL.md"
-        if (("copilot" in targets and gen.is_file())
-                or ("claude" in targets and cmd.is_file())):
-            tags.append("[installed]")
-    else:
-        reg = registry()
-        for target in targets:
-            dest = target_root(target) / name
-            if not (dest.is_symlink() or dest.exists()):
-                continue
-            tags.append("[installed]")
-            src = None
-            if kind == "skill":
-                src = SKILLS_SRC / name
-            elif name in reg:
-                source = reg[name][0]
-                cand = (source_cache_dir(source)
-                        / source_skills_subdir(source) / name)
-                if cand.is_dir():
-                    src = cand
-            if (src and src.is_dir() and not dest.is_symlink()
-                    and dest.is_dir() and not dirs_equal(src, dest)):
-                tags.append("[update]")
-            break
-        if "claude" in targets and name in plugin_map:
-            tags.append("[conflict]")
+    reg = registry()
+    for target in targets:
+        dest = target_root(target) / name
+        if not (dest.is_symlink() or dest.exists()):
+            continue
+        tags.append("[installed]")
+        src = None
+        if kind == "skill":
+            src = SKILLS_SRC / name
+        elif name in reg:
+            source = reg[name][0]
+            cand = (source_cache_dir(source)
+                    / source_skills_subdir(source) / name)
+            if cand.is_dir():
+                src = cand
+        if (src and src.is_dir() and not dest.is_symlink()
+                and dest.is_dir() and not dirs_equal(src, dest)):
+            tags.append("[update]")
+        break
+    if "claude" in targets and name in plugin_map:
+        tags.append("[conflict]")
     return " ".join(tags)
 
 
@@ -547,7 +554,8 @@ def pick_items(items, preselected=None, tags=None):
 
 
 def vscode_prompts_dir():
-    """Locate the VS Code user prompts dir, or None if VS Code is absent."""
+    """Locate the VS Code user prompts dir, or None if VS Code is absent.
+    Only read to remove .prompt.md copies earlier installs left there."""
     candidates = []
     appdata = os.environ.get("APPDATA")
     if appdata:
@@ -561,53 +569,6 @@ def vscode_prompts_dir():
     return None
 
 
-def prompt_stem(path):
-    """'roj-create-sb.prompt.md' -> 'roj-create-sb' (the slash command, and the
-    name --uninstall prompt:<stem> expects)."""
-    return Path(Path(path).stem).stem
-
-
-def parse_prompt(path):
-    """Split a .prompt.md into (description, body). Description falls back
-    to the stem when the frontmatter has none or is malformed."""
-    text = Path(path).read_text(encoding="utf-8")
-    stem = prompt_stem(path)
-    if not text.startswith("---"):
-        return stem, text.strip()
-    _, _, rest = text.partition("---")
-    front, sep, body = rest.partition("---")
-    if not sep:
-        return stem, text.strip()
-    description = stem
-    for line in front.splitlines():
-        key, _, value = line.partition(":")
-        if key.strip() == "description":
-            description = value.strip().strip("'\"") or stem
-            break
-    return description, body.strip()
-
-
-def prompt_skill_text(path):
-    """SKILL.md body for the skill generated from a prompt file. Copilot
-    reads personal-scope skills from every project, so this is how a
-    /create-sb-style command reaches JetBrains without seeding each repo."""
-    stem = prompt_stem(path)
-    description, body = parse_prompt(path)
-    if not description.endswith("."):
-        description += "."
-    description += (f' Use when the user types "/{stem}", "/skill:{stem}",'
-                    f' or asks for the {stem} workflow by name.')
-    return (
-        "---\n"
-        f"name: {stem}\n"
-        f"description: {json.dumps(description)}\n"
-        "---\n\n"
-        f"{body}\n\n"
-        f"<!-- Generated from prompts/{Path(path).name} by install.py."
-        " Edit the prompt file, not this copy. -->\n"
-    )
-
-
 def custom_skill_names():
     """Names of the skills in skills/ — also the directory names they take
     in every target root."""
@@ -616,128 +577,26 @@ def custom_skill_names():
     return {p.name for p in SKILLS_SRC.iterdir() if p.is_dir()}
 
 
-def prompt_skill_names():
-    """Stems of the prompts that ship as generated skills. A prompt named
-    after a real skill is excluded: the skill owns that directory."""
-    return ({prompt_stem(p) for p in PROMPTS_SRC.glob("*.prompt.md")}
-            - custom_skill_names())
-
-
-def install_prompt_skills(dest_root, dry_run, names=None, target="copilot"):
-    """Write one generated skill per prompt file into dest_root.
-    names: optional set of prompt *file* names; None = all."""
-    results = []
-    own = custom_skill_names()
-    for p in sorted(PROMPTS_SRC.glob("*.prompt.md")):
-        if names is not None and p.name not in names:
-            continue
-        stem = prompt_stem(p)
-        if stem in own:
-            # The real skill already occupies dest_root/<stem>; generating
-            # over it would replace its SKILL.md with the prompt stub.
-            # Copilot reaches it under that name either way.
-            results.append((target, stem, "skipped (real skill of "
-                                          "same name)"))
-            continue
-        dest = dest_root / prompt_stem(p) / "SKILL.md"
-        text = prompt_skill_text(p)
-        if dest.is_file() and dest.read_text(encoding="utf-8") == text:
-            status = "up to date"
-        else:
-            status = "updated" if dest.exists() else "installed"
-            if not dry_run:
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_text(text, encoding="utf-8")
-        results.append((target, prompt_stem(p), status))
-    return results
-
-
 def claude_commands_dir():
-    """Claude's personal slash-command scope. Both the VS Code and the
-    JetBrains Claude extensions read it, so a command installed here is
-    available in every project in every IDE."""
+    """Claude's personal slash-command scope, where earlier installs wrote
+    one generated command per prompt."""
     return Path.home() / ".claude" / "commands"
 
 
-def claude_command_text(path):
-    """Slash-command body for a prompt file. Claude reads no .prompt.md, so
-    each prompt ships as ~/.claude/commands/<stem>.md instead. `agent: agent`
-    is dropped — it is a Copilot key — and $ARGUMENTS is appended so text
-    typed after the command reaches the prompt."""
-    description, body = parse_prompt(path)
-    return (
-        "---\n"
-        f"description: {json.dumps(description)}\n"
-        "---\n\n"
-        f"{body}\n\n"
-        "My request: $ARGUMENTS\n\n"
-        f"<!-- Generated from prompts/{Path(path).name} by install.py."
-        " Edit the prompt file, not this copy. -->\n"
-    )
-
-
-def install_claude_commands(dry_run, names=None):
-    """Write one Claude slash command per prompt file.
-    names: optional set of prompt *file* names; None = all."""
-    results = []
-    dest_root = claude_commands_dir()
-    own = custom_skill_names()
-    if not dry_run:
-        dest_root.mkdir(parents=True, exist_ok=True)
-    for p in sorted(PROMPTS_SRC.glob("*.prompt.md")):
-        if names is not None and p.name not in names:
-            continue
-        stem = prompt_stem(p)
-        if stem in own:
-            # ~/.claude/skills/<stem> already answers to /<stem>; a command
-            # of the same name would be a second entry for one workflow.
-            results.append(("claude", f"command:{stem}",
-                            "skipped (real skill of same name)"))
-            continue
-        dest = dest_root / f"{stem}.md"
-        text = claude_command_text(p)
-        if dest.is_file() and dest.read_text(encoding="utf-8") == text:
-            status = "up to date"
-        else:
-            status = "updated" if dest.exists() else "installed"
-            if not dry_run:
-                dest.write_text(text, encoding="utf-8")
-        results.append(("claude", f"command:{stem}", status))
-    return results
-
-
-def uninstall_claude_commands(names, dry_run):
-    """Remove 'prompt:<stem>' entries from ~/.claude/commands."""
-    results = []
-    dest_root = claude_commands_dir()
-    for n in names:
-        if not n.startswith("prompt:"):
-            continue
-        stem = n[len("prompt:"):]
-        f = dest_root / f"{stem}.md"
-        if f.is_file():
-            if not dry_run:
-                f.unlink()
-            results.append(("claude", f"command:{stem}", "removed"))
-        else:
-            results.append(("claude", f"command:{stem}", "not installed"))
-    return results
-
-
 def prompts_dir_for(target, repo=None):
-    """Where *.prompt.md go for a target, or None when it has no prompts."""
+    """Where earlier installs put *.prompt.md for a target, or None."""
     if target == "repo":
         return Path(repo) / REPO_PROMPTS_SUBDIR
     if target == "copilot":
         return vscode_prompts_dir()
-    return None                      # claude does not use prompt files
+    return None                      # claude never used prompt files
 
 
 def legacy_names():
-    """Pre-rename names of every custom skill and prompt."""
-    stems = custom_skill_names() | {prompt_stem(p)
-                                    for p in PROMPTS_SRC.glob("*.prompt.md")}
-    return sorted(filter(None, (legacy_name(n) for n in stems)))
+    """Pre-rename names of every custom skill. Leftovers of retired prompts,
+    renamed or not, belong to retire_prompts."""
+    return sorted(filter(None, (legacy_name(n)
+                                for n in custom_skill_names())))
 
 
 def is_ours(entry, old):
@@ -755,73 +614,67 @@ def is_ours(entry, old):
     return False
 
 
+def is_generated(path):
+    """True for a file, or a skill dir's SKILL.md, that an earlier install
+    generated from prompts/ — never a real skill or a hand-written file."""
+    path = Path(path)
+    if path.is_dir() and not path.is_symlink():
+        path = path / "SKILL.md"
+    try:
+        return GENERATED_MARKER in path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
+def _remove(path, dry_run):
+    if dry_run:
+        return
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    else:
+        shutil.rmtree(path)
+
+
 def remove_legacy(target, dest_root, dry_run):
-    """Delete installs left under pre-rename names: skill dirs in dest_root
-    and, for Claude, generated slash commands. Prompt files are handled by
-    retire_prompt_files."""
+    """Delete skill dirs left under pre-rename names. Generated prompt
+    leftovers are handled by retire_prompts."""
     results = []
     for old in legacy_names():
         new = LEGACY_PREFIX + old
         entry = dest_root / old
         if (entry.is_symlink() or entry.exists()) and is_ours(entry, old):
-            if not dry_run:
-                if entry.is_symlink() or entry.is_file():
-                    entry.unlink()
-                else:
-                    shutil.rmtree(entry)
+            _remove(entry, dry_run)
             results.append((target, old, f"removed (renamed to {new})"))
-        cmd = claude_commands_dir() / f"{old}.md"
-        if (target == "claude" and cmd.is_file()
-                and "Generated from prompts/" in cmd.read_text(
-                    encoding="utf-8")):
-            if not dry_run:
-                cmd.unlink()
-            results.append((target, f"command:{old}",
-                            f"removed (renamed to {new})"))
     return results
 
 
-def retire_prompt_files(dry_run, names=None, target="copilot", repo=None):
-    """Delete the .prompt.md copies earlier installs put in the target's
-    prompts dir. Copilot dropped prompt files (VS Code now offers a "Migrate
-    Prompt Files" dialog for them); the generated skills replace them.
-    Only files named after one of our prompts are touched.
-    names: optional set of prompt file names; None = all."""
+def retire_prompts(target, dest_root, dry_run, repo=None):
+    """Remove everything earlier installs generated from prompts/, under
+    current and pre-rename names: generated skill dirs in dest_root, Claude
+    slash commands, and .prompt.md copies. Only files carrying the
+    generated marker (or, for .prompt.md, one of our names) are touched."""
     results = []
+    status = "removed (prompts retired — use the skill)"
+    names = sorted(set(RETIRED_PROMPTS)
+                   | {legacy_name(n) for n in RETIRED_PROMPTS})
+    for name in names:
+        entry = dest_root / name
+        if entry.is_dir() and not entry.is_symlink() and is_generated(entry):
+            _remove(entry, dry_run)
+            results.append((target, name, status))
+        cmd = claude_commands_dir() / f"{name}.md"
+        if target == "claude" and cmd.is_file() and is_generated(cmd):
+            _remove(cmd, dry_run)
+            results.append((target, f"command:{name}", status))
     pdir = prompts_dir_for(target, repo)
-    if pdir is None or not pdir.is_dir():
-        return results
-    for p in sorted(PROMPTS_SRC.glob("*.prompt.md")):
-        if names is not None and p.name not in names:
-            continue
-        stem = prompt_stem(p)
-        for name in filter(None, (stem, legacy_name(stem))):
+    if pdir is not None and pdir.is_dir():
+        for name in names:
             old = pdir / f"{name}.prompt.md"
-            if not old.is_file():
-                continue
-            if not dry_run:
-                old.unlink()
-            results.append((target, f"prompt:{name}",
-                            "removed (prompt files retired — now a skill)"))
-    if not dry_run and pdir.is_dir() and not any(pdir.iterdir()):
-        pdir.rmdir()
-    return results
-
-
-def uninstall_prompts(names, target, prompts_dir, dry_run):
-    """Remove 'prompt:<stem>' entries from a target's prompts dir."""
-    results = []
-    for n in names:
-        if not n.startswith("prompt:"):
-            continue
-        stem = n[len("prompt:"):]
-        f = prompts_dir / f"{stem}.prompt.md" if prompts_dir else None
-        if f and f.is_file():
-            if not dry_run:
-                f.unlink()
-            results.append((target, n, "removed"))
-        else:
-            results.append((target, n, "not installed"))
+            if old.is_file():
+                _remove(old, dry_run)
+                results.append((target, f"prompt:{name}", status))
+        if not dry_run and not any(pdir.iterdir()):
+            pdir.rmdir()
     return results
 
 
@@ -1202,8 +1055,7 @@ def plugin_skills(cache_root=None, settings_path=None):
     return out
 
 
-def gather_status(target, dest_root, custom_names, plugin_map,
-                  generated_names=frozenset()):
+def gather_status(target, dest_root, custom_names, plugin_map):
     """Classify installed skills in dest_root. Returns (rows, warnings);
     row = (name, kind, mechanism)."""
     reg = registry()
@@ -1218,8 +1070,10 @@ def gather_status(target, dest_root, custom_names, plugin_map,
         if name.endswith(".bak"):
             warnings.append(f"{target}: {name} is a leftover backup — agents"
                             f" load it as a skill; delete it")
-        if name in generated_names:
-            kind = "custom (from prompt)"
+        if name not in custom_names and is_generated(entry):
+            kind = "retired prompt (stale)"
+            warnings.append(f"{target}: {name} was generated from a retired "
+                            f"prompt — re-run install.py to remove it")
         elif name in custom_names:
             kind = "custom"
         elif name in reg:
@@ -1258,33 +1112,24 @@ def gather_status(target, dest_root, custom_names, plugin_map,
 
 def show_status(targets, repo=None):
     custom_names = custom_skill_names()
-    generated = prompt_skill_names()
     plugin_map = plugin_skills()
     all_warnings = []
     for target in targets:
         dest_root = target_root(target, repo)
         print(f"\n{target}: {dest_root}")
         rows, warnings = gather_status(target, dest_root, custom_names,
-                                       plugin_map, generated)
-        prompts_dir = prompts_dir_for(target, repo)
-        prompts = (sorted(prompts_dir.glob("*.prompt.md"))
-                   if prompts_dir and prompts_dir.is_dir() else [])
-        if not rows and not prompts:
+                                       plugin_map)
+        if not rows:
             print("  (nothing installed)")
         for name, kind, mech in rows:
             print(f"  {name:35} {kind:32} {mech}")
-        for p in prompts:
-            print(f"  {prompt_stem(p):35} {'prompt file (stale)':32} copy")
-        if prompts:
-            warnings.append(f"{target}: {len(prompts)} .prompt.md file(s) in "
-                            f"{prompts_dir} — Copilot no longer reads prompt "
-                            f"files; re-run install.py to replace them with "
-                            f"skills")
-        if target == "claude":
-            cmd_dir = claude_commands_dir()
-            for c in sorted(cmd_dir.glob("*.md")) if cmd_dir.is_dir() else []:
-                print(f"  {c.stem:35} {'slash command (from prompt)':32}"
-                      f" copy")
+        leftovers = [n for _, n, _ in retire_prompts(
+            target, dest_root, dry_run=True, repo=repo)
+            if n.startswith(("prompt:", "command:"))]
+        if leftovers:
+            warnings.append(f"{target}: {len(leftovers)} file(s) left by the "
+                            f"retired prompts ({', '.join(leftovers)}) — "
+                            f"re-run install.py to remove them")
         all_warnings.extend(warnings)
     print()
     if all_warnings:
@@ -1292,6 +1137,59 @@ def show_status(targets, repo=None):
             warn(w)
     else:
         ok("no conflicts detected")
+
+
+def skill_description(skill_dir):
+    """First sentence of a SKILL.md description, for --list."""
+    try:
+        text = (Path(skill_dir) / "SKILL.md").read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return ""
+    for line in parts[1].splitlines():
+        key, _, value = line.partition(":")
+        if key.strip() == "description":
+            value = value.strip().strip("'\"")
+            return value.split(". ")[0].rstrip(".") + "."
+    return ""
+
+
+def show_list():
+    """Everything an install can select, grouped by kind."""
+    print("Custom skills (this repo):")
+    for name in sorted(custom_skill_names()):
+        print(f"  {name:34} {skill_description(SKILLS_SRC / name)}")
+    print("\nCommunity skills (* = installed by default):")
+    for name, (source, meta) in sorted(registry().items()):
+        mark = "*" if meta["default"] else " "
+        targets = ",".join(t for t in ANY if t in meta["targets"])
+        print(f"  {mark} {name:33} {source['label']} [{targets}]")
+    print("\nExternals (installed by their own CLI):")
+    for ext in EXTERNALS:
+        mark = "*" if ext["default"] else " "
+        print(f"  {mark} {ext['name']:33} {ext['doc']}")
+    print("\nRequirements (installed alongside):")
+    for skill, deps in sorted(REQUIRES.items()):
+        print(f"  {skill:34} -> {', '.join(deps)}")
+    print("\nAny agent, without this script: "
+          "npx skills add r0jjames/agent-skills -s <name>")
+
+
+def resolve_skill_args(raw):
+    """--skill value -> (custom names, community names, external names).
+    Exits on a name no source knows, listing what exists."""
+    names = [n.strip() for n in raw.split(",") if n.strip()]
+    custom, community, ext = (custom_skill_names(), all_community_names(),
+                              all_external_names())
+    unknown = [n for n in names if n not in custom | community | ext]
+    if unknown:
+        sys.exit(f"--skill: unknown {', '.join(unknown)} — run "
+                 f"'install.py --list' to see what can be installed")
+    return ({n for n in names if n in custom},
+            {n for n in names if n in community},
+            {n for n in names if n in ext})
 
 
 def uninstall_skills(names, target, dest_root, known_names, force, dry_run):
@@ -1362,15 +1260,24 @@ def main():
     ap.add_argument("--status", action="store_true",
                     help="show installed skills per target and conflicts")
     ap.add_argument("--uninstall", metavar="NAME[,NAME...]",
-                    help="remove skills (or prompt:<stem>) from the target")
+                    help="remove skills from the target")
     ap.add_argument("--force", action="store_true",
                     help="allow --uninstall of names the installer does "
                          "not know")
+    ap.add_argument("--skill", "-s", metavar="NAME[,NAME...]",
+                    help="install only these skills (custom, community or "
+                         "external) plus what they require — no picker")
+    ap.add_argument("--list", action="store_true",
+                    help="list every installable skill and exit")
     ap.add_argument("--repo", metavar="PATH",
                     help="also seed <PATH>/.github/skills (repo scope, "
                          "shareable with the team)")
     args = ap.parse_args()
     repo = resolve_repo(args.repo) if args.repo else None
+
+    if args.list:
+        show_list()
+        return
 
     if args.status:
         show_status(status_targets(args.target, repo), repo)
@@ -1380,7 +1287,11 @@ def main():
         targets = pick_targets(args.target, repo)
         names = [n.strip() for n in args.uninstall.split(",") if n.strip()]
         known = (custom_skill_names() | all_community_names()
-                 | prompt_skill_names() | all_external_names())
+                 | all_external_names())
+        for n in [n for n in names if n.startswith("prompt:")]:
+            warn(f"{n}: prompts were retired — every install run removes "
+                 f"what they generated")
+        names = [n for n in names if not n.startswith("prompt:")]
         results = []
         for target in targets:
             for dep, skill in uninstall_dependents(
@@ -1393,30 +1304,21 @@ def main():
             results.extend(uninstall_externals(ext_names, target,
                                                args.dry_run))
             skills = [n for n in names
-                      if not n.startswith("prompt:")
-                      and (target == "repo" or n not in ext_names)]
+                      if target == "repo" or n not in ext_names]
             results.extend(uninstall_skills(
                 skills, target, target_root(target, repo), known,
                 args.force, args.dry_run))
-            if target in ("copilot", "repo"):
-                results.extend(uninstall_prompts(
-                    names, target, prompts_dir_for(target, repo),
-                    args.dry_run))
-            if target == "claude":
-                results.extend(uninstall_claude_commands(names,
-                                                         args.dry_run))
         print_summary(results, targets, args.dry_run)
         return
 
-    interactive = args.target is None and repo is None
+    interactive = args.target is None and repo is None and not args.skill
     targets = pick_targets(args.target, repo)
     custom = sorted(p for p in SKILLS_SRC.iterdir() if p.is_dir())
     if not custom:
         sys.exit(f"No skills found in {SKILLS_SRC}")
-    prompt_files = sorted(p.name for p in PROMPTS_SRC.glob("*.prompt.md"))
 
     if interactive:
-        items = build_items([p.name for p in custom], prompt_files)
+        items = build_items([p.name for p in custom])
         reg = registry()
         ext_map = externals()
         plugin_map = plugin_skills()
@@ -1429,12 +1331,14 @@ def main():
         tags = {kn: t for kn, t in tags.items() if t}
         chosen = pick_items(items, preselected=preselected, tags=tags)
         sel_skills = {n for k, n in chosen if k == "skill"}
-        sel_prompts = {n for k, n in chosen if k == "prompt"}
         sel_community = {n for k, n in chosen if k == "community"}
         sel_externals = {n for k, n in chosen if k == "external"}
         custom = [p for p in custom if p.name in sel_skills]
+    elif args.skill:
+        sel_skills, sel_community, sel_externals = resolve_skill_args(
+            args.skill)
+        custom = [p for p in custom if p.name in sel_skills]
     else:
-        sel_prompts = None
         sel_community = default_community_names()
         sel_externals = default_external_names()
 
@@ -1490,21 +1394,8 @@ def main():
             target, dest_root, sel_community, args.dry_run))
         results.extend(install_externals_for_target(
             target, sel_externals, repo, args.dry_run))
-        if target in ("copilot", "repo"):
-            # Copilot reads no prompt files any more, in either IDE — each
-            # prompt ships as a generated skill, and the .prompt.md copies
-            # older installs left behind are removed.
-            results.extend(install_prompt_skills(dest_root, args.dry_run,
-                                                 names=sel_prompts,
-                                                 target=target))
-            results.extend(retire_prompt_files(args.dry_run,
-                                               names=sel_prompts,
-                                               target=target, repo=repo))
-        if target == "claude":
-            # Claude reads no .prompt.md — the prompts reach it, in both
-            # VS Code and JetBrains, as ~/.claude/commands/<stem>.md.
-            results.extend(install_claude_commands(args.dry_run,
-                                                   names=sel_prompts))
+        results.extend(retire_prompts(target, dest_root, args.dry_run,
+                                      repo=repo))
 
     print_summary(results, targets, args.dry_run)
 

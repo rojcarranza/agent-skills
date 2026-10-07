@@ -13,4 +13,28 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python3 -m unittest test_install
+      - name: Installer
+        run: python3 -m unittest test_install
+      - name: Skills follow the Agent Skills spec
+        run: python3 -m unittest test_skills
+      - name: Shared files are in sync
+        run: python3 tools/sync_shared.py --check
+
+  discoverable:
+    # What `npx skills add r0jjames/agent-skills` (skills.sh) will see.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: skills CLI finds every skill
+        run: |
+          expected=$(find skills -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l)
+          npx -y skills add . --list > list.txt 2>&1 || { cat list.txt; exit 1; }
+          cat list.txt
+          for d in skills/*/; do
+            name=$(basename "$d")
+            grep -q "$name" list.txt || { echo "::error::$name not discovered"; exit 1; }
+          done
+          echo "all $expected skills discovered"

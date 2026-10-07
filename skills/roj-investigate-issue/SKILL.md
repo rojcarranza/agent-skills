@@ -1,6 +1,7 @@
 ---
 name: roj-investigate-issue
 description: Investigate a reported bug or build failure, validate the root cause in the checked-out repo, and write a step-by-step solution report as a Markdown file. Use when the user says "investigate this issue", "validate this bug", "why did this pipeline/build fail", "find the root cause", or drops a problem/context .md file containing an error, stack trace, or build log. Covers Atlassian Bamboo pipelines, build plans and agents, plus Java, Python, Bash, Go, Dockerfiles, and Kubernetes manifests. Do NOT use for pure comprehension requests ("explain this code", "walk me through") — that is roj-explain-logic's job.
+license: MIT
 ---
 
 # Investigate Issue
@@ -98,9 +99,9 @@ to save it.
 
 ## Phase 5 — Report
 
-Write the report next to the input file: input `LISA-123.md` produces
-`LISA-123-investigation.md` in the same directory. Follow
-`references/report-template.md`. Sections, in order:
+Write the report next to the input file: input `PROJ-123.md` produces
+`PROJ-123-investigation.md` in the same directory. Follow
+`assets/report-template.md`. Sections, in order:
 
 1. **Summary** — 3 lines max: what broke, root cause, fix in one phrase.
 2. **Environment** — plan/stage/agent/language facts from intake.
@@ -139,7 +140,7 @@ file flow in under ~3 steps, or the root cause is outside the repo (Bamboo
 config, agent host) and has no code path to walk.
 
 - **Path**: `.tours/rca-<problem-name>.tour`, same stem as the report —
-  `LISA-123.md` gives `.tours/rca-LISA-123.tour`.
+  `PROJ-123.md` gives `.tours/rca-PROJ-123.tour`.
 
 - **Persona**: `bug-fixer`.
 

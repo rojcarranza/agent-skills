@@ -21,7 +21,7 @@ Not for pure code comprehension — that is `roj-explain-logic`.
 Any `.md` containing the problem. More is better; minimum is the actual
 error text. Useful content:
 
-    # LISA-123 build fails on agent
+    # PROJ-123 build fails on agent
 
     Plan: PROJ-PLAN, stage Build, job Compile, agent linux-agent-07
     Started failing after <commit/change if known>.
@@ -34,7 +34,12 @@ error text. Useful content:
 
 ## Install
 
-From the repo root:
+Any agent, with Node.js:
+
+    npx skills add r0jjames/agent-skills -s roj-investigate-issue
+
+Or from a clone of this repo (adds the skills it depends on, plus the
+Windows copy fallback):
 
     python3 install.py --target claude    # mac / Claude Code
     python3 install.py --target copilot   # work / GitHub Copilot
@@ -48,20 +53,20 @@ sharpen the method when present.
 
 Open the repo the build runs against, then:
 
-    investigate this issue: docs/issues/LISA-123.md
+    investigate this issue: docs/issues/PROJ-123.md
 
 or paste the problem text directly and say "investigate this issue and
-write the report next to docs/issues/LISA-123.md".
+write the report next to docs/issues/PROJ-123.md".
 
 ## Run — Claude Code
 
     cd <repo>
     claude
-    > investigate docs/issues/LISA-123.md
+    > investigate docs/issues/PROJ-123.md
 
 ## Output
 
-`LISA-123-investigation.md` next to the input: Summary, Environment,
+`PROJ-123-investigation.md` next to the input: Summary, Environment,
 Evidence, Hypotheses considered, Root cause (Confirmed = reproduced
 locally / Probable = evidence-only), Solution (diff or numbered manual
 steps), Verification (what to run/rerun to confirm).

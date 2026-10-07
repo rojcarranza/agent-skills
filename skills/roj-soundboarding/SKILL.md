@@ -1,6 +1,7 @@
 ---
 name: roj-soundboarding
-description: Soundboarding (SB) workflow — turn a user story (LISA-<id>.md) into an SB document with codebase-investigated core tasks, or implement an existing SB document task by task with review stops. Use when the user says "soundboarding", "/roj-soundboarding", "create an SB", "SB document", "implement SB-...", or asks to turn a user story into a refined, investigated task list before implementation.
+description: Soundboarding (SB) workflow — turn a user story (<TICKET-ID>.md) into an SB document with codebase-investigated core tasks, or implement an existing SB document task by task with review stops. Use when the user says "soundboarding", "create an SB", "SB document", "implement SB-...", or asks to turn a user story into a refined, investigated task list before implementation.
+license: MIT
 ---
 
 # Soundboarding
@@ -12,13 +13,18 @@ chained. Pick the flow from what the user asked for.
 
 ## Configuration
 
-- SOUNDBOARD_DIR: `/c/dev/projects/wr/soundboard` (Windows: `C:\dev\projects\wr\soundboard`)
-- PROJECTS_ROOT: `/c/dev/projects` (Windows: `C:\dev\projects`)
-- TEMPLATE: the `SB-template.md` file in this skill's own folder; if it is
+- SOUNDBOARD_DIR: where story files and SB documents live.
+- PROJECTS_ROOT: the directory that holds local checkouts of the team's
+  repositories.
+- TEMPLATE: `assets/SB-template.md` in this skill's own folder; if it is
   missing, fall back to `SOUNDBOARD_DIR/SB-template.md`.
 
-These paths are defaults, not requirements — the user can override
-SOUNDBOARD_DIR or PROJECTS_ROOT by stating different paths in their message.
+Resolve SOUNDBOARD_DIR and PROJECTS_ROOT in this order: a path stated in the
+user's message, then the environment variable of the same name
+(`echo "$SOUNDBOARD_DIR"`, `echo "$PROJECTS_ROOT"`; PowerShell:
+`$env:SOUNDBOARD_DIR`). Still unset: PROJECTS_ROOT defaults to the parent
+directory of the current workspace; for SOUNDBOARD_DIR ask once, and
+suggest exporting the variable so the question does not come back.
 
 ## Hard rules (all flows)
 
@@ -37,7 +43,7 @@ SOUNDBOARD_DIR or PROJECTS_ROOT by stating different paths in their message.
 
 ## Flow 1: Create an SB document
 
-Input: a user story markdown file (example: `LISA-110278.md`). Resolve it as
+Input: a user story markdown file (example: `PROJ-1001.md`). Resolve it as
 given relative to the current workspace first, then inside SOUNDBOARD_DIR.
 If it cannot be found or read: STOP and ask. Never proceed with an invented
 story.
@@ -76,7 +82,8 @@ story.
      Situation, and Expected result filled in; leave Log and Build result
      link cells empty — they are completed during implementation.
 5. **Write the output file.** Name it `SB-` + the story file's basename
-   (`LISA-110278.md` → `SB-LISA-110278.md`) and write it into SOUNDBOARD_DIR
+   (`PROJ-1001.md` → `SB-PROJ-1001.md`; `PROJ-1002 - Batch 1.md` →
+   `SB-PROJ-1002 - Batch 1.md`) and write it into SOUNDBOARD_DIR
    by absolute path, regardless of the current workspace. If file-editing
    tools refuse to write outside the workspace, write from the terminal. If
    the output file already exists: show a short summary of what would change
@@ -86,13 +93,13 @@ story.
 7. **Tour (ask first).** Offer a tour of the code the core tasks will touch
    (see Tour output) and build it only on a yes.
 
-See `examples/LISA-110278.md` (story) and `examples/sb-LISA-110278.md`
+See `examples/PROJ-1001.md` (story) and `examples/SB-PROJ-1001.md`
 (resulting SB) for the expected shape.
 
 ## Flow 2: Implement an SB document
 
-Input: an SB document name or file (examples: `SB-LISA-110278`,
-`SB-LISA-110278.md`, or an attached/opened file). A bare name resolves
+Input: an SB document name or file (examples: `SB-PROJ-1001`,
+`SB-PROJ-1001.md`, or an attached/opened file). A bare name resolves
 inside SOUNDBOARD_DIR; `.md` is optional and matching is case-insensitive.
 Multiple matches: list them and ask which. No match: STOP and ask.
 
@@ -112,15 +119,23 @@ Multiple matches: list them and ask which. No match: STOP and ask.
       permissions, present to team): do not execute, do not tick; say it is
       manual and go to the review stop.
    3. Code task: make the edits in the target repository.
-   4. Show what changed: files touched and a brief summary of each change.
-   5. STOP and ask: approve, request changes, or skip?
+   4. Verify before reporting: run `git diff` in the target repository and
+      compare it with the task's before/after table. Every listed change
+      must be present with the exact After value, and no file outside the
+      task may have new changes (files preflight already reported as dirty
+      are exempt unless the task edits them). Report any mismatch.
+   5. Show what changed: files touched and a brief summary of each change.
+   6. STOP and ask: approve, request changes, or skip?
       - Approve → tick a code task's checkbox to `- [x]` in the SB file
         (manual tasks stay unticked); continue.
       - Request changes → revise, show the result, stop again.
       - Skip → leave unticked, note the skip, continue.
 5. **Testing phase.** For each Testing table row, run whatever is locally
    runnable (unit tests, linters, builds) and write a one-line result into
-   the Log column — only results of commands actually run. For tests
+   the Log column — only results of commands actually run. A failing test,
+   lint or build: find the root cause first (read the full error, form a
+   hypothesis, confirm it), then propose the fix and stop for approval —
+   never stack guess-fixes. For tests
    needing unreachable environments: set Log to `manual — pending`. Leave
    Build result link cells for the user. If the SB file is outside the
    workspace and editing tools refuse, update it from the terminal.
@@ -150,8 +165,8 @@ up front skips the offer; "no tour" suppresses it. Skip the offer too when
 the SB touches one file with no cross-file flow in under ~3 steps, or has
 only non-code tasks.
 
-- **Path**: `.tours/sb-<LISA-id>.tour` in the primary target repository
-  (`SB-LISA-110278.md` → `.tours/sb-LISA-110278.tour`); one tour per
+- **Path**: `.tours/sb-<TICKET-ID>.tour` in the primary target repository
+  (`SB-PROJ-1001.md` → `.tours/sb-PROJ-1001.tour`); one tour per
   repository when tasks span several, same name.
 
 - **Persona**: `contributor`.

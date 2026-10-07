@@ -1,6 +1,7 @@
 ---
 name: roj-interview-prep
 description: Generate a complete DevOps technical-interview document for a candidate from their CV — candidate summary, tech matrix, personalized intro, CV deep-dive, fixed baseline question set, CV-specific questions, scenarios, behavioural, coding tasks, and a pass/no-pass result section. Use when the user says "interview prep", "prepare interview for <name>", "new candidate", drops a CV to prepare against, or asks for a "final assessment" of an interviewed candidate.
+license: MIT
 ---
 
 # Interview Prep
@@ -62,7 +63,7 @@ Linux + VM creation (VMware vSphere), Cloud (Azure or AWS), Databases
    ask for paste).
 2. Read calibration + frame (vault versions in vault mode, bundled
    otherwise) and `references/base-questions.md`.
-3. Fill `references/candidate-template.md` top to bottom:
+3. Fill `assets/candidate-template.md` top to bottom:
    - Part 1 matrix: one row per role competency, verdict
      Confident / Validate / Absent, with CV evidence quoted.
    - Part 4: one deep-dive block per significant project/claim + one block
