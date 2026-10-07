@@ -31,7 +31,9 @@ jobs:
       - name: skills CLI finds every skill
         run: |
           expected=$(find skills -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l)
-          npx -y skills add . --list > list.txt 2>&1 || { cat list.txt; exit 1; }
+          # NO_COLOR, then strip any ANSI codes left: the CLI colors skill names in CI.
+          NO_COLOR=1 npx -y skills add . --list > raw.txt 2>&1 || { cat raw.txt; exit 1; }
+          sed -E 's/\x1b\[[0-9;]*[A-Za-z]//g' raw.txt > list.txt
           cat list.txt
           for d in skills/*/; do
             name=$(basename "$d")
