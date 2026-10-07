@@ -35,6 +35,10 @@ jobs:
           cat list.txt
           for d in skills/*/; do
             name=$(basename "$d")
-            grep -q "$name" list.txt || { echo "::error::$name not discovered"; exit 1; }
+            # Match the CLI's header line for the skill (box-drawing prefix, then
+            # the name alone): a substring or a mention inside another skill's
+            # description, e.g. "use roj-code-review-pr instead", must not pass.
+            grep -qE "^[^a-zA-Z0-9]*${name}[[:space:]]*$" list.txt \
+              || { echo "::error::$name not discovered"; exit 1; }
           done
           echo "all $expected skills discovered"

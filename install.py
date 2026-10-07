@@ -651,26 +651,32 @@ def remove_legacy(target, dest_root, dry_run):
 def retire_prompts(target, dest_root, dry_run, repo=None):
     """Remove everything earlier installs generated from prompts/, under
     current and pre-rename names: generated skill dirs in dest_root, Claude
-    slash commands, and .prompt.md copies. Only files carrying the
-    generated marker (or, for .prompt.md, one of our names) are touched."""
+    slash commands, and .prompt.md copies, plus a <name>.bak copy of a
+    generated skill dir left by install_symlink's backup. Only regular files
+    and dirs carrying the generated marker (or, for .prompt.md, one of our
+    names) are touched — never a symlink, which points at something the
+    user owns."""
     results = []
     status = "removed (prompts retired — use the skill)"
     names = sorted(set(RETIRED_PROMPTS)
                    | {legacy_name(n) for n in RETIRED_PROMPTS})
     for name in names:
-        entry = dest_root / name
-        if entry.is_dir() and not entry.is_symlink() and is_generated(entry):
-            _remove(entry, dry_run)
-            results.append((target, name, status))
+        for dirname in (name, f"{name}.bak"):
+            entry = dest_root / dirname
+            if (entry.is_dir() and not entry.is_symlink()
+                    and is_generated(entry)):
+                _remove(entry, dry_run)
+                results.append((target, dirname, status))
         cmd = claude_commands_dir() / f"{name}.md"
-        if target == "claude" and cmd.is_file() and is_generated(cmd):
+        if (target == "claude" and cmd.is_file() and not cmd.is_symlink()
+                and is_generated(cmd)):
             _remove(cmd, dry_run)
             results.append((target, f"command:{name}", status))
     pdir = prompts_dir_for(target, repo)
     if pdir is not None and pdir.is_dir():
         for name in names:
             old = pdir / f"{name}.prompt.md"
-            if old.is_file():
+            if old.is_file() and not old.is_symlink():
                 _remove(old, dry_run)
                 results.append((target, f"prompt:{name}", status))
         if not dry_run and not any(pdir.iterdir()):

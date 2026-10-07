@@ -3,7 +3,7 @@ name: roj-review-pr-comment
 description: "Review an open GitHub pull request and post the findings to it as one COMMENT review with inline comments. Use when the user asks to \"review PR #123 and comment\", \"post a review on this PR\", gives a GitHub PR URL to review, or when a post-PR hook asks for an automated review. Uses the roj-code-review-pr method. For a local branch without a PR, use roj-code-review-pr instead."
 license: MIT
 compatibility: Requires git and an authenticated GitHub CLI (gh) with network access.
-allowed-tools: Read Grep Glob Bash(git diff:*) Bash(git fetch:*) Bash(git rev-parse:*) Bash(gh pr view:*) Bash(gh pr diff:*)
+allowed-tools: Read Grep Glob Bash(git diff:*) Bash(git fetch:*) Bash(git rev-parse:*) Bash(gh pr view:*) Bash(gh pr diff:*) Bash(gh api repos/*/pulls/*/reviews --paginate *)
 ---
 
 # Review PR — post comments

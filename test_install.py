@@ -877,6 +877,29 @@ class TestRetirePrompts(TempDirTest):
         (self.dest / "roj-create-sb").symlink_to(src)
         self.assertEqual(self.retire(), [])
 
+    def test_removes_generated_backup_dir(self):
+        bak = self.dest / "roj-create-sb.bak"
+        bak.mkdir()
+        (bak / "SKILL.md").write_text(self.GEN)
+        results = self.retire()
+        self.assertEqual([r[1] for r in results], ["roj-create-sb.bak"])
+        self.assertFalse(bak.exists())
+
+    def test_keeps_symlinked_claude_command(self):
+        target = self.tmp / "dotfiles-cmd.md"
+        target.write_text(self.GEN)
+        (self.cmds / "roj-create-sb.md").symlink_to(target)
+        self.assertEqual(self.retire(target="claude"), [])
+        self.assertTrue((self.cmds / "roj-create-sb.md").is_symlink())
+        self.assertTrue(target.is_file())
+
+    def test_keeps_symlinked_prompt_file(self):
+        target = self.tmp / "mine.prompt.md"
+        target.write_text("user's own")
+        (self.pdir / "roj-create-sb.prompt.md").symlink_to(target)
+        self.assertEqual(self.retire(), [])
+        self.assertTrue((self.pdir / "roj-create-sb.prompt.md").is_symlink())
+
     def test_removes_generated_claude_commands_new_and_legacy(self):
         (self.cmds / "roj-create-sb.md").write_text(self.GEN)
         (self.cmds / "create-sb.md").write_text(self.GEN)
