@@ -25,9 +25,10 @@ Rules that hold for the whole run:
 - Nothing outside `.tours/` and `docs/codebase/` is written, and no command
   beyond `git` and the delegated skills' own scripts runs without approval.
 
-Load `references/tour-plan.md` at phase 2, `references/flow-tracing.md` when
-phase 2 picks the core flow, and `references/step-writing.md` at phase 3.
-None of them are needed before that.
+Load `references/mermaid.md` at the end of phase 1, `references/tour-plan.md`
+at phase 2, `references/flow-tracing.md` when phase 2 picks the core flow,
+and `references/step-writing.md` at phase 3. None of them are needed before
+that.
 
 ## Phase 0 — Scope
 
@@ -83,6 +84,22 @@ echo 'docs/codebase/' >> .git/info/exclude
 
 Never edit the repository's `.gitignore`, and never run that command unasked.
 
+### Architecture diagrams
+
+Load `references/mermaid.md`. `docs/codebase/ARCHITECTURE.md` carries two
+Mermaid diagrams, whoever wrote the rest of the file:
+
+- **Layers** — a `flowchart TD` of the layers or modules, the direction
+  their dependencies point, and the external systems they reach.
+- **Core flow** — a `sequenceDiagram` of the main path. Phase 2 has not
+  picked tour 03's flow yet, so draw the path the README and the tests
+  exercise most; redraw it after phase 2 if the reader names another.
+
+Discovery wrote ASCII art, an indented tree or no diagram at all: replace or
+add the Mermaid version in place and leave the prose alone. Validate per
+`references/mermaid.md`. With `no docs`, nothing is written — show the layer
+diagram in chat at the phase 2 plan checkpoint instead.
+
 Carry into phase 2: the entry points, the layer boundaries, the conventions,
 the test layout, and every `[ASK USER]` item discovery raised.
 
@@ -105,6 +122,7 @@ Then print the plan and stop:
 
 - the four titles, one line each on what the tour covers,
 - the flow tour 03 will trace, named by its entry point (`file:line`),
+- with `no docs`, the Mermaid layer diagram,
 - anything discovery could not answer that would change the plan.
 
 One confirmation, then phase 3. This is the only interactive stop in the run.
@@ -149,7 +167,9 @@ Short. In chat:
 
 1. The tour files written, in replay order, with their step counts.
 2. The flow tour 03 traced, one sentence.
-3. Documents written, reused, or skipped.
+3. Documents written, reused, or skipped, and whether `ARCHITECTURE.md`
+   gained or had its Mermaid diagrams replaced — with the one-line viewing
+   note from `references/mermaid.md`.
 4. Every `[ASK USER]` item from discovery, as numbered questions.
 5. How to open them: VS Code, command palette, `CodeTour: Open Tour`.
    JetBrains has no CodeTour plugin — there the `.tour` files are read as
