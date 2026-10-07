@@ -24,7 +24,13 @@ Copilot: `/roj-soundboarding <request>`. JetBrains Copilot:
 | Implement SB | `/roj-soundboarding implement SB-PROJ-1001` |
 | Both chained | `/roj-soundboarding create and implement PROJ-1001.md` |
 
-Set the two directories once in your shell profile so the skill never asks:
+By default the SB document is written to the root of the repository you run
+the skill in, next to the code it describes, and sibling checkouts of that
+repository are searched for the other repos a story touches. The skill says
+where it will write at the start of each run.
+
+To keep stories and SB documents in one shared folder instead, set the
+directories once in your shell profile:
 
 ```bash
 export SOUNDBOARD_DIR=~/work/soundboard   # stories + SB documents

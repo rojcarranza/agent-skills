@@ -22,9 +22,16 @@ chained. Pick the flow from what the user asked for.
 Resolve SOUNDBOARD_DIR and PROJECTS_ROOT in this order: a path stated in the
 user's message, then the environment variable of the same name
 (`echo "$SOUNDBOARD_DIR"`, `echo "$PROJECTS_ROOT"`; PowerShell:
-`$env:SOUNDBOARD_DIR`). Still unset: PROJECTS_ROOT defaults to the parent
-directory of the current workspace; for SOUNDBOARD_DIR ask once, and
-suggest exporting the variable so the question does not come back.
+`$env:SOUNDBOARD_DIR`). Still unset, never ask — use the defaults:
+
+- SOUNDBOARD_DIR: the root of the repository the skill runs in
+  (`git rev-parse --show-toplevel`; outside a git repository, the current
+  working directory). Story files and SB documents then live next to the
+  code they describe.
+- PROJECTS_ROOT: the parent directory of that repository root.
+
+State the resolved SOUNDBOARD_DIR in one line at the start of the run, so
+the user sees where the SB document will be written.
 
 ## Hard rules (all flows)
 
