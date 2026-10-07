@@ -210,9 +210,10 @@ Files" dialog lists. **Do not use that dialog's Convert button**: four of the
 old prompts share a name with a real skill, and the converted stubs would
 shadow it. Re-run the installer instead.
 
-Set `SOUNDBOARD_DIR` and `PROJECTS_ROOT` for `roj-soundboarding` once
-(`setx SOUNDBOARD_DIR C:\path\to\soundboard`, same for `PROJECTS_ROOT`) —
-the skill asks for SOUNDBOARD_DIR on every run otherwise.
+`roj-soundboarding` writes SB documents to the root of the repository it runs
+in. To use one shared folder instead, set `SOUNDBOARD_DIR` and
+`PROJECTS_ROOT` once (`setx SOUNDBOARD_DIR C:\path\to\soundboard`, same
+for `PROJECTS_ROOT`).
 
 Team distribution per repo: `python install.py --repo <path>`, then PR the
 `.github/` additions. Check first that the team repo does not already own a
