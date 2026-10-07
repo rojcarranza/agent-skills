@@ -126,13 +126,23 @@ eval sets, kept outside `skills/` so no install ships them:
   near-misses aimed at sibling skills, to test the `description`.
 - `evals.json` — behaviour checks in skill-creator's schema.
 
-Run a trigger set from the skill-creator skill directory (it calls
-`claude -p` once per query, so it costs tokens):
+Run a trigger set from an empty scratch directory with its own `.claude/`
+— the runner writes temporary command files into the nearest one, which
+is otherwise `~/.claude/`. It calls `claude -p` once per query, so it costs
+tokens:
 
 ```bash
-python3 -m scripts.run_eval --eval-set <repo>/evals/<skill>/triggers.json \
-  --skill-path <repo>/skills/<skill>
+mkdir -p /tmp/skill-evals/.claude && cd /tmp/skill-evals
+PYTHONPATH=<skill-creator dir> python3 -m scripts.run_eval \
+  --eval-set <repo>/evals/<skill>/triggers.json \
+  --skill-path <repo>/skills/<skill> --num-workers 1
 ```
+
+Keep `--num-workers 1`: every worker drops a copy of the skill into the
+same `.claude/commands/`, so parallel runs see several identical skills,
+invoke another worker's copy and score a miss. A skill you already have
+installed competes with its own copy, so its should-trigger scores read
+low.
 
 `test_skills.py` checks the files' shape, not the scores.
 
