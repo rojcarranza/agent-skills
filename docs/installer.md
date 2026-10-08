@@ -160,9 +160,12 @@ before reading files. Seven skills do, through the shared
 | `roj-investigate-issue` | `graphify query "<error line>"` in phase 2 |
 | `roj-soundboarding` | one `graphify query` per acceptance criterion |
 
-It applies only when `graphify-out/graph.json` exists, the CLI runs and the
-graph is not older than the last commit; a stale graph gets one
-`graphify update .` (no LLM) or is skipped. The graph only says where to
+It applies only when `graphify-out/` has a graph and the CLI runs.
+Freshness is checked with `git`: the `Built from commit:` line in
+`GRAPH_REPORT.md` against `HEAD`, and files changed since are read from
+disk. Skills only run the read-only graphify queries (allowed alongside
+`git` in their command rules and `allowed-tools`); they never update or
+create the graph, and suggest `graphify update .` when it is stale. The graph only says where to
 look: findings and quotes still come from reading the lines.
 `roj-code-review-pr-fast` stays diff-local and never uses it. No skill
 creates `graphify-out/` unasked. Per repo, `graphify update .` builds a

@@ -252,6 +252,26 @@ class TestGraphFirst(unittest.TestCase):
             with self.subTest(needle):
                 self.assertIn(needle, text)
 
+    def test_graph_is_read_only(self):
+        text = (SKILLS / "roj-code-review-pr" / "references"
+                / "graph-first.md").read_text("utf-8")
+        self.assertIn("Built from commit:", text)
+        self.assertIn("Never run `graphify update`", text)
+
+    def test_command_rules_allow_the_graph_queries(self):
+        # Skills whose rules list allowed commands must also allow the
+        # read-only queries, or the graph step cannot run there.
+        for name in ("roj-tour-codebase", "roj-explain-feature-changes",
+                     "roj-code-review-pr", "roj-review-pr-comment"):
+            with self.subTest(name):
+                text = (SKILLS / name / "SKILL.md").read_text("utf-8")
+                self.assertIn("read-only `graphify` queries", text)
+                tools = re.search(r"^allowed-tools: (.*)$", text, re.M)
+                if tools:
+                    for cmd in ("query", "explain", "path", "affected"):
+                        self.assertIn(f"Bash(graphify {cmd} *)",
+                                      tools.group(1))
+
     def test_fast_review_stays_diff_local(self):
         text = (SKILLS / "roj-code-review-pr-fast" / "SKILL.md").read_text(
             "utf-8")

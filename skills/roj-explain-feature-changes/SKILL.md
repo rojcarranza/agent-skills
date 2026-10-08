@@ -16,8 +16,9 @@ feature should be understood (Important Observations in
 
 ## Rules for the whole run
 
-- Read-only. Run `git` commands and read files. The only other command is
-  the tour validator in phase 8. Never commit, push, reset, rebase,
+- Read-only. Run `git` commands and read files. The only other commands are
+  the tour validator in phase 8 and the read-only `graphify` queries in
+  `references/graph-first.md`. Never commit, push, reset, rebase,
   checkout, switch, stash, fetch or edit source code unless the user asks.
 - Write at most two files: the report (phase 6) and, only if the user
   accepts the offer, the tour (phase 8).

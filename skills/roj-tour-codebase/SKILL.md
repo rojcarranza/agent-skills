@@ -23,7 +23,9 @@ Rules that hold for the whole run:
 - Steps are built from evidence gathered in phases 1 and 2. There is no
   second investigation pass while writing tours.
 - Nothing outside `.tours/` and `docs/codebase/` is written, and no command
-  beyond `git` and the delegated skills' own scripts runs without approval.
+  beyond `git`, the read-only `graphify` queries in
+  `references/graph-first.md` and the delegated skills' own scripts runs
+  without approval.
 
 Load `references/mermaid.md` at the end of phase 1, `references/tour-plan.md`
 at phase 2, `references/flow-tracing.md` when phase 2 picks the core flow,

@@ -6,22 +6,25 @@ Without one, skip this file and work as the skill describes.
 
 ## When it applies
 
-All of these hold:
+1. `graphify-out/graph.json` and `graphify-out/GRAPH_REPORT.md` exist at the
+   repository root.
+2. Freshness, with `git` only: read the `Built from commit:` line near the
+   top of `GRAPH_REPORT.md` and compare it with `git rev-parse HEAD`.
+   - Same commit: the graph is current.
+   - Different: `git diff --name-only <built> HEAD` lists the files changed
+     since. Read those from disk, never from the graph. When the files the
+     task is about are mostly in that list, or `<built>` is unknown to git,
+     skip the graph.
+   - Files in `git status --porcelain` are always read from disk.
+3. The first graphify command fails (CLI missing): skip the graph for the
+   whole run.
 
-1. `graphify-out/graph.json` exists at the repository root.
-2. The `graphify` command runs (`graphify --version`).
-3. The graph is current: `git log -1 --format=%ct` is not newer than the
-   modification time of `graphify-out/graph.json`.
-
-Stale graph (1 and 2 hold, 3 fails): run `graphify update .` once — it
-re-extracts code without an LLM — then use it. If that fails, skip the graph
-for the whole run. A stale graph is worse than none. Files with uncommitted
-edits are always read from disk, never trusted to the graph.
-
-Never create `graphify-out/` unasked: it writes into the user's repo. On a
-large repository (hundreds of source files) with no graph, say once at the
-end: "`graphify update .` builds a code graph in seconds, without an LLM,
-and lets the next run read less." (The full `/graphify .` also maps docs,
+Only the read-only commands below run. Never run `graphify update`,
+`graphify watch` or `/graphify`, and never create or change
+`graphify-out/`: that writes into the user's repo. When the graph is stale,
+or a large repository (hundreds of source files) has none, say once at the
+end: "`graphify update .` refreshes the code graph in seconds, without an
+LLM, so the next run reads less." (The full `/graphify .` also maps docs,
 but spends tokens doing it.)
 
 ## Commands
@@ -46,5 +49,7 @@ it.
   evidence.
 - Code and graph disagree: the code wins. Say once that the graph looks
   stale.
+- Skills that list their allowed commands allow these read-only graphify
+  commands alongside `git`; nothing else is added.
 - Note in one line of the output that the graph was used, and that it was
   updated first if it was.
