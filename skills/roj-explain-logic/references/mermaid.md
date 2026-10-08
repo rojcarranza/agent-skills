@@ -5,6 +5,15 @@ a fenced ```` ```mermaid ```` block. No ASCII art, no indented trees, no
 images. Mermaid renders on GitHub and in the IDE preview, and stays a
 reviewable text diff.
 
+## Contents
+
+- Pick the diagram for the job
+- Draw from evidence
+- Syntax that renders the first time
+- Validate
+- Viewing
+- Examples
+
 ## Pick the diagram for the job
 
 | Job | Diagram | Start with |

@@ -59,13 +59,13 @@ code, and never claim what a build did.
 - A JDK or build tool version changed in the spec without the matching
   `pom.xml` or `go.mod` change, or the reverse.
 - Docker-based tasks added where agents may not run a Docker daemon.
-- Assumptions about the agent's OS, shell, or `PATH` — see the portability
-  section of `cross-cutting.md`.
+- Assumptions about the agent's OS, shell, or `PATH` — the next agent may
+  differ.
 
 ## Scripts inside specs
 
-Inline script tasks get the full `lang-bash.md` treatment. Two Bamboo-specific
-additions:
+Inline script tasks are shell scripts and get the shell review. Two
+Bamboo-specific additions:
 
 - A script that does not set `set -euo pipefail` — Bamboo marks the task
   failed only on a non-zero exit code from the script as a whole.

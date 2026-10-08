@@ -55,12 +55,15 @@ Stop before phase 1 in two cases:
 
 ## Phase 1 — Discovery
 
-Delegate to `acquire-codebase-knowledge`. Resolve it from the first path that
-exists:
+Delegate to `acquire-codebase-knowledge`. Invoke it by name when the agent
+lists it as a skill. To reach its files, take the first directory named
+`acquire-codebase-knowledge/` that exists under one of these roots — the
+places Claude Code, Copilot and the `skills` CLI install to:
 
-1. `~/.claude/skills/acquire-codebase-knowledge/`
-2. `~/.copilot/skills/acquire-codebase-knowledge/`
-3. `<repo>/.github/skills/acquire-codebase-knowledge/`
+1. Project: `<repo>/.claude/skills/`, `<repo>/.github/skills/`,
+   `<repo>/.agents/skills/`
+2. Personal: `~/.claude/skills/`, `~/.copilot/skills/`, `~/.agents/skills/`
+3. Claude Code plugin: `~/.claude/plugins/cache/*/*/*/skills/`
 
 Its output contract stands: `STACK.md`, `STRUCTURE.md`, `ARCHITECTURE.md`,
 `CONVENTIONS.md`, `INTEGRATIONS.md`, `TESTING.md` and `CONCERNS.md` in
@@ -146,14 +149,14 @@ Validate after **all** tours are written, not one at a time — the validator
 checks `nextTour` against the titles of the other `.tour` files, so an
 early check reports a chain that is merely incomplete.
 
-`code-tour` ships `scripts/validate_tour.py`. Resolve it from the installed
-skill directory, since its own `SKILL.md` documents a
-`~/.agents/skills/code-tour/scripts/` path this installer never creates. Run
-it from the repository root — `file` values resolve relative to the working
-directory:
+`code-tour` ships `scripts/validate_tour.py`. Find its `code-tour/`
+directory with the same root list as phase 1 — never assume one install
+location. Run the script from the repository root, since `file` values
+resolve relative to the working directory. Try `python3`, then `python`
+(Windows often has only `python`):
 
 ```
-python3 ~/.claude/skills/code-tour/scripts/validate_tour.py .tours/*.tour
+python3 <code-tour dir>/scripts/validate_tour.py .tours/*.tour
 ```
 
 Without the script: parse the JSON, confirm every `file` exists and every

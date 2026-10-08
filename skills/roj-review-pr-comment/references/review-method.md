@@ -1,7 +1,47 @@
 # Review method
 
-Always loaded. Owns severity, confidence, suppression rules, the system
-pass, the output skeleton, and calibration.
+Always loaded. Owns lens selection, severity, confidence, suppression
+rules, the system pass, the output skeleton, and calibration.
+
+## Contents
+
+- Lens selection — which `lang-*.md` / `platform-*.md` files to load
+- Severity, Confidence, Never report
+- Two gates before printing
+- System pass
+- Tests
+- Output skeleton
+- Calibration
+
+## Lens selection
+
+Keyed on the changed files, never on what the repository merely contains.
+Lens files sit next to this one.
+
+| Signal in the diff | Lens |
+|---|---|
+| `*.java`, `pom.xml`, `.mvn/**`, `mvnw*` | `lang-java.md` |
+| `*.py`, `pyproject.toml`, `requirements*.txt`, `setup.py`, `tox.ini` | `lang-python.md` |
+| `*.sh`, `*.bash`, extensionless file with a shell shebang | `lang-bash.md` |
+| `*.go`, `go.mod`, `go.sum` | `lang-go.md` |
+| `bamboo-specs/**`, `bamboo.y*ml`, `*Spec.java` under specs | `platform-bamboo.md` |
+| YAML with both `apiVersion:` and `kind:` | `platform-k8s.md` |
+| `Chart.yaml`, `values*.y*ml`, `templates/**` in a chart dir | `platform-helm.md` |
+| `Dockerfile*`, `*.dockerfile`, `docker-compose*.y*ml` | `platform-docker.md` |
+
+Ambiguous YAML: sniff the content (Kubernetes manifest vs Helm template vs
+Bamboo spec vs unrelated config) before assigning a lens.
+
+Lenses that travel together, counted as one:
+
+- Helm templates that render workloads → `platform-helm.md` and
+  `platform-k8s.md`.
+- Bamboo specs with inline script tasks → `platform-bamboo.md` and
+  `lang-bash.md`.
+
+Cap at three lenses, ranked by lines changed; name the skipped ones in the
+report. Repository markers (`pom.xml` merely existing) disambiguate only —
+never load a lens no changed file justifies.
 
 ## Severity — impact if shipped
 

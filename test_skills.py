@@ -37,6 +37,17 @@ if _local.is_file():
                          _local.read_text(encoding="utf-8").splitlines()
                          if line.strip() and not line.startswith("#")]
 PRIVATE_RE = re.compile("|".join(PRIVATE_PATTERNS), re.I)
+# The tour paragraph every walkthrough skill carries (see
+# test_tour_offer_paragraph_matches).
+TOUR_PARAGRAPH = """
+On a yes, chain to `code-tour`; if it is not installed write the JSON inline
+(`$schema`, `title`, `description`, `steps` of `{file, line, description}`).
+Validate with its `scripts/validate_tour.py` from whichever installed dir
+exists — resolve `~` to an absolute path (cmd does not expand it) and try
+`python`, then `python3`; skip validation rather than failing the run.
+`.tours/` is in the global git ignore: never commit a tour or edit
+`.gitignore`.
+"""
 # First word of a Mermaid block; anything else fails to render.
 MERMAID_TYPES = {"flowchart", "graph", "sequenceDiagram", "classDiagram",
                  "stateDiagram", "stateDiagram-v2", "erDiagram", "journey",
@@ -165,6 +176,47 @@ class TestSelfContained(SkillTest):
     def test_shared_copies_in_sync(self):
         stale = [str(p.relative_to(ROOT)) for p in sync_shared.stale()]
         self.assertEqual(stale, [], "run: python3 tools/sync_shared.py")
+
+    def test_long_references_have_contents(self):
+        """Anthropic's authoring guide: a reference file over 100 lines opens
+        with a table of contents, so a partial read still shows its scope."""
+        for d in skill_dirs():
+            for f in sorted((d / "references").glob("*.md")):
+                lines = f.read_text(encoding="utf-8").splitlines()
+                if len(lines) <= 100:
+                    continue
+                with self.subTest(file=str(f.relative_to(ROOT))):
+                    self.assertIn("## Contents", lines[:20])
+
+    def test_references_one_level_deep(self):
+        """A reference file may name a sibling only when SKILL.md names it
+        too (exactly or by a `prefix-*.md` pattern), so every file the agent
+        reads is reached straight from SKILL.md."""
+        for d, _, body in self.each():
+            refs = d / "references"
+            if not refs.is_dir():
+                continue
+            names = {f.name for f in refs.glob("*.md")}
+            globs = re.findall(r"`([\w-]+)-\*\.md`", body)
+            for f in sorted(refs.glob("*.md")):
+                text = f.read_text(encoding="utf-8")
+                for other in sorted(names - {f.name}):
+                    if other not in text:
+                        continue
+                    covered = other in body or any(
+                        other.startswith(g + "-") for g in globs)
+                    with self.subTest(file=f.name, names=other):
+                        self.assertTrue(covered, f"{d.name}/SKILL.md never "
+                                        f"names {other}, which {f.name} does")
+
+    def test_tour_offer_paragraph_matches(self):
+        """Walkthrough skills repeat one tour paragraph so each still works
+        when installed alone. Copies must not drift: edit them together."""
+        for d, _, body in self.each():
+            if "On a yes, chain to `code-tour`" not in body:
+                continue
+            flat = " ".join(body.split())
+            self.assertIn(" ".join(TOUR_PARAGRAPH.split()), flat)
 
     def test_every_skill_has_usage_guide(self):
         for d in skill_dirs():

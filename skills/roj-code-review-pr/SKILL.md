@@ -2,6 +2,7 @@
 name: roj-code-review-pr
 description: Review the changes on the current Git feature branch, before or after a PR is opened, and write a review report, plus a CodeTour on request. Use when the user says "review my branch", "review this PR", "code review", "review before I push", "check my changes", or asks for defects/risks in a diff. Detects the stacks the diff touches (Java/Maven, Python, Bash, Go, Bamboo, Docker, Kubernetes, Helm) and loads only the matching rules. Git-only — never calls a PR host API. For pure comprehension ("explain this branch") use roj-explain-logic; for a quick chat-only pass use roj-code-review-pr-fast.
 license: MIT
+allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git status *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git symbolic-ref *) Bash(git merge-base *) Bash(git show *)
 ---
 
 # Code Review PR
@@ -71,26 +72,10 @@ is empty, the branch is pushed — **post-PR**. Otherwise **pre-PR**.
 
 ## Phase 3 — Detect the stacks
 
-Keyed on the changed files, never on what the repository merely contains.
-
-| Signal in the diff | Lens |
-|---|---|
-| `*.java`, `pom.xml`, `.mvn/**`, `mvnw*` | `lang-java.md` |
-| `*.py`, `pyproject.toml`, `requirements*.txt`, `setup.py`, `tox.ini` | `lang-python.md` |
-| `*.sh`, `*.bash`, extensionless file with a shell shebang | `lang-bash.md` |
-| `*.go`, `go.mod`, `go.sum` | `lang-go.md` |
-| `bamboo-specs/**`, `bamboo.y*ml`, `*Spec.java` under specs | `platform-bamboo.md` |
-| YAML with both `apiVersion:` and `kind:` | `platform-k8s.md` |
-| `Chart.yaml`, `values*.y*ml`, `templates/**` in a chart dir | `platform-helm.md` |
-| `Dockerfile*`, `*.dockerfile`, `docker-compose*.y*ml` | `platform-docker.md` |
-
-Ambiguous YAML: sniff the content (Kubernetes manifest vs Helm template vs
-Bamboo spec vs unrelated config) before assigning a lens.
-
-Cap at three lenses, ranked by lines changed; name the skipped ones in the
-report. Repository markers (`pom.xml` merely existing) disambiguate only —
-never load a lens no changed file justifies. In a multi-module Maven repo, a
-changed child `pom.xml` pulls the parent into context for dependency
+Select lenses — `lang-*.md` and `platform-*.md` in `references/` — with the
+*Lens selection* section of `review-method.md`: the signal table, the lenses
+that travel together, and the cap of three. In a multi-module Maven repo,
+a changed child `pom.xml` pulls the parent into context for dependency
 management and version properties.
 
 ## Phase 4 — Load repository conventions

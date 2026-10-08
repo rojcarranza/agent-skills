@@ -14,7 +14,7 @@ verdict out). Pick the flow from what the user asked.
 
 Check the working directory, then one level up, for these names:
 
-- `2026-06-08-interviewer-cheatsheet.md` — calibration source
+- `*interviewer-cheatsheet*.md` — calibration source (newest, if several)
 - `Interview guide.md` — agenda + intro source
 - `CVs/` — CV source directory
 - `Candidates/` — output directory
@@ -35,7 +35,7 @@ Never fail because the vault is absent.
 2. **Evidence-driven:** every CV-specific question must trace to a CV claim
    or a role-competency gap. No generic filler questions.
 3. **Baseline is fixed:** embed ALL `B*` and `BC*` entries from
-   `references/base-questions.md` in full (currently B1-B23 + BC1/BC2).
+   `references/base-questions.md` in full — every `B<n>` and `BC<n>` heading.
    Reorder freely; never rewrite, drop, or dilute their content or expected
    answers. Entries marked `Optional` stay in the doc — the skip note may
    say "ask only if time allows".
