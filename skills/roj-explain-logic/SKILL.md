@@ -15,9 +15,9 @@ Priority order:
 
 1. **PR / feature branch**: pull the real diff first — never explain from memory.
    - Branch: resolve `<base>` — the user's named branch, else
-     `git symbolic-ref refs/remotes/origin/HEAD`, else the first of
-     `origin/main`, `origin/master`, `origin/develop` that exists; nothing
-     resolves, ask. Then `git diff --stat <base>...HEAD` and
+     `git symbolic-ref refs/remotes/origin/HEAD`, else the first that
+     exists of `origin/main`, `origin/master`, `origin/develop`, then local
+     `main`, `master`, `develop`; nothing resolves, ask. Then `git diff --stat <base>...HEAD` and
      `git diff <base>...HEAD`.
    - GitHub PR: the GitHub MCP server's pull-request tools if one is
      connected, else `gh pr diff <number>`.

@@ -152,7 +152,8 @@ early check reports a chain that is merely incomplete.
 `code-tour` ships `scripts/validate_tour.py`. Find its `code-tour/`
 directory with the same root list as phase 1 — never assume one install
 location. Run the script from the repository root, since `file` values
-resolve relative to the working directory:
+resolve relative to the working directory. Try `python3`, then `python`
+(Windows often has only `python`):
 
 ```
 python3 <code-tour dir>/scripts/validate_tour.py .tours/*.tour

@@ -30,17 +30,19 @@ the diff spans several stacks, load none and rely on the method plus
 
 ## Run
 
-1. **Base** — `git symbolic-ref refs/remotes/origin/HEAD`, else the first of
-   `origin/main`, `origin/master`, `origin/develop`. Nothing resolves: ask
-   once.
+1. **Base** — `git symbolic-ref refs/remotes/origin/HEAD`, else the first
+   that exists of `origin/main`, `origin/master`, `origin/develop`, then
+   local `main`, `master`, `develop`. Nothing resolves: ask once.
 2. **Diff** — `git diff --stat <base>...HEAD`, then
    `git diff -U10 <base>...HEAD`. Three-dot always; two-dot pulls in
    unrelated merged work.
 3. **Uncommitted** — `git status --porcelain`. When it lists changes, also
    run `git diff -U10 HEAD` (staged and unstaged edits) and read each
    untracked file it lists (`??`) as new code. This is the "before I
-   commit" case, so it is reviewed, not skipped. On the base branch itself,
-   the uncommitted diff is the whole review.
+   commit" case, so it is reviewed, not skipped. Add
+   `git diff --stat HEAD` and the untracked files to the header's file and
+   line counts. On the base branch itself, the uncommitted diff is the
+   whole review.
 4. **Read** the whole file for any hunk whose surrounding context matters.
 5. **Review** the changed hunks. Diff-local only — no caller search, no
    system pass. Say so at the end, so the user knows what was not checked.
