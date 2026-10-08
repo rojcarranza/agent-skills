@@ -17,6 +17,9 @@ python3 install.py --status                      # what is installed where + con
 python3 install.py --uninstall caveman --target copilot
 python3 install.py --list                        # everything installable
 python3 install.py --target claude --skill roj-code-review-pr,pdf   # cherry-pick
+python3 install.py --add-inventory https://skills.sh/vercel-labs/skills/find-skills
+python3 install.py --check-inventory-updates     # pinned skills behind upstream
+python3 install.py --update --target both        # latest of everything installed
 ```
 
 Repo scope — seeds `<repo>/.github/skills`, shareable with the team:
@@ -44,8 +47,11 @@ runs install every custom skill plus the default community set;
 `--skill a,b` installs only the named skills (custom, community or
 external) plus their requirements, with no picker.
 
-Community skills are fetched into `~/.agent-skills-cache/` and installed/updated
-in place (missing = install, present = update, unchanged = up to date):
+Community skills are the entries of `skills-inventory.json` (see
+[Skills inventory](#skills-inventory-skillssh)). Each repo is fetched at its
+pinned commit into `~/.agent-skills-cache/<owner>--<repo>` and installed or
+updated in place (missing = install, present = update, unchanged = up to
+date):
 
 **Default (both targets, unless noted):**
 - From `github/awesome-copilot`: code-tour, acquire-codebase-knowledge,
@@ -65,6 +71,9 @@ in place (missing = install, present = update, unchanged = up to date):
 - From `addyosmani/agent-skills`: observability-and-instrumentation,
   ci-cd-and-automation, security-and-hardening, deprecation-and-migration.
 - From `anthropics/skills`: pdf, docx, pptx, xlsx.
+- From `github/awesome-copilot`: arch-, centos-, debian- and
+  fedora-linux-triage. roj-investigate-issue names the matching one when a
+  root cause sits on the build agent's host.
 
 In [dotfiles](https://github.com/r0jjames/.dotfiles),
 `./install.py install agent-skills` clones this repo next to the dotfiles
@@ -94,6 +103,100 @@ Custom skills never require each other. Files two skills share — the
 review method `roj-code-review-pr-fast` and `roj-review-pr-comment` read —
 are copied into each skill by `tools/sync_shared.py`, so every skill also
 installs alone through `npx skills add`.
+
+## Skills inventory (skills.sh)
+
+`skills-inventory.json` lists community skills picked from
+[skills.sh](https://skills.sh) as data instead of code. The installer merges
+it into the community sources at start-up, so inventory skills behave like
+any other community skill: `--list`, the picker, `--skill`, `--status`,
+`--repo` and `--skills-only` all apply.
+
+```json
+{
+  "skills": [
+    {
+      "source": "vercel-labs/skills",
+      "skill": "find-skills",
+      "ref": "87a266971d9460a3d2606075b8e91edc83325472",
+      "targets": ["claude", "copilot"],
+      "default": true
+    }
+  ]
+}
+```
+
+| Key | Meaning |
+| --- | --- |
+| `source` | GitHub `owner/repo` |
+| `skill` | name skills.sh lists (the `name` in its `SKILL.md`); also the installed folder name |
+| `ref` | full commit SHA — the installer fetches exactly this commit |
+| `targets` | any of `claude`, `copilot`, `repo` |
+| `default` | `true` = installed by flag runs and pre-ticked in the picker |
+| `subdir` | optional, folder holding the skill folders (default `skills`) |
+| `folder` | optional, upstream folder name when it differs from `skill` |
+| `note` | optional, shown when a target is skipped |
+
+**Adding a skill.** Copy the skills.sh URL (or the `owner/repo@skill` form
+`npx skills add` takes) and run `--add-inventory`. It reads the repo's tree at
+the upstream tip, finds the `SKILL.md` whose folder or `name` matches —
+skills.sh lists `vercel-react-best-practices`, which lives in
+`skills/react-best-practices/` — and appends an entry pinned to that commit
+with `default: false`, since every installed description loads into every
+session. A second skill from an already-pinned repo reuses that repo's `ref`:
+one repo is one sparse clone at one commit. Then review the printed
+`SKILL.md` link, add a section to
+[community-skills.md](community-skills.md), and commit.
+
+**Updating.** `--check-inventory-updates` compares each pinned `ref` with the
+upstream tip and prints a compare link for the ones behind; it installs
+nothing. `--update` does the rest in one run (see
+[Updating everything](#updating-everything)). Either way the new pins are a
+diff of this file, so a new upstream version goes through review like any
+other change. The tool `find-skills` itself installs with
+`npx skills add -g`, outside this file — use that for a trial, the inventory
+for keeps.
+
+**Offline.** A failed fetch reuses the local cache only when it is still at
+the pinned commit; a cache at another commit is skipped rather than installed.
+
+Names may not clash: an inventory skill that matches a custom skill or an
+external stops the installer with an error.
+
+**Dependencies stay covered.** A test scans every custom skill for the
+outside skills it names (chain tables, "the `x` skill", `<distro>-x`
+templates) and fails unless each is installable: in the inventory, an
+external, another custom skill, or a Claude plugin it lists
+(`systematic-debugging` from superpowers). A new chain therefore lands with
+its inventory entry.
+
+## Updating everything
+
+```bash
+python3 install.py --update --target both    # omit --target: both personal targets
+python3 install.py --update --repo .         # a team repo's .github/skills
+python3 install.py --update --dry-run        # what would move, nothing written
+```
+
+One run, three steps:
+
+1. **This checkout.** Warns when the agent-skills checkout is behind its
+   upstream branch (`git pull`, then `--update` again). It never pulls: a
+   dotfiles-pinned checkout stays where it is.
+2. **Pins.** Moves every repo in `skills-inventory.json` to its upstream
+   tip and rewrites the file, with a compare link per repo. A repo whose new
+   commit no longer has one of our skills keeps its pin and says so. Review
+   `git diff skills-inventory.json` and commit, so every machine gets the
+   same versions.
+3. **Installed skills.** Refreshes only what each target already has:
+   custom skills (Claude's symlinks are already live; Copilot and repo
+   copies are re-copied), inventory skills at the new pins, and externals
+   with `--upgrade`. Nothing new is installed — use `--skill` or the picker
+   for that.
+
+`--update --skills-only` skips the network: pins stay, custom copies are
+refreshed. Skills installed with `npx skills add` are not tracked here;
+`npx skills update` refreshes those.
 
 ## External skills (installed by their own CLI)
 
