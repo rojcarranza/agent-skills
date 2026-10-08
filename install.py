@@ -51,6 +51,7 @@ import subprocess
 import sys
 import sysconfig
 import tempfile
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -95,6 +96,9 @@ EXTERNALS = [
         # directory the installer was launched from; repo scope runs in the
         # repo, where the file belongs.
         "repo_cwd": True,
+        # Written into the repo by `vscode install` alongside the skill;
+        # repo scope is only current while it is there.
+        "repo_files": (".github/copilot-instructions.md",),
         "version_file": ".graphify_version",
     },
 ]
@@ -1280,6 +1284,54 @@ def external_version(dest, ext):
         return None
 
 
+IS_WINDOWS = os.name == "nt"
+# A CLI's own installer can lose a rename race on Windows: VS Code/JetBrains
+# watching ~/.copilot/skills, or antivirus scanning freshly written files,
+# holds a handle and the rename fails with "Access is denied" (WinError 5).
+# Retry once after a pause; a second failure is reported with a hint.
+WINDOWS_RETRY_DELAY = 3
+
+
+def run_cli_install(argv, cwd, skill_dir):
+    """run_cli, plus one retry on Windows after clearing a staging dir the
+    failed attempt may have left behind."""
+    if run_cli(argv, cwd):
+        return True
+    if not IS_WINDOWS:
+        return False
+    log(f"retrying in {WINDOWS_RETRY_DELAY}s (Windows file lock?)")
+    shutil.rmtree(skill_dir / "references.tmp", ignore_errors=True)
+    time.sleep(WINDOWS_RETRY_DELAY)
+    if run_cli(argv, cwd):
+        return True
+    warn(f"{skill_dir} is locked: close VS Code and JetBrains (they watch "
+         f"the skills folder), then re-run with --skill "
+         f"{skill_dir.name}")
+    return False
+
+
+_SKILL_REF_RE = re.compile(r"references/[\w./-]+\.md")
+
+
+def external_current(ext, exe, dest):
+    """True when dest holds a complete skill stamped with the CLI's own
+    version — re-running the CLI's installer would change nothing. An
+    interrupted install (a leftover references.tmp, or a references/ file
+    SKILL.md names but that is missing) is never current."""
+    version = cli_version(exe)
+    skill_md = dest / "SKILL.md"
+    if (version is None or not skill_md.is_file()
+            or external_version(dest, ext) != version
+            or (dest / "references.tmp").exists()):
+        return False
+    try:
+        body = skill_md.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return all((dest / ref).is_file()
+               for ref in set(_SKILL_REF_RE.findall(body)))
+
+
 def install_external_for_target(target, ext, exe, repo, dry_run):
     """Delegate one external's install for one target.
 
@@ -1302,9 +1354,16 @@ def install_external_for_target(target, ext, exe, repo, dry_run):
         return planned
     if not exe:
         return [(target, name, "skipped (CLI unavailable)")]
+    if (external_current(ext, exe, target_root(target, repo) / name)
+            and (target != "repo" or all(
+                (Path(repo) / f).is_file()
+                for f in ext.get("repo_files", ())))):
+        return [(target, name, "up to date")]
+    # The CLI writes the personal skill; repo scope copies it afterwards.
+    cli_dest = target_root(argv_key) / name
     with tempfile.TemporaryDirectory() as scratch:
         cwd = repo if (target == "repo" and ext.get("repo_cwd")) else scratch
-        if not run_cli(argv, cwd):
+        if not run_cli_install(argv, cwd, cli_dest):
             return [(target, name, "failed")]
     if target != "repo":
         return [(target, name, "installed (by CLI)")]
