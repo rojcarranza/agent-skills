@@ -51,14 +51,15 @@ than shrink it.
 
 ## Validate
 
-When `mmdc` (`@mermaid-js/mermaid-cli`) is on `PATH`, render each diagram
-once and fix any error before handing it over:
+`mmdc` (`@mermaid-js/mermaid-cli`) is a command beyond `git`, so it runs only
+with the reader's approval. When it is on `PATH`, ask once per run; on a yes,
+render each diagram and fix any error before handing it over:
 
 ```
 mmdc -i diagram.mmd -o /dev/null
 ```
 
-Never install it unasked. Without it, check by hand: first line is a
+Never install it unasked. No `mmdc`, or no approval — check by hand: first line is a
 diagram type from the table above, every quote and bracket is closed, no
 reserved word is an ID, every edge refers to a declared or inline node.
 

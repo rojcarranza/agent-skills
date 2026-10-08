@@ -36,7 +36,7 @@ SHARED = {
 
 def sources(owner):
     path = SKILLS / owner
-    return [path] if path.suffix else sorted(path.glob("*.md"))
+    return [path] if path.is_file() else sorted(path.glob("*.md"))
 
 
 def pairs():
@@ -53,7 +53,7 @@ def stale():
     out = [dst for src, dst in pairs()
            if not dst.is_file() or not filecmp.cmp(src, dst, shallow=False)]
     for owner, copies in SHARED.items():
-        if (SKILLS / owner).suffix:    # a single file leaves no orphans
+        if (SKILLS / owner).is_file():  # a single file leaves no orphans
             continue
         names = {p.name for p in sources(owner)}
         for copy in copies:

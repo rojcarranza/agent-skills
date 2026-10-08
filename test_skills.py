@@ -43,6 +43,9 @@ MERMAID_TYPES = {"flowchart", "graph", "sequenceDiagram", "classDiagram",
                  "gantt", "pie", "mindmap", "timeline", "gitGraph",
                  "quadrantChart", "C4Context", "C4Container", "C4Component"}
 MERMAID_RE = re.compile(r"^```mermaid\n(.*?)^```$", re.M | re.S)
+# Quoted labels, |edge labels| and %% comments may say "end"; node IDs may not.
+MERMAID_TEXT_RE = re.compile(r'"[^"]*"|\|[^|]*\||%%.*')
+END_ID_RE = re.compile(r"(?<![\w-])end(?![\w-])")
 
 
 def skill_dirs():
@@ -189,8 +192,13 @@ class TestPublishable(unittest.TestCase):
                 first = block.strip().split(None, 1)[0] if block.strip() else ""
                 with self.subTest(file=str(f.relative_to(ROOT)), first=first):
                     self.assertIn(first, MERMAID_TYPES)
-                    self.assertNotRegex(block, r"(?m)^\s*end\s*(-->|---)",
-                                        "`end` cannot be a node ID")
+                    if first not in ("flowchart", "graph"):
+                        continue
+                    for line in block.splitlines():
+                        code = MERMAID_TEXT_RE.sub("", line).strip()
+                        if code != "end":   # a bare `end` closes a subgraph
+                            self.assertIsNone(END_ID_RE.search(code),
+                                              f"`end` as a node ID: {line}")
 
     def test_license_file(self):
         self.assertIn("MIT License",
