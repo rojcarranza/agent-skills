@@ -2,7 +2,7 @@
 name: roj-code-review-pr-fast
 description: Quick chat-only review of the current Git feature branch diff, uncommitted changes included — no report file, no CodeTour, no commands beyond git. Use when the user says "quick review", "fast review", "sanity check my changes", "review this before I commit", or wants a short pass mid-work. For the full review with a written report, a change summary and a tour, use roj-code-review-pr instead.
 license: MIT
-allowed-tools: Read Grep Glob Bash(git diff:*) Bash(git log:*) Bash(git status:*) Bash(git rev-parse:*) Bash(git symbolic-ref:*) Bash(git merge-base:*) Bash(git show:*)
+allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git status *) Bash(git rev-parse *) Bash(git symbolic-ref *) Bash(git merge-base *) Bash(git show *)
 ---
 
 # Code Review PR — fast
