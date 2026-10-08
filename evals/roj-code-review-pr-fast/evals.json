@@ -10,7 +10,7 @@
       "expected_output": "Chat-only short review, nothing written, the retry defect caught.",
       "expectations": [
         "Writes no file",
-        "Runs only git commands",
+        "Runs no command other than git against the repository",
         "Prints the one-line header with branch, base, file count and lens",
         "Flags that upload() returns None after the last failed attempt",
         "Reports only 🔴 Blocker and 🟠 Major findings",
@@ -29,7 +29,7 @@
         "Flags the hard-coded API token in the uncommitted app/cli.py",
         "Flags the shell=True command injection in the untracked app/notify.py",
         "Also flags the committed defect: upload() returns None after the last failed attempt",
-        "Runs only git commands"
+        "Runs no command other than git against the repository"
       ]
     },
     {
@@ -42,7 +42,8 @@
       "expectations": [
         "Loads no lang-*.md or platform-*.md lens",
         "Header says lens: none",
-        "Runs only git commands",
+        "Flags that svc/main.go ignores the error from http.ListenAndServe",
+        "Runs no command other than git against the repository",
         "States no finding that is factually wrong"
       ]
     },
