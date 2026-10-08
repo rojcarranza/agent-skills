@@ -65,7 +65,11 @@ story.
    repository has no local checkout, add it to Questions ("Repo X is not
    cloned locally — investigate before implementation") and do not guess its
    contents.
-3. **Investigate the code.** For each locally available impacted repository,
+3. **Investigate the code.** When a repository has a graph
+   (`references/graph-first.md`), first run one `graphify query` per
+   acceptance criterion to find the files, then read them — values still
+   come from the files (rule 1).
+   For each locally available impacted repository,
    find the concrete things that must change: exact files and paths, current
    values (versions, config properties, image tags, dependencies) and the
    required new values, and things already compliant — list those too, so

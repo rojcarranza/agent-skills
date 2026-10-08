@@ -8,7 +8,7 @@ rules, the system pass, the output skeleton, and calibration.
 - Lens selection — which `lang-*.md` / `platform-*.md` files to load
 - Severity, Confidence, Never report
 - Two gates before printing
-- System pass
+- System pass (uses `graph-first.md` when the repo has a graph)
 - Tests
 - Output skeleton
 - Calibration
@@ -101,6 +101,8 @@ padded out with Nits.
 
 - **Callers.** For every changed public symbol, find all call sites and check
   each still holds. Call sites outside the diff are where the real bugs are.
+  When `graph-first.md` applies, start with `graphify affected "<symbol>"`
+  and read the call sites it names; search by name only for what it misses.
 - **Configuration to code.** A new environment variable or flag read in code
   — is it set in the Bamboo spec, the Helm values, the Dockerfile? A new Helm
   value — is it templated and defaulted? A renamed Kubernetes resource — do

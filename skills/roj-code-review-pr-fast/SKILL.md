@@ -45,7 +45,8 @@ the diff spans several stacks, load none and rely on the method plus
    whole review.
 4. **Read** the whole file for any hunk whose surrounding context matters.
 5. **Review** the changed hunks. Diff-local only — no caller search, no
-   system pass. Say so at the end, so the user knows what was not checked.
+   system pass, so the method's `graph-first.md` step does not apply. Say
+   so at the end, so the user knows what was not checked.
 6. **Report** in chat.
 
 Skip entirely: generated and vendored paths, renames with unchanged content.
