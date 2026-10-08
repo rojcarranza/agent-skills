@@ -1,0 +1,66 @@
+[
+  {
+    "query": "walk me through what this branch does, it's my colleague's and I'm reviewing it tomorrow",
+    "should_trigger": true
+  },
+  {
+    "query": "what does src/sync/reconcile.go actually do? the loop at the bottom confuses me",
+    "should_trigger": true
+  },
+  {
+    "query": "explain PR #45 to me",
+    "should_trigger": true
+  },
+  {
+    "query": "trace the flow from the CLI entrypoint to where the upload happens in uploader.py",
+    "should_trigger": true
+  },
+  {
+    "query": "why does this work? trap 'rm -f \"$tmp\"' EXIT; set -euo pipefail; tmp=$(mktemp)",
+    "should_trigger": true
+  },
+  {
+    "query": "help me understand the logic in BuildPlanSpec.java, it's a bamboo spec",
+    "should_trigger": true
+  },
+  {
+    "query": "I don't get the goroutine and channel setup in worker.go - who closes the channel?",
+    "should_trigger": true
+  },
+  {
+    "query": "explain and review this function, flag anything risky",
+    "should_trigger": true
+  },
+  {
+    "query": "explain my changes vs develop so I can explain them to my reviewer",
+    "should_trigger": false
+  },
+  {
+    "query": "onboard me to this repo, I've never worked on it",
+    "should_trigger": false
+  },
+  {
+    "query": "review my branch for bugs",
+    "should_trigger": false
+  },
+  {
+    "query": "what's the difference between a Deployment and a StatefulSet in general?",
+    "should_trigger": false
+  },
+  {
+    "query": "explain why last night's build failed, here's the log",
+    "should_trigger": false
+  },
+  {
+    "query": "add comments to every function in utils.py explaining what it does",
+    "should_trigger": false
+  },
+  {
+    "query": "what is a context manager in python?",
+    "should_trigger": false
+  },
+  {
+    "query": "give me a codetour of the whole repository",
+    "should_trigger": false
+  }
+]

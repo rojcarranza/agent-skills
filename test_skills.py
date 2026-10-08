@@ -224,6 +224,66 @@ class TestSelfContained(SkillTest):
                 self.assertTrue((d / "USAGE.md").is_file())
 
 
+class TestEvals(unittest.TestCase):
+    """evals/<skill>/ holds skill-creator eval sets, outside skills/ so no
+    install carries them. triggers.json feeds scripts/run_eval.py;
+    evals.json follows skill-creator's schema."""
+
+    # Skills whose descriptions overlap; each must keep an eval set.
+    REQUIRED = {"roj-code-review-pr", "roj-code-review-pr-fast",
+                "roj-review-pr-comment", "roj-explain-logic",
+                "roj-explain-feature-changes"}
+
+    def eval_dirs(self):
+        return sorted(p for p in (ROOT / "evals").iterdir() if p.is_dir())
+
+    def test_required_eval_sets_exist(self):
+        present = {d.name for d in self.eval_dirs()}
+        self.assertLessEqual(self.REQUIRED, present)
+        for d in self.eval_dirs():
+            with self.subTest(evals=d.name):
+                self.assertTrue((d / "triggers.json").is_file())
+                self.assertTrue((d / "evals.json").is_file())
+
+    def test_eval_dirs_name_real_skills(self):
+        names = {d.name for d in skill_dirs()}
+        for d in self.eval_dirs():
+            with self.subTest(evals=d.name):
+                self.assertIn(d.name, names)
+
+    def test_triggers_cover_both_sides(self):
+        for d in self.eval_dirs():
+            with self.subTest(evals=d.name):
+                items = json.loads((d / "triggers.json").read_text("utf-8"))
+                for item in items:
+                    self.assertIsInstance(item["query"], str)
+                    self.assertIsInstance(item["should_trigger"], bool)
+                hits = sum(i["should_trigger"] for i in items)
+                self.assertGreaterEqual(hits, 5, "too few should-trigger")
+                self.assertGreaterEqual(len(items) - hits, 5,
+                                        "too few should-not-trigger")
+                queries = [i["query"] for i in items]
+                self.assertEqual(len(queries), len(set(queries)))
+
+    def test_behaviour_evals(self):
+        for d in self.eval_dirs():
+            with self.subTest(evals=d.name):
+                data = json.loads((d / "evals.json").read_text("utf-8"))
+                self.assertEqual(data["skill_name"], d.name)
+                self.assertGreaterEqual(len(data["evals"]), 3)
+                ids = [e["id"] for e in data["evals"]]
+                self.assertEqual(len(ids), len(set(ids)))
+                for e in data["evals"]:
+                    with self.subTest(id=e.get("id")):
+                        self.assertIsInstance(e["id"], int)
+                        self.assertTrue(e["prompt"])
+                        self.assertTrue(e["expected_output"])
+                        self.assertIsInstance(e["expectations"], list)
+                        self.assertTrue(e["expectations"])
+                        for x in e["expectations"]:
+                            self.assertIsInstance(x, str)
+
+
 class TestPublishable(unittest.TestCase):
     def test_no_private_paths_or_employer_details(self):
         for f in sorted(SKILLS.rglob("*.md")):

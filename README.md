@@ -125,6 +125,43 @@ npx skills add . --list               # what skills.sh will discover
 
 CI runs all three on every push and pull request.
 
+### Evals
+
+`evals/<skill>/` holds [skill-creator](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator)
+eval sets, kept outside `skills/` so no install ships them:
+
+- `triggers.json` — realistic prompts marked `should_trigger`, mostly
+  near-misses aimed at sibling skills, to test the `description`.
+- `evals.json` — behaviour checks in skill-creator's schema.
+
+Run a trigger set from an empty scratch directory with its own `.claude/`
+— the runner writes temporary command files into the nearest one, which
+is otherwise `~/.claude/`. It calls `claude -p` once per query, so it costs
+tokens:
+
+```bash
+mkdir -p /tmp/skill-evals/.claude && cd /tmp/skill-evals
+PYTHONPATH=<skill-creator dir> python3 -m scripts.run_eval \
+  --eval-set <repo>/evals/<skill>/triggers.json \
+  --skill-path <repo>/skills/<skill> --num-workers 1
+```
+
+Keep `--num-workers 1`: every worker drops a copy of the skill into the
+same `.claude/commands/`, so parallel runs see several identical skills,
+invoke another worker's copy and score a miss. A skill you already have
+installed competes with its own copy, so its should-trigger scores read
+low.
+
+`run_eval` reads only `triggers.json`. Behaviour checks in `evals.json`
+run through the skill-creator skill itself: ask Claude, with skill-creator
+loaded, to run `evals/<skill>/evals.json` against `skills/<skill>`. It
+runs each prompt with and without the skill, grades the outputs against
+`expectations`, and opens its review viewer. A prompt that names a setup
+in parentheses ("current branch is develop itself", "gh is not
+authenticated") needs a scratch repository put in that state first.
+
+`test_skills.py` checks the files' shape, not the scores.
+
 ## License
 
 [MIT](LICENSE)

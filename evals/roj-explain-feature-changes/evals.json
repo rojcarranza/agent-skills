@@ -1,0 +1,36 @@
+{
+  "skill_name": "roj-explain-feature-changes",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "explain my changes compared to develop",
+      "expected_output": "<branch-slug>-changes.md with comparison line, traced before/after behaviour and PR text.",
+      "expectations": [
+        "States 'Comparing <branch> -> <base> (merge base <sha>)' before anything else",
+        "Every behaviour claim carries a path:start-end reference",
+        "Every intent claim is labelled confirmed, likely or unknown",
+        "Contains no review findings or refactoring advice",
+        "Writes <branch-slug>-changes.md and offers .git/info/exclude"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "explain my changes (current branch is develop itself)",
+      "expected_output": "Asks which branch to explain instead of diffing develop against itself.",
+      "expectations": [
+        "Detects that the current branch is the base",
+        "Asks one question and writes nothing"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "explain my branch for the PR (run in a PowerShell terminal)",
+      "expected_output": "Git-only, one command per call, no pipes or Unix text tools.",
+      "expectations": [
+        "Uses git grep instead of grep/sed/awk",
+        "Uses no $(...) or pipes",
+        "Never commits, pushes, fetches or checks out"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+[
+  {
+    "query": "explain my changes compared to develop",
+    "should_trigger": true
+  },
+  {
+    "query": "help me understand what I changed in this branch, it's been three weeks and I forgot half of it",
+    "should_trigger": true
+  },
+  {
+    "query": "generate something I can paste into my PR explaining the new functions I added",
+    "should_trigger": true
+  },
+  {
+    "query": "my reviewer is going to ask about the retry logic I added - help me explain these changes",
+    "should_trigger": true
+  },
+  {
+    "query": "/roj-explain-feature-changes release/3.1",
+    "should_trigger": true
+  },
+  {
+    "query": "walk me through the code flow of what I added on feature/PROJ-88 vs main, I have to present it",
+    "should_trigger": true
+  },
+  {
+    "query": "I need per-change PR comments for my branch so the reviewers get context",
+    "should_trigger": true
+  },
+  {
+    "query": "what did I actually change on this branch, before vs after behaviour?",
+    "should_trigger": true
+  },
+  {
+    "query": "explain this PR from my coworker",
+    "should_trigger": false
+  },
+  {
+    "query": "review my changes for bugs before I push",
+    "should_trigger": false
+  },
+  {
+    "query": "fill in the PR template checklist for this branch",
+    "should_trigger": false
+  },
+  {
+    "query": "explain what the parse_args function in utils.py does",
+    "should_trigger": false
+  },
+  {
+    "query": "summarize the git log for the last week across the team",
+    "should_trigger": false
+  },
+  {
+    "query": "write a commit message for my staged changes",
+    "should_trigger": false
+  },
+  {
+    "query": "explain what changed in the helm 3.15 release notes",
+    "should_trigger": false
+  },
+  {
+    "query": "onboard me to this repo",
+    "should_trigger": false
+  }
+]
