@@ -140,11 +140,22 @@ without `integration.event_types`.
 
 # Structure Before → After
 
-    Before                              After
-    process_event()                     process_event()
-     ├── decides (hard-coded tuple)      ├── asks should_trigger_integration()
-     └── triggers                        │     └── validate_conditions()
-                                         └── triggers
+**Before**
+
+```mermaid
+flowchart LR
+  pe["process_event()"] --> decide["hard-coded event-type tuple"]
+  pe --> trig["trigger_integration()"]
+```
+
+**After**
+
+```mermaid
+flowchart LR
+  pe["process_event()"] --> should["should_trigger_integration()"]
+  should --> validate["validate_conditions()"]
+  pe --> trig["trigger_integration()"]
+```
 
 The decision now has its own module, so its rules can change without
 touching the processing flow.

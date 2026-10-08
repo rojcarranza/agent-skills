@@ -37,6 +37,15 @@ if _local.is_file():
                          _local.read_text(encoding="utf-8").splitlines()
                          if line.strip() and not line.startswith("#")]
 PRIVATE_RE = re.compile("|".join(PRIVATE_PATTERNS), re.I)
+# First word of a Mermaid block; anything else fails to render.
+MERMAID_TYPES = {"flowchart", "graph", "sequenceDiagram", "classDiagram",
+                 "stateDiagram", "stateDiagram-v2", "erDiagram", "journey",
+                 "gantt", "pie", "mindmap", "timeline", "gitGraph",
+                 "quadrantChart", "C4Context", "C4Container", "C4Component"}
+MERMAID_RE = re.compile(r"^```mermaid\n(.*?)^```$", re.M | re.S)
+# Quoted labels, |edge labels| and %% comments may say "end"; node IDs may not.
+MERMAID_TEXT_RE = re.compile(r'"[^"]*"|\|[^|]*\||%%.*')
+END_ID_RE = re.compile(r"(?<![\w-])end(?![\w-])")
 
 
 def skill_dirs():
@@ -170,6 +179,26 @@ class TestPublishable(unittest.TestCase):
             for n, line in enumerate(text.splitlines(), 1):
                 with self.subTest(file=str(f.relative_to(ROOT)), line=n):
                     self.assertIsNone(PRIVATE_RE.search(line), line)
+
+    def test_mermaid_blocks_name_a_diagram_type(self):
+        """Skills draw diagrams in Mermaid (references/mermaid.md); an
+        example that does not render teaches the agent broken syntax."""
+        for f in sorted(SKILLS.rglob("*.md")):
+            text = f.read_text(encoding="utf-8")
+            self.assertEqual(len(re.findall(r"(?m)^```mermaid", text)),
+                             len(MERMAID_RE.findall(text)),
+                             f"unclosed mermaid block in {f.name}")
+            for block in MERMAID_RE.findall(text):
+                first = block.strip().split(None, 1)[0] if block.strip() else ""
+                with self.subTest(file=str(f.relative_to(ROOT)), first=first):
+                    self.assertIn(first, MERMAID_TYPES)
+                    if first not in ("flowchart", "graph"):
+                        continue
+                    for line in block.splitlines():
+                        code = MERMAID_TEXT_RE.sub("", line).strip()
+                        if code != "end":   # a bare `end` closes a subgraph
+                            self.assertIsNone(END_ID_RE.search(code),
+                                              f"`end` as a node ID: {line}")
 
     def test_license_file(self):
         self.assertIn("MIT License",

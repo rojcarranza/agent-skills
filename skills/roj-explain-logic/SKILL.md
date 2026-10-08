@@ -39,8 +39,9 @@ Never jump straight to line-by-line.
 1. **Big picture** — 2-4 sentences: problem solved, overall approach.
    One-line role per changed file.
 2. **Flow** — walk the execution path in run order, not file-by-file.
-   Each step: inputs → transformation → outputs. Text/mermaid diagram when
-   3+ moving parts. Quote the actual lines, then explain in plain language.
+   Each step: inputs → transformation → outputs. Mermaid diagram when
+   3+ moving parts — `sequenceDiagram` for a call path, `flowchart` for
+   structure; never ASCII art. Load `references/mermaid.md` before drawing. Quote the actual lines, then explain in plain language.
    Name patterns used (retry loop, factory, decorator, context manager,
    goroutine + channel, trap/cleanup) with a one-line definition.
 3. **Why** — this approach vs the obvious alternative; what breaks without

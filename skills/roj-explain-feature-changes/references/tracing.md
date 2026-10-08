@@ -97,8 +97,8 @@ affects it; never explain the technology in general.
 - Processing pipelines and CI/CD: what runs, when, and in what order.
 
 When a job moves between components, or a flow gains or loses a step, note
-the old and the new structure. The report shows them as a short
-before/after sketch (`references/output-template.md`).
+the old and the new structure. The report shows them as a Mermaid
+before/after pair (`references/output-template.md`).
 
 ## Tests
 

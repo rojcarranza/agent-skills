@@ -143,7 +143,8 @@ Never present a likely or unknown reason as confirmed.
 ## Phase 6 — Write
 
 Load `references/output-template.md` and follow its skeleton, evidence rules
-and style rules. Leave out any section that would be empty. Consult
+and style rules. Every diagram is Mermaid: load `references/mermaid.md`
+before drawing one. Leave out any section that would be empty. Consult
 `examples/example-run.md` if the depth or tone needs grounding; never copy
 its facts.
 
