@@ -50,11 +50,15 @@ no per-repository seeding.
    documents in `docs/codebase/`. An existing `docs/codebase/` is reused
    unless you ask for a refresh; a missing skill falls back to its `scan.py`,
    then to inline discovery.
-3. Picks the one flow worth tracing — the one you named, else the one the
+3. Makes sure `docs/codebase/ARCHITECTURE.md` has two Mermaid diagrams, a
+   layer `flowchart` and a core-flow `sequenceDiagram`, replacing any ASCII
+   art discovery wrote. With `no docs` the layer diagram shows in the plan
+   instead.
+4. Picks the one flow worth tracing — the one you named, else the one the
    README exercises, else the one the tests cover hardest.
-4. **Prints the plan and stops.** Four titles, one line each, and the entry
+5. **Prints the plan and stops.** Four titles, one line each, and the entry
    point of the flow it will trace. This is the only interactive stop.
-5. Writes the tours through `code-tour` (inline JSON when that skill is
+6. Writes the tours through `code-tour` (inline JSON when that skill is
    absent), then validates every step's `file:line` before reporting.
 
 ## Output
@@ -91,6 +95,12 @@ never edits a repository's `.gitignore`.
   or use `docs/codebase/` as the entry point and jump to the `file:line`
   values by hand.
 
+## Viewing the diagrams
+
+GitHub renders the Mermaid blocks in `docs/codebase/` as they are. In VS Code
+install *Markdown Preview Mermaid Support* (`bierner.markdown-mermaid`); in
+JetBrains enable Mermaid under Settings → Languages & Frameworks → Markdown.
+
 ## Customising
 
 The rules live in `references/` as prose checklists — edit them directly:
@@ -101,6 +111,8 @@ The rules live in `references/` as prose checklists — edit them directly:
   per stack (Java/Spring, Python, Go, Node/TypeScript, Bash, Bamboo,
   Docker/Kubernetes/Helm).
 - `step-writing.md` — what a step says, quoting limits, anti-patterns.
+- `mermaid.md` — diagram type per job, syntax rules, validation, viewing.
+  Shared: edit it here, then run `python3 tools/sync_shared.py`.
 
 Want a fifth tour, a different persona, or a different flow-picking rule?
 `tour-plan.md` is where that change belongs.

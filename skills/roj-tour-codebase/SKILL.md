@@ -25,9 +25,10 @@ Rules that hold for the whole run:
 - Nothing outside `.tours/` and `docs/codebase/` is written, and no command
   beyond `git` and the delegated skills' own scripts runs without approval.
 
-Load `references/tour-plan.md` at phase 2, `references/flow-tracing.md` when
-phase 2 picks the core flow, and `references/step-writing.md` at phase 3.
-None of them are needed before that.
+Load `references/mermaid.md` at the end of phase 1, `references/tour-plan.md`
+at phase 2, `references/flow-tracing.md` when phase 2 picks the core flow,
+and `references/step-writing.md` at phase 3. None of them are needed before
+that.
 
 ## Phase 0 — Scope
 
@@ -54,12 +55,15 @@ Stop before phase 1 in two cases:
 
 ## Phase 1 — Discovery
 
-Delegate to `acquire-codebase-knowledge`. Resolve it from the first path that
-exists:
+Delegate to `acquire-codebase-knowledge`. Invoke it by name when the agent
+lists it as a skill. To reach its files, take the first directory named
+`acquire-codebase-knowledge/` that exists under one of these roots — the
+places Claude Code, Copilot and the `skills` CLI install to:
 
-1. `~/.claude/skills/acquire-codebase-knowledge/`
-2. `~/.copilot/skills/acquire-codebase-knowledge/`
-3. `<repo>/.github/skills/acquire-codebase-knowledge/`
+1. Project: `<repo>/.claude/skills/`, `<repo>/.github/skills/`,
+   `<repo>/.agents/skills/`
+2. Personal: `~/.claude/skills/`, `~/.copilot/skills/`, `~/.agents/skills/`
+3. Claude Code plugin: `~/.claude/plugins/cache/*/*/*/skills/`
 
 Its output contract stands: `STACK.md`, `STRUCTURE.md`, `ARCHITECTURE.md`,
 `CONVENTIONS.md`, `INTEGRATIONS.md`, `TESTING.md` and `CONCERNS.md` in
@@ -83,6 +87,22 @@ echo 'docs/codebase/' >> .git/info/exclude
 
 Never edit the repository's `.gitignore`, and never run that command unasked.
 
+### Architecture diagrams
+
+Load `references/mermaid.md`. `docs/codebase/ARCHITECTURE.md` carries two
+Mermaid diagrams, whoever wrote the rest of the file:
+
+- **Layers** — a `flowchart TD` of the layers or modules, the direction
+  their dependencies point, and the external systems they reach.
+- **Core flow** — a `sequenceDiagram` of the main path. Phase 2 has not
+  picked tour 03's flow yet, so draw the path the README and the tests
+  exercise most; redraw it after phase 2 if the reader names another.
+
+Discovery wrote ASCII art, an indented tree or no diagram at all: replace or
+add the Mermaid version in place and leave the prose alone. Validate per
+`references/mermaid.md`. With `no docs`, nothing is written — show the layer
+diagram in chat at the phase 2 plan checkpoint instead.
+
 Carry into phase 2: the entry points, the layer boundaries, the conventions,
 the test layout, and every `[ASK USER]` item discovery raised.
 
@@ -105,6 +125,7 @@ Then print the plan and stop:
 
 - the four titles, one line each on what the tour covers,
 - the flow tour 03 will trace, named by its entry point (`file:line`),
+- with `no docs`, the Mermaid layer diagram,
 - anything discovery could not answer that would change the plan.
 
 One confirmation, then phase 3. This is the only interactive stop in the run.
@@ -128,14 +149,14 @@ Validate after **all** tours are written, not one at a time — the validator
 checks `nextTour` against the titles of the other `.tour` files, so an
 early check reports a chain that is merely incomplete.
 
-`code-tour` ships `scripts/validate_tour.py`. Resolve it from the installed
-skill directory, since its own `SKILL.md` documents a
-`~/.agents/skills/code-tour/scripts/` path this installer never creates. Run
-it from the repository root — `file` values resolve relative to the working
-directory:
+`code-tour` ships `scripts/validate_tour.py`. Find its `code-tour/`
+directory with the same root list as phase 1 — never assume one install
+location. Run the script from the repository root, since `file` values
+resolve relative to the working directory. Try `python3`, then `python`
+(Windows often has only `python`):
 
 ```
-python3 ~/.claude/skills/code-tour/scripts/validate_tour.py .tours/*.tour
+python3 <code-tour dir>/scripts/validate_tour.py .tours/*.tour
 ```
 
 Without the script: parse the JSON, confirm every `file` exists and every
@@ -149,7 +170,9 @@ Short. In chat:
 
 1. The tour files written, in replay order, with their step counts.
 2. The flow tour 03 traced, one sentence.
-3. Documents written, reused, or skipped.
+3. Documents written, reused, or skipped, and whether `ARCHITECTURE.md`
+   gained or had its Mermaid diagrams replaced — with the one-line viewing
+   note from `references/mermaid.md`.
 4. Every `[ASK USER]` item from discovery, as numbered questions.
 5. How to open them: VS Code, command palette, `CodeTour: Open Tour`.
    JetBrains has no CodeTour plugin — there the `.tour` files are read as

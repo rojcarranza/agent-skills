@@ -63,6 +63,11 @@ VDI and JetBrains setup are in [docs/installer.md](docs/installer.md).
 | [`roj-soundboarding`](skills/roj-soundboarding/USAGE.md) | User story → code-investigated SB document → task-by-task implementation with review stops. Never touches git. |
 | [`roj-interview-prep`](skills/roj-interview-prep/USAGE.md) | DevOps technical-interview document generated from a candidate's CV. |
 
+Diagrams are always Mermaid: `roj-tour-codebase` puts a layer and a
+core-flow diagram in `docs/codebase/ARCHITECTURE.md`, and the explain skills
+draw flows and before/after structure the same way. GitHub renders them; VS
+Code needs `bierner.markdown-mermaid`, JetBrains its Markdown Mermaid option.
+
 Walkthrough skills **offer** a CodeTour at the end of a run and write one
 into `.tours/` only on a yes, chaining to the community `code-tour` skill.
 `roj-tour-codebase` is the exception: its tours are the output.
@@ -97,6 +102,9 @@ test_skills.py    spec + publishing checks for every skill
 - Keep `SKILL.md` lean — every installed skill's description loads into
   every session, and the body loads in full on activation. Push detail into
   `references/` and point at it with a path relative to the skill root.
+  Keep references one level deep — a reference file may name a sibling only
+  when `SKILL.md` names it too — and open any reference over 100 lines with
+  a `## Contents` list.
 - A skill reads only its own folder. When two skills need the same file,
   the owner keeps it and `tools/sync_shared.py` copies it in — edit the
   owner's copy, then run `python3 tools/sync_shared.py`.

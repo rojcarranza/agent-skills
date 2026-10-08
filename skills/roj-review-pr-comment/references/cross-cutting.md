@@ -4,6 +4,20 @@ Always loaded. Language-independent classes that dominate infrastructure and
 automation code. Check every changed hunk against these before reaching for a
 language lens.
 
+## Contents
+
+- Secrets and credentials
+- Idempotency and re-runs
+- Error handling
+- Timeouts, retries, resource limits
+- Destructive operations
+- Unsafe defaults
+- Logging and observability
+- Concurrency and shared state
+- Portability
+- Dependencies
+- Not a finding here
+
 ## Secrets and credentials
 
 - Tokens, passwords, private keys, kubeconfigs, `.pem` files added to the

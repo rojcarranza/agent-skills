@@ -3,6 +3,16 @@
 Loaded at phase 6. The report serves the developer first and the reviewer
 second. Leave out any section that would be empty; never write "N/A".
 
+## Contents
+
+- Skeleton
+- Length and repetition
+- Evidence rules
+- Style
+- PR Explanation — fallback rules
+- PR Comments
+- Important Observations
+
 ## Skeleton
 
     # <branch> — change explanation
@@ -44,9 +54,10 @@ second. Leave out any section that would be empty; never write "N/A".
 
     # Structure Before → After
     Only when a job moved between components, a service boundary changed,
-    or a flow gained or lost a step. Two short indented sketches (a tree or
-    a flow), then one sentence on what the difference means. Leave the
-    section out otherwise.
+    or a flow gained or lost a step. Two Mermaid `flowchart LR` blocks
+    headed **Before** and **After**, same node IDs for what did not move,
+    then one sentence on what the difference means. Leave the section out
+    otherwise.
 
     # Key Things to Understand
     3–7 numbered points the developer must be able to say out loud in review.

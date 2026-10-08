@@ -1,6 +1,6 @@
 ---
 name: roj-explain-logic
-description: Explain the logic of code the user is reading — a pull request, a feature branch diff, a file, or a function — as a guided, step-by-step walkthrough. Use when the user says "explain this PR", "walk me through this branch", "what does this code do", "help me understand this logic", "why does this work", "trace this flow", or pastes/points at code they are trying to understand, even without the word "explain". Covers Java, Python, Go, shell scripts, and Atlassian Bamboo API/specs code. For the user's own branch explained for their PR use roj-explain-feature-changes; for onboarding to a whole repo use roj-tour-codebase; for finding defects use roj-code-review-pr.
+description: Explain the logic of code the user is reading — a pull request, a feature branch diff, a file, or a function — as a guided, step-by-step walkthrough. Use when the user says "explain this PR", "walk me through this branch", "what does this code do", "help me understand this logic", "why does this work", "trace this flow", or pastes/points at code they are trying to understand, even without the word "explain". Also for "explain and review" or "explain this and flag anything risky", which adds a review pass after the walkthrough. Covers Java, Python, Go, shell scripts, and Atlassian Bamboo API/specs code. For the user's own branch explained for their PR use roj-explain-feature-changes; for onboarding to a whole repo use roj-tour-codebase; for finding defects use roj-code-review-pr.
 license: MIT
 ---
 
@@ -14,10 +14,13 @@ No improvement suggestions unless asked.
 Priority order:
 
 1. **PR / feature branch**: pull the real diff first — never explain from memory.
-   - Branch: `git diff main...HEAD` (base unclear: check `git merge-base`).
-     Changed files: `git diff --stat main...HEAD`.
-   - GitHub PR: GitHub MCP tools (`get_pull_request`, `get_pull_request_diff`)
-     if available, else `gh pr diff <number>`.
+   - Branch: resolve `<base>` — the user's named branch, else
+     `git symbolic-ref refs/remotes/origin/HEAD`, else the first that
+     exists of `origin/main`, `origin/master`, `origin/develop`, then local
+     `main`, `master`, `develop`; nothing resolves, ask. Then `git diff --stat <base>...HEAD` and
+     `git diff <base>...HEAD`.
+   - GitHub PR: the GitHub MCP server's pull-request tools if one is
+     connected, else `gh pr diff <number>`.
 2. **File/function**: read the whole file, not just the snippet.
 3. **Ambiguous**: ask ONE question ("Which branch/PR, or which file?"), then proceed.
 
@@ -39,8 +42,9 @@ Never jump straight to line-by-line.
 1. **Big picture** — 2-4 sentences: problem solved, overall approach.
    One-line role per changed file.
 2. **Flow** — walk the execution path in run order, not file-by-file.
-   Each step: inputs → transformation → outputs. Text/mermaid diagram when
-   3+ moving parts. Quote the actual lines, then explain in plain language.
+   Each step: inputs → transformation → outputs. Mermaid diagram when
+   3+ moving parts — `sequenceDiagram` for a call path, `flowchart` for
+   structure; never ASCII art. Load `references/mermaid.md` before drawing. Quote the actual lines, then explain in plain language.
    Name patterns used (retry loop, factory, decorator, context manager,
    goroutine + channel, trap/cleanup) with a one-line definition.
 3. **Why** — this approach vs the obvious alternative; what breaks without
@@ -53,7 +57,7 @@ Never jump straight to line-by-line.
 
 - Diff < 100 lines: full line-level walkthrough.
 - Large diff: flow first, then offer "which part should I zoom into line-by-line?"
-- User is a mid/senior DevOps engineer: skip syntax basics, DO define
+- Pitch to the user's level: skip syntax basics they already use, DO define
   language idioms they may not use daily.
 
 ## Language lenses

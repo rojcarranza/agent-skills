@@ -1,8 +1,25 @@
 # Interviewer Calibration — DevOps (bundled copy)
 
 Fallback for when the vault cheatsheet
-(`2026-06-08-interviewer-cheatsheet.md`) is not available. If the vault
+(`*interviewer-cheatsheet*.md`) is not available. If the vault
 version exists, use it instead — it is authoritative.
+
+## Contents
+
+- Linux
+- Git, trunk-based development
+- Docker Compose
+- Kubernetes
+- CI/CD
+- Infrastructure as Code
+- CS basics
+- OOP
+- Clean code
+- Testing
+- The Java coding task, what to expect
+- The Python coding task, what to expect
+- The incident scenario, the answer framework
+- Final calibration
 
 ## Linux
 

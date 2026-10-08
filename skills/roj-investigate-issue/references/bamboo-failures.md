@@ -4,6 +4,12 @@ Evidence checklists for `bamboo-plan` and `bamboo-agent` issue classes.
 Each entry: symptom → what to check in the problem `.md` and the repo.
 All checks are static — no live Bamboo access.
 
+## Contents
+
+- Plan / pipeline side
+- Agent side
+- Deciding Probable
+
 ## Plan / pipeline side
 
 ### Script task fails

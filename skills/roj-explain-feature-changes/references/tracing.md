@@ -3,6 +3,15 @@
 Loaded at phase 3. Goal: know what each changed symbol does in the running
 system, not only what its body says.
 
+## Contents
+
+- Symbol card
+- Finding callers and callees
+- Before and after
+- Trace paths by language and file type
+- Architecture and technology checklist
+- Tests
+
 ## Symbol card
 
 Fill one card for each new or behavior-changing function, method, class,
@@ -97,8 +106,8 @@ affects it; never explain the technology in general.
 - Processing pipelines and CI/CD: what runs, when, and in what order.
 
 When a job moves between components, or a flow gains or loses a step, note
-the old and the new structure. The report shows them as a short
-before/after sketch (`references/output-template.md`).
+the old and the new structure. The report shows them as a Mermaid
+before/after pair (`references/output-template.md`).
 
 ## Tests
 
