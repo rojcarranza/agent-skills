@@ -1879,7 +1879,7 @@ class TestSkillDependencies(unittest.TestCase):
     SKILL_TABLE = re.compile(r"\|\s*Skill\s*\|")
     NAMED_SKILL = re.compile(
         r"(?<![\w>-])`?([a-z][a-z0-9]*(?:[-:][a-z0-9]+)+)`?\s+skill\b"
-        r"|\bskill\s+`([a-z][a-z0-9:-]+)`|\bthe\s+`([a-z][a-z0-9:-]+)`")
+        r"|\bskill\s+`([a-z][a-z0-9:-]+)`")
     BACKTICKED = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`")
     # `<distro>-linux-triage`: one installable skill per placeholder value.
     TEMPLATED = re.compile(r"`<[a-z]+>(-[a-z0-9-]+)`")

@@ -61,6 +61,15 @@ machine (home Claude, work Copilot, team repos) gets the same reviewed set.
 - And when `find-skills` is not installed, the skill still works (inline fallback, same as other community chains)
 - And `docs/community-skills.md` lists both skills under "chains to" for `find-skills`
 
+**AC8: One command gets everything installed to latest**
+- When I run `python3 install.py --update`
+- Then it warns if this agent-skills checkout is behind its upstream branch (never pulls)
+- And moves every inventory pin to the upstream tip, rewriting the file with a compare link per repo (a repo whose new commit lost one of our skills keeps its pin)
+- And refreshes only the skills each target already has, upgrading externals; nothing new is installed
+
+**AC9: Custom skills' dependencies stay in the inventory**
+- A test scans every custom skill for the outside skills it names and fails unless each is installable (inventory, external, custom, or a listed Claude plugin)
+
 ## Decision log
 
 | Option | Decision |
@@ -68,12 +77,16 @@ machine (home Claude, work Copilot, team repos) gets the same reviewed set.
 | A. Gap hint in `roj-investigate-issue` and `roj-soundboarding` | **Chosen**, see AC7 |
 | B. New `roj-curate-skills` skill that writes into the inventory | Not now; revisit if "find, then add to inventory" repeats often |
 | C. No integration | Rejected |
+| Migration of hardcoded `SOURCES` | Done: every community skill is an inventory entry |
+| `--update` and pins | Bumps and records pins in the file (reviewable diff), not "latest on this machine only" |
+| `--update` and this checkout | Warn only; never pulls, so a dotfiles-pinned checkout stays put |
 
 ## Out of scope
 
 - Mirroring or vendoring third-party skill files into `skills/`
 - Auto-installing whatever `npx skills find` returns
 - Scraping skills.sh rankings (the site is a UI over GitHub repos; we fetch from GitHub)
+- Claude plugins (superpowers, caveman on Claude): not skills.sh skills, so not in the inventory
 
 ## Risks and trade-offs
 
@@ -89,5 +102,8 @@ machine (home Claude, work Copilot, team repos) gets the same reviewed set.
 4. Tests in `test_install.py`; doc-coverage test for `docs/community-skills.md`
 5. Docs: `docs/installer.md`, `docs/community-skills.md`, README one-liner
 6. AC7: add the gap hint to `roj-investigate-issue` and `roj-soundboarding` SKILL.md files, with inline fallback
+7. Move the hardcoded `SOURCES` entries into `skills-inventory.json` (completes AC1)
+8. AC8: `--update`
+9. AC9: dependency test; add the `<distro>-linux-triage` skills it found missing
 
-**Estimate:** 3 to 5 points for tasks 1 to 6.
+**Estimate:** 3 to 5 points for tasks 1 to 6; 3 points for tasks 7 to 9.
