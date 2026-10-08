@@ -65,12 +65,20 @@ story.
    repository has no local checkout, add it to Questions ("Repo X is not
    cloned locally — investigate before implementation") and do not guess its
    contents.
-3. **Investigate the code.** For each locally available impacted repository,
+3. **Investigate the code.** When a repository has a graph
+   (`references/graph-first.md`), first run one `graphify query` per
+   acceptance criterion to find the files, then read them — values still
+   come from the files (rule 1).
+   For each locally available impacted repository,
    find the concrete things that must change: exact files and paths, current
    values (versions, config properties, image tags, dependencies) and the
    required new values, and things already compliant — list those too, so
    the team knows they were checked. Record current values exactly as they
-   appear in the files.
+   appear in the files. When the story leans on a stack or tool no loaded
+   skill covers (Terraform, Rust, …), add one Questions entry: "No skill
+   loaded for <stack> — `npx skills find <stack>` may have one" (run the
+   search through `find-skills` when it is available). Suggest only: never
+   install a skill during the run.
 4. **Compose the SB document.** Follow TEMPLATE structure exactly:
    - **Title / Goal:** from the story.
    - **Acceptance Criteria:** copy the story's criteria verbatim as `- [ ]`

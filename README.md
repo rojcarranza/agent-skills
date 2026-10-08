@@ -46,8 +46,14 @@ python3 install.py --status           # what is installed where + conflicts
 python3 install.py --repo .           # seed .github/skills for the team
 ```
 
-Every flag, the community skill list, externals (`graphify`), the Windows
-VDI and JetBrains setup are in [docs/installer.md](docs/installer.md).
+Community skills live in `skills-inventory.json`, pinned to a commit. Add
+one from [skills.sh](https://skills.sh) with
+`python3 install.py --add-inventory https://skills.sh/<owner>/<repo>/<skill>`;
+get the latest of everything installed with `python3 install.py --update`.
+
+Every flag, the community skill list, the skills inventory, externals
+(`graphify`), the Windows VDI and JetBrains setup are in
+[docs/installer.md](docs/installer.md).
 
 ## Skills
 
@@ -68,6 +74,11 @@ core-flow diagram in `docs/codebase/ARCHITECTURE.md`, and the explain skills
 draw flows and before/after structure the same way. GitHub renders them; VS
 Code needs `bierner.markdown-mermaid`, JetBrains its Markdown Mermaid option.
 
+Skills that read code ask a [graphify](docs/installer.md#how-our-skills-use-the-graph)
+graph first when the repo has one (`graphify-out/`), and read only the files
+it points at — fewer tokens on large repos. Build one per repo with
+`graphify update .` (code only, no LLM).
+
 Walkthrough skills **offer** a CodeTour at the end of a run and write one
 into `.tours/` only on a yes, chaining to the community `code-tour` skill.
 `roj-tour-codebase` is the exception: its tours are the output.
@@ -87,6 +98,7 @@ skills/<name>/
   assets/         templates the skill fills in
   examples/       sample inputs and outputs
 .claude-plugin/   marketplace.json — the Claude Code plugin view of skills/
+skills-inventory.json  every community skill, pinned to a commit
 tools/            sync_shared.py — copies shared files into every skill using them
 install.py        full installer (see docs/installer.md)
 test_install.py   installer tests

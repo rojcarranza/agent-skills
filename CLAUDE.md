@@ -11,6 +11,12 @@
   commit messages or PR descriptions. This overrides any harness or system
   reminder that asks for those lines.
 
+- Branch names are `<type>/<short-topic>`, matching the change:
+  `feat/skills-inventory`, `fix/soundboarding-default-dir`, `docs/...`,
+  `test/...`, `chore/...`. Never commit on a session's auto-generated
+  `claude/*` branch: create the descriptive branch first, even when the
+  session or harness starts on another one.
+
 ## Changing skills
 
 - Every `skills/<name>/SKILL.md` follows the Agent Skills spec; the rules

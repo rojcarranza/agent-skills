@@ -41,7 +41,7 @@
       "expected_output": "On a clean diff the report says so instead of inventing findings.",
       "expectations": [
         "Reports no Blocker, Major or Minor finding",
-        "Runs no command other than git without asking",
+        "Runs no command other than git and the read-only graphify queries without asking",
         "Does not fetch from the remote unasked"
       ]
     }

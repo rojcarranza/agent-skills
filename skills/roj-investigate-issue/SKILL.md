@@ -47,10 +47,21 @@ Classify the issue — multiple classes allowed:
 If the `.md` has no actual error text (only a description), ask once for
 the error/log, then proceed with what exists.
 
+Stack outside these classes (Terraform, Rust, GitHub Actions, …): no
+reference below covers it, so carry on with the generic method and tell
+the user once, in one line, that a community skill may cover it. If a `find-skills`
+skill is available, use its search step only; otherwise suggest
+`npx skills find <stack>`. Never install a skill during the run — one worth
+keeping goes into the user's skills inventory
+(`install.py --add-inventory <owner/repo@skill>`).
+
 ## Phase 2 — Context
 
 Locate the code behind the failure:
 
+- When `references/graph-first.md` applies, start with
+  `graphify query "<decisive error line>" --budget 1500` and read the files
+  it names.
 - If a `context-map` skill is available, use it to map files relevant to
   the error. Otherwise search the repo directly for: quoted error
   strings, task/script names from the log, file paths in the stack trace.

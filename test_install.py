@@ -233,62 +233,67 @@ class TestVscodePromptsDir(TempDirTest):
 
 
 class TestCommunityCache(TempDirTest):
-    def test_clone_failure_warns_and_returns_none(self):
-        cache = self.tmp / "cache" / "awesome-copilot"
-        boom = subprocess.CalledProcessError(128, ["git", "clone"])
-        with mock.patch("install.cache_dir", return_value=cache), \
-             mock.patch("install.run_git", side_effect=boom):
-            self.assertIsNone(install.update_community_cache(dry_run=False))
+    """Registry sources fetch through update_source_cache at their pin."""
 
-    def test_clone_failure_uses_existing_cache(self):
-        cache = self.tmp / "cache" / "awesome-copilot"
-        (cache / ".git").mkdir(parents=True)
+    def cache_for(self, label):
+        source = install.source_by_label(label)
+        cache = self.tmp / "cache" / source["cache"]
+        return source, cache
+
+    def test_clone_failure_without_cache_returns_none(self):
+        source, cache = self.cache_for("github/awesome-copilot")
+        boom = subprocess.CalledProcessError(128, ["git", "clone"])
+        with mock.patch("install.source_cache_dir", return_value=cache), \
+             mock.patch("install.run_git", side_effect=boom), \
+             contextlib.redirect_stderr(io.StringIO()):
+            self.assertIsNone(install.update_source_cache(source, False))
+
+    def test_clone_failure_reuses_a_cache_at_the_pin(self):
+        source, cache = self.cache_for("github/awesome-copilot")
         (cache / "skills" / "code-tour").mkdir(parents=True)
         boom = subprocess.CalledProcessError(128, ["git", "fetch"])
-        with mock.patch("install.cache_dir", return_value=cache), \
-             mock.patch("install.run_git", side_effect=boom):
-            self.assertEqual(install.update_community_cache(dry_run=False), cache)
+        with mock.patch("install.source_cache_dir", return_value=cache), \
+             mock.patch("install.run_git", side_effect=boom), \
+             mock.patch("install.git_head", return_value=source["ref"]), \
+             contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(install.update_source_cache(source, False),
+                             cache)
 
-    def test_fresh_clone_invokes_git(self):
-        cache = self.tmp / "cache" / "awesome-copilot"
-        calls = []
-        with mock.patch("install.cache_dir", return_value=cache), \
-             mock.patch("install.run_git", side_effect=lambda a: calls.append(a)):
-            result = install.update_community_cache(dry_run=False)
-        self.assertEqual(result, cache)
-        self.assertEqual(calls[0][0], "clone")
-        self.assertIn("sparse-checkout", calls[1])
+    def test_fresh_clone_uses_the_source_repo_and_pin(self):
+        for label, sparse in (
+                ("juliusbrussee/caveman", "skills/caveman"),
+                ("addyosmani/agent-skills",
+                 "skills/debugging-and-error-recovery")):
+            with self.subTest(label):
+                source, cache = self.cache_for(label)
+                calls = []
+                with mock.patch("install.source_cache_dir",
+                                return_value=cache), \
+                     mock.patch("install.run_git",
+                                side_effect=lambda a: calls.append(a)), \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    result = install.update_source_cache(source, False)
+                self.assertEqual(result, cache)
+                self.assertIn(source["url"], calls[0])
+                self.assertIn(sparse, calls[1])
+                self.assertEqual(calls[2][-1], source["ref"])
 
-    def test_caveman_clone_uses_caveman_repo(self):
-        cache = self.tmp / "cache" / "caveman"
-        calls = []
-        with mock.patch("install.caveman_cache_dir", return_value=cache), \
-             mock.patch("install.run_git", side_effect=lambda a: calls.append(a)):
-            result = install.update_caveman_cache(dry_run=False)
-        self.assertEqual(result, cache)
-        self.assertIn(install.CAVEMAN_REPO_URL, calls[0])
-        self.assertIn("skills/caveman", calls[1])
+    def test_cache_dir_is_named_after_the_repo(self):
+        source = install.source_by_label("anthropics/skills")
+        self.assertEqual(install.source_cache_dir(source),
+                         install.CACHE_ROOT / "anthropics--skills")
 
-    def test_caveman_existing_cache_updates(self):
-        cache = self.tmp / "cache" / "caveman"
-        (cache / ".git").mkdir(parents=True)
-        calls = []
-        with mock.patch("install.caveman_cache_dir", return_value=cache), \
-             mock.patch("install.run_git", side_effect=lambda a: calls.append(a)):
-            result = install.update_caveman_cache(dry_run=False)
-        self.assertEqual(result, cache)
-        self.assertIn("fetch", calls[1])
-        self.assertIn("reset", calls[2])
-
-    def test_addy_clone_uses_addy_repo(self):
-        cache = self.tmp / "cache" / "addy-agent-skills"
-        calls = []
-        with mock.patch("install.addy_cache_dir", return_value=cache), \
-             mock.patch("install.run_git", side_effect=lambda a: calls.append(a)):
-            result = install.update_addy_cache(dry_run=False)
-        self.assertEqual(result, cache)
-        self.assertIn(install.ADDY_REPO_URL, calls[0])
-        self.assertIn("skills/debugging-and-error-recovery", calls[1])
+    def test_legacy_caches_removed_once(self):
+        root = self.tmp / "cache-root"
+        (root / "awesome-copilot" / ".git").mkdir(parents=True)
+        (root / "unrelated").mkdir()
+        with mock.patch("install.CACHE_ROOT", root), \
+             contextlib.redirect_stdout(io.StringIO()):
+            install.remove_legacy_caches(dry_run=True)
+            self.assertTrue((root / "awesome-copilot").exists())
+            install.remove_legacy_caches(dry_run=False)
+        self.assertFalse((root / "awesome-copilot").exists())
+        self.assertTrue((root / "unrelated").exists())
 
 
 class TestBuildItems(unittest.TestCase):
@@ -303,8 +308,7 @@ class TestBuildItems(unittest.TestCase):
         self.assertTrue(all(k == "external"
                             for k in kinds[2 + community:]))
         names = [n for _, n in items]
-        for s in (install.COMMUNITY_SKILLS + install.CAVEMAN_SKILLS
-                  + install.ADDY_SKILLS):
+        for s in install.all_community_names():
             self.assertIn(s, names)
 
 
@@ -344,7 +348,7 @@ class TestRegistry(unittest.TestCase):
     def test_caveman_is_copilot_only(self):
         source, meta = install.registry()["caveman"]
         self.assertEqual(meta["targets"], ("copilot",))
-        self.assertEqual(source["label"], "caveman")
+        self.assertEqual(source["label"], "juliusbrussee/caveman")
 
     def test_debugging_is_copilot_only_default(self):
         _, meta = install.registry()["debugging-and-error-recovery"]
@@ -358,27 +362,24 @@ class TestRegistry(unittest.TestCase):
                      "pdf", "docx", "pptx", "xlsx"):
             self.assertFalse(reg[name][1]["default"], name)
 
-    def test_default_names_match_legacy_constants(self):
+    def test_default_names_match_the_inventory(self):
         self.assertEqual(
             install.default_community_names(),
-            set(install.COMMUNITY_SKILLS + install.CAVEMAN_SKILLS
-                + ["debugging-and-error-recovery", "write-pr-description"])
-            - {"architecture-blueprint-generator", "add-educational-comments"})
+            {e["skill"] for e in install.load_inventory() if e["default"]})
 
-    def test_legacy_cache_dir_used_for_awesome(self):
-        source = install.source_by_label("awesome-copilot")
-        with mock.patch("install.cache_dir",
-                        return_value=Path("/tmp/xyz")) as m:
-            self.assertEqual(install.source_cache_dir(source), Path("/tmp/xyz"))
-            m.assert_called_once()
-
-    def test_new_source_gets_registry_cache_path(self):
-        source = install.source_by_label("anthropics-skills")
-        self.assertEqual(install.source_cache_dir(source),
-                         Path.home() / ".agent-skills-cache" / "anthropics-skills")
+    def test_skills_kept_through_the_migration(self):
+        # Everything install.py hardcoded before skills-inventory.json.
+        self.assertLessEqual(
+            {"code-tour", "acquire-codebase-knowledge", "context-map",
+             "architecture-blueprint-generator", "add-educational-comments",
+             "caveman", "debugging-and-error-recovery",
+             "observability-and-instrumentation", "ci-cd-and-automation",
+             "security-and-hardening", "deprecation-and-migration",
+             "write-pr-description", "pdf", "docx", "pptx", "xlsx"},
+            install.all_community_names())
 
     def test_update_source_cache_sparse_names(self):
-        source = install.source_by_label("addy-agent-skills")
+        source = install.source_by_label("addyosmani/agent-skills")
         with mock.patch("install.update_repo_cache") as m:
             install.update_source_cache(source, dry_run=False,
                                         names=["security-and-hardening"])
@@ -391,19 +392,20 @@ class TestSourceSubdir(TempDirTest):
     warpdotdev/common-skills uses .agents/skills/."""
 
     def test_default_subdir_is_skills(self):
-        source = install.source_by_label("addy-agent-skills")
+        source = install.source_by_label("addyosmani/agent-skills")
         self.assertEqual(install.source_skills_subdir(source), "skills")
 
     def test_warp_source_registers_write_pr_description(self):
         source, meta = install.registry()["write-pr-description"]
-        self.assertEqual(source["label"], "warp-common-skills")
-        self.assertEqual(source["url"], install.WARP_REPO_URL)
+        self.assertEqual(source["label"], "warpdotdev/common-skills")
+        self.assertEqual(source["url"],
+                         "https://github.com/warpdotdev/common-skills.git")
         self.assertEqual(install.source_skills_subdir(source),
                          ".agents/skills")
         self.assertEqual(meta, {"targets": install.ANY, "default": True})
 
     def test_sparse_paths_and_cache_check_use_the_subdir(self):
-        source = install.source_by_label("warp-common-skills")
+        source = install.source_by_label("warpdotdev/common-skills")
         with mock.patch("install.update_repo_cache") as m:
             install.update_source_cache(source, dry_run=False)
         self.assertEqual(m.call_args[0][3],
@@ -417,9 +419,11 @@ class TestSourceSubdir(TempDirTest):
         (cache / ".agents" / "skills" / "write-pr-description").mkdir(
             parents=True)
         boom = subprocess.CalledProcessError(128, ["git", "fetch"])
-        with mock.patch("install.run_git", side_effect=boom):
+        with mock.patch("install.run_git", side_effect=boom), \
+             mock.patch("install.git_head", return_value=SHA_A), \
+             contextlib.redirect_stderr(io.StringIO()):
             result = install.update_repo_cache(
-                cache, "u", "main", [], False, "warp", "f",
+                cache, "u", SHA_A, [], False, "warp", "f",
                 skills_subdir=".agents/skills")
         self.assertEqual(result, cache)
 
@@ -526,7 +530,7 @@ class TestStatus(TempDirTest):
         self.assertEqual(by_name["roj-explain-logic"][1:],
                          ("custom", "symlink"))
         self.assertEqual(by_name["code-tour"][1:],
-                         ("community (awesome-copilot)", "copy"))
+                         ("community (github/awesome-copilot)", "copy"))
         self.assertEqual(by_name["mystery"][1:], ("unknown", "copy"))
         self.assertEqual(warnings, [])
 
@@ -627,6 +631,20 @@ class TestPickerTags(TempDirTest):
         with mock.patch("install.target_root", return_value=root), \
              mock.patch("install.source_cache_dir", return_value=cache):
             tag = install.item_tag("community", "code-tour", ["claude"], {})
+        self.assertEqual(tag, "[installed] [update]")
+
+    def test_update_tag_follows_the_upstream_folder(self):
+        cache = self.tmp / "cache"
+        (cache / "skills" / "tool").mkdir(parents=True)
+        (cache / "skills" / "tool" / "SKILL.md").write_text("new")
+        root = self.tmp / "claude" / "skills"
+        (root / "tool-i").mkdir(parents=True)
+        (root / "tool-i" / "SKILL.md").write_text("old")
+        sources = install.inventory_sources([inventory_entry(folder="tool")])
+        with mock.patch("install.SOURCES", sources), \
+             mock.patch("install.target_root", return_value=root), \
+             mock.patch("install.source_cache_dir", return_value=cache):
+            tag = install.item_tag("community", "tool-i", ["claude"], {})
         self.assertEqual(tag, "[installed] [update]")
 
     def test_no_tag_when_absent(self):
@@ -1569,9 +1587,8 @@ class TestRequiresInvariants(unittest.TestCase):
                         self.assertIn(target, targets)
 
 
-class TestMainRequirements(TempDirTest):
-    """Through main(): requirements ride along with their skill, a run that
-    cannot fetch them says so, and uninstalling one warns."""
+class MainHarness(TempDirTest):
+    """Runs install.main() against a temp skills dir and temp targets."""
 
     REQ = {"needs-dep": ("code-tour",)}
 
@@ -1607,6 +1624,12 @@ class TestMainRequirements(TempDirTest):
                 stack.enter_context(patch)
             install.main()
         return out.getvalue(), err.getvalue()
+
+
+
+class TestMainRequirements(MainHarness):
+    """Through main(): requirements ride along with their skill, a run that
+    cannot fetch them says so, and uninstalling one warns."""
 
     def test_skills_only_warns_about_a_missing_requirement(self):
         _, err = self.run_main(["--target", "claude", "--skills-only"])
@@ -1727,6 +1750,531 @@ class TestExplainFeatureChangesSkill(unittest.TestCase):
             for name in others:
                 with self.subTest(file=f.name, skill=name):
                     self.assertNotIn(name, text)
+
+
+SHA_A = "a" * 40
+SHA_B = "b" * 40
+
+
+def inventory_entry(**overrides):
+    entry = {"source": "acme/skills", "skill": "tool-i", "ref": SHA_A,
+             "targets": ["claude", "copilot"], "default": False}
+    entry.update(overrides)
+    return entry
+
+
+class InventoryTest(TempDirTest):
+    def write_inventory(self, *entries, raw=None):
+        path = self.tmp / "skills-inventory.json"
+        path.write_text(raw if raw is not None
+                        else json.dumps({"skills": list(entries)}))
+        return path
+
+    def quiet(self):
+        """Silence log/ok/warn for the duration of a test."""
+        out = contextlib.ExitStack()
+        out.enter_context(contextlib.redirect_stdout(io.StringIO()))
+        out.enter_context(contextlib.redirect_stderr(io.StringIO()))
+        self.addCleanup(out.close)
+
+
+class TestLoadInventory(InventoryTest):
+    def test_missing_file_is_empty(self):
+        self.assertEqual(install.load_inventory(self.tmp / "none.json"), [])
+
+    def test_valid_entry_loads(self):
+        path = self.write_inventory(inventory_entry())
+        self.assertEqual(install.load_inventory(path), [inventory_entry()])
+
+    def test_optional_keys_accepted(self):
+        path = self.write_inventory(
+            inventory_entry(subdir=".agents/skills", folder="tool",
+                            note="why"),
+            inventory_entry(source="me/.dotfiles", skill="tool-j"))
+        self.assertEqual(len(install.load_inventory(path)), 2)
+
+    def test_rejects_malformed_files_and_entries(self):
+        cases = {
+            "not json": dict(raw="{"),
+            "no skills list": dict(raw='{"other": []}'),
+            "missing ref": dict(entries=[{k: v for k, v in
+                                          inventory_entry().items()
+                                          if k != "ref"}]),
+            "unknown key": dict(entries=[inventory_entry(branch="main")]),
+            "short ref": dict(entries=[inventory_entry(ref="abc1234")]),
+            "bad source": dict(entries=[inventory_entry(source="acme")]),
+            "dotdot source": dict(entries=[inventory_entry(source="../..")]),
+            "dotdot subdir": dict(entries=[inventory_entry(subdir="a/../..")]),
+            "nested folder": dict(entries=[inventory_entry(folder="a/b")]),
+            "dotdot folder": dict(entries=[inventory_entry(folder="..")]),
+            "number folder": dict(entries=[inventory_entry(folder=1)]),
+            "number source": dict(entries=[inventory_entry(source=7)]),
+            "bad skill": dict(entries=[inventory_entry(skill="Tool I")]),
+            "bad target": dict(entries=[inventory_entry(targets=["vim"])]),
+            "no targets": dict(entries=[inventory_entry(targets=[])]),
+            "default str": dict(entries=[inventory_entry(default="yes")]),
+            "duplicate": dict(entries=[inventory_entry(), inventory_entry()]),
+        }
+        for label, case in cases.items():
+            with self.subTest(label):
+                path = self.write_inventory(*case.get("entries", ()),
+                                            raw=case.get("raw"))
+                with self.assertRaises(install.InventoryError):
+                    install.load_inventory(path)
+
+
+class TestInventorySources(unittest.TestCase):
+    def test_one_source_per_repo(self):
+        sources = install.inventory_sources([
+            inventory_entry(), inventory_entry(skill="tool-j", default=True),
+            inventory_entry(source="other/repo", skill="tool-k",
+                            ref=SHA_B, targets=["repo"])])
+        self.assertEqual([s["label"] for s in sources],
+                         ["acme/skills", "other/repo"])
+        acme = sources[0]
+        self.assertEqual(acme["url"], "https://github.com/acme/skills.git")
+        self.assertEqual(acme["ref"], SHA_A)
+        self.assertEqual(acme["cache"], "acme--skills")
+        self.assertTrue(acme["inventory"])
+        self.assertEqual(acme["skills"]["tool-j"],
+                         {"targets": ("copilot", "claude"), "default": True})
+        self.assertEqual(sources[1]["skills"]["tool-k"]["targets"], ("repo",))
+
+    def test_folder_and_note_carried_into_meta(self):
+        [source] = install.inventory_sources([inventory_entry(
+            folder="tool", note="claude uses a plugin")])
+        self.assertEqual(source["skills"]["tool-i"]["folder"], "tool")
+        self.assertEqual(install.skill_folder(source, "tool-i"), "tool")
+
+    def test_repo_entries_must_share_ref_and_subdir(self):
+        for other in (dict(ref=SHA_B), dict(subdir=".agents/skills")):
+            with self.subTest(other):
+                with self.assertRaises(install.InventoryError):
+                    install.inventory_sources([
+                        inventory_entry(),
+                        inventory_entry(skill="tool-j", **other)])
+
+    def test_name_clash_rejected(self):
+        sources = install.inventory_sources([inventory_entry()])
+        with self.assertRaises(install.InventoryError):
+            install.check_inventory_names(sources, {"tool-i"})
+        install.check_inventory_names(sources, {"something-else"})
+
+
+class TestRepoInventory(unittest.TestCase):
+    """The checked-in skills-inventory.json."""
+
+    def test_find_skills_registered_pinned_and_default(self):
+        source, meta = install.registry()["find-skills"]
+        self.assertEqual(source["label"], "vercel-labs/skills")
+        self.assertRegex(source["ref"], r"^[0-9a-f]{40}$")
+        self.assertTrue(meta["default"])
+        self.assertEqual(set(meta["targets"]), {"claude", "copilot"})
+
+    def test_every_inventory_skill_is_documented(self):
+        doc = (install.REPO_ROOT / "docs" / "community-skills.md").read_text(
+            encoding="utf-8")
+        for entry in install.load_inventory():
+            with self.subTest(entry["skill"]):
+                self.assertIn(f"\n## {entry['skill']}\n", doc)
+
+
+class TestSkillDependencies(unittest.TestCase):
+    """Every outside skill a custom skill names must be installable: in
+    skills-inventory.json, an external, another custom skill, or provided
+    by a Claude plugin. A new chain to an unknown skill fails here, so it
+    gets an inventory entry instead of silently relying on a manual
+    install."""
+
+    # Claude plugins (not skills.sh skills) that our skills chain to.
+    PLUGIN_PROVIDED = {"systematic-debugging"}
+    # Matches of the scanner below that are not skill names.
+    NOT_SKILLS = {"code-review", "file:line", "git", "path:start-end",
+                  "target", "yield"}
+
+    SKILL_TABLE = re.compile(r"\|\s*Skill\s*\|")
+    NAMED_SKILL = re.compile(
+        r"(?<![\w>-])`?([a-z][a-z0-9]*(?:[-:][a-z0-9]+)+)`?\s+skill\b"
+        r"|\bskill\s+`([a-z][a-z0-9:-]+)`")
+    BACKTICKED = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`")
+    # `<distro>-linux-triage`: one installable skill per placeholder value.
+    TEMPLATED = re.compile(r"`<[a-z]+>(-[a-z0-9-]+)`")
+
+    def referenced(self):
+        """{name: {custom skill, ...}} for outside-looking skill names."""
+        found = {}
+        for f in sorted(install.SKILLS_SRC.rglob("*.md")):
+            if "examples" in f.parts:
+                continue
+            skill = f.relative_to(install.SKILLS_SRC).parts[0]
+            in_table = False
+            for line in f.read_text(encoding="utf-8").splitlines():
+                if self.SKILL_TABLE.match(line):
+                    in_table = True
+                    continue
+                if in_table and line.startswith("|"):
+                    cell = line.split("|")[1].strip().strip("`")
+                    if re.fullmatch(r"[a-z][a-z0-9:-]*", cell):
+                        found.setdefault(cell, set()).add(skill)
+                    continue
+                in_table = False
+                names = [next(g for g in m.groups() if g)
+                         for m in self.NAMED_SKILL.finditer(line)]
+                if re.search(r"skill|chain", line, re.I):
+                    names += self.BACKTICKED.findall(line)
+                names += ["*" + s for s in self.TEMPLATED.findall(line)]
+                for name in names:
+                    found.setdefault(name, set()).add(skill)
+        return found
+
+    def test_every_referenced_skill_is_installable(self):
+        installable = (install.custom_skill_names()
+                       | install.all_community_names()
+                       | install.all_external_names()
+                       | self.PLUGIN_PROVIDED)
+        for name, users in sorted(self.referenced().items()):
+            if name in self.NOT_SKILLS:
+                continue
+            with self.subTest(name=name, used_by=sorted(users)):
+                if name.startswith("*"):
+                    self.assertTrue(
+                        any(n.endswith(name[1:]) for n in installable),
+                        f"no installable skill matches {name}")
+                else:
+                    self.assertIn(name, installable,
+                                  "add it with install.py --add-inventory, "
+                                  "or list it in PLUGIN_PROVIDED/NOT_SKILLS")
+
+    def test_scanner_still_sees_the_known_chains(self):
+        # Guards the scanner itself: if a regex stops matching, the test
+        # above would pass vacuously.
+        found = self.referenced()
+        for name in ("code-tour", "context-map", "caveman",
+                     "acquire-codebase-knowledge", "write-pr-description",
+                     "debugging-and-error-recovery", "find-skills",
+                     "*-linux-triage"):
+            with self.subTest(name):
+                self.assertIn(name, found)
+
+
+class TestBumpInventory(InventoryTest):
+    def setUp(self):
+        super().setUp()
+        self.quiet()
+        self.path = self.write_inventory(
+            inventory_entry(), inventory_entry(skill="tool-j"),
+            inventory_entry(source="other/repo", skill="tool-k",
+                            folder="k"))
+
+    def bump(self, heads, trees=None, **kwargs):
+        trees = trees or {}
+
+        def tree(repo, ref, fn):
+            files = trees.get(repo, {"skills/tool-i/SKILL.md": "",
+                                     "skills/tool-j/SKILL.md": "",
+                                     "skills/k/SKILL.md": ""})
+            return fn(sorted(files), files.get)
+
+        with mock.patch("install.remote_head",
+                        side_effect=lambda url: heads.get(url)), \
+             mock.patch("install.with_remote_tree", side_effect=tree):
+            return install.bump_inventory(self.path, **kwargs)
+
+    def refs(self):
+        return {e["skill"]: e["ref"]
+                for e in install.load_inventory(self.path)}
+
+    def test_moves_every_entry_of_a_repo_to_the_tip(self):
+        _, bumped = self.bump({"https://github.com/acme/skills.git": SHA_B,
+                               "https://github.com/other/repo.git": SHA_A})
+        self.assertEqual(bumped, [("acme/skills", SHA_A, SHA_B)])
+        self.assertEqual(self.refs(), {"tool-i": SHA_B, "tool-j": SHA_B,
+                                       "tool-k": SHA_A})
+
+    def test_unreachable_upstream_keeps_the_pin(self):
+        _, bumped = self.bump({})
+        self.assertEqual(bumped, [])
+        self.assertEqual(set(self.refs().values()), {SHA_A})
+
+    def test_skill_gone_upstream_keeps_the_repo_pin(self):
+        heads = {"https://github.com/acme/skills.git": SHA_B}
+        _, bumped = self.bump(heads, trees={
+            "acme/skills": {"skills/tool-i/SKILL.md": "",
+                            "other/tool-j/SKILL.md": ""}})
+        self.assertEqual(bumped, [])
+        self.assertEqual(self.refs()["tool-j"], SHA_A)
+
+    def test_follows_a_renamed_upstream_folder(self):
+        heads = {"https://github.com/acme/skills.git": SHA_B}
+        self.bump(heads, trees={"acme/skills": {
+            "skills/tool-i/SKILL.md": "",
+            "skills/renamed-j/SKILL.md": "---\nname: tool-j\n---\n"}})
+        entries = {e["skill"]: e for e in install.load_inventory(self.path)}
+        self.assertEqual(entries["tool-j"]["ref"], SHA_B)
+        self.assertEqual(entries["tool-j"]["folder"], "renamed-j")
+        self.assertNotIn("folder", entries["tool-i"])
+
+    def test_drops_folder_once_upstream_matches_the_name(self):
+        heads = {"https://github.com/other/repo.git": SHA_B}
+        self.bump(heads, trees={"other/repo": {
+            "skills/tool-k/SKILL.md": "---\nname: tool-k\n---\n"}})
+        entries = {e["skill"]: e for e in install.load_inventory(self.path)}
+        self.assertNotIn("folder", entries["tool-k"])
+
+    def test_dry_run_reports_but_writes_nothing(self):
+        before = self.path.read_text()
+        entries, bumped = self.bump(
+            {"https://github.com/acme/skills.git": SHA_B}, dry_run=True)
+        self.assertEqual(len(bumped), 1)
+        self.assertEqual(entries[0]["ref"], SHA_B)
+        self.assertEqual(self.path.read_text(), before)
+
+
+class TestCheckCheckoutCurrent(TempDirTest):
+    """Against real local git repos: an upstream and a clone of it."""
+
+    def git(self, cwd, *args):
+        subprocess.run(["git", "-C", str(cwd), "-c", "user.name=t",
+                        "-c", "user.email=t@t", *args], check=True,
+                       capture_output=True)
+
+    def setUp(self):
+        super().setUp()
+        self.upstream = self.tmp / "upstream"
+        self.git(self.tmp, "init", "-q", "-b", "main", str(self.upstream))
+        self.git(self.upstream, "commit", "-q", "--allow-empty", "-m", "a")
+        self.clone = self.tmp / "clone"
+        self.git(self.tmp, "clone", "-q", str(self.upstream),
+                 str(self.clone))
+        out = contextlib.ExitStack()
+        out.enter_context(contextlib.redirect_stdout(io.StringIO()))
+        out.enter_context(contextlib.redirect_stderr(io.StringIO()))
+        self.addCleanup(out.close)
+
+    def test_current(self):
+        self.assertEqual(install.check_checkout_current(self.clone),
+                         "current")
+
+    def test_behind_when_upstream_moved(self):
+        self.git(self.upstream, "commit", "-q", "--allow-empty", "-m", "b")
+        self.assertEqual(install.check_checkout_current(self.clone),
+                         "behind")
+
+    def test_ahead_with_local_commits(self):
+        self.git(self.clone, "commit", "-q", "--allow-empty", "-m", "c")
+        self.assertEqual(install.check_checkout_current(self.clone),
+                         "ahead")
+
+    def test_detached_checkout_is_not_checked(self):
+        self.git(self.clone, "checkout", "-q", "--detach")
+        self.assertIsNone(install.check_checkout_current(self.clone))
+
+
+class TestMainUpdate(MainHarness):
+    """--update refreshes only what each target already has."""
+
+    def update(self, argv, entries=None):
+        self.make_skill("skills", name="other")
+        bump = mock.patch("install.bump_inventory",
+                          return_value=(entries or [], []))
+        current = mock.patch("install.check_checkout_current")
+        return self.run_main(["--update", *argv],
+                             extra_patches=[bump, current])
+
+    def test_refreshes_installed_custom_skill_only(self):
+        claude = self.tmp / "home" / "claude"
+        (claude / "needs-dep").mkdir(parents=True)
+        self.update(["--target", "claude", "--skills-only"])
+        self.assertTrue((claude / "needs-dep").is_symlink())
+        self.assertFalse((claude / "other").exists())
+        # A requirement is not pulled in: --update never installs new.
+        self.assertFalse((claude / "code-tour").exists())
+
+    def test_fetches_only_installed_community_skills(self):
+        claude = self.tmp / "home" / "claude"
+        (claude / "tool-i").mkdir(parents=True)
+        fetched = []
+        entries = [inventory_entry(), inventory_entry(skill="tool-j",
+                                                      default=True)]
+
+        def fetch(source, dry_run, names=None):
+            fetched.append(set(names))
+            return None
+
+        bump = mock.patch("install.bump_inventory",
+                          return_value=(entries, []))
+        with mock.patch("install.SOURCES", []):
+            self.run_main(["--update", "--target", "claude"], fetch=fetch,
+                          extra_patches=[bump, mock.patch(
+                              "install.check_checkout_current")])
+        self.assertEqual(fetched, [{"tool-i"}])
+
+    def test_skills_only_leaves_pins_alone(self):
+        with mock.patch("install.bump_inventory") as m, \
+             mock.patch("install.check_checkout_current"):
+            self.run_main(["--update", "--target", "claude",
+                           "--skills-only"])
+        m.assert_not_called()
+
+
+class TestPinnedCache(InventoryTest):
+    def setUp(self):
+        super().setUp()
+        self.quiet()
+        self.cache = self.tmp / "cache"
+
+    def update(self, calls=None, **kwargs):
+        side = (lambda a: calls.append(a)) if calls is not None else None
+        with mock.patch("install.run_git", side_effect=side):
+            return install.update_repo_cache(
+                self.cache, "u", SHA_A, ["skills/tool"], False, "acme", "f",
+                **kwargs)
+
+    def test_fresh_clone_fetches_the_pinned_commit(self):
+        calls = []
+        self.assertEqual(self.update(calls), self.cache)
+        self.assertEqual(calls[0][0], "clone")
+        self.assertIn("--no-checkout", calls[0])
+        self.assertNotIn("-b", calls[0])
+        self.assertIn("sparse-checkout", calls[1])
+        self.assertIn("fetch", calls[2])
+        self.assertEqual(calls[2][-2:], ["origin", SHA_A])
+        self.assertEqual(calls[3][-2:], ["--hard", "FETCH_HEAD"])
+
+    def test_existing_cache_refetches_without_clone(self):
+        (self.cache / ".git").mkdir(parents=True)
+        calls = []
+        self.update(calls)
+        self.assertNotIn("clone", [c[0] for c in calls])
+        self.assertEqual(calls[-1][-1], "FETCH_HEAD")
+
+    def test_failed_fetch_skips_a_cache_at_another_commit(self):
+        (self.cache / "skills" / "tool").mkdir(parents=True)
+        boom = subprocess.CalledProcessError(128, ["git", "fetch"])
+        for head, expected in ((SHA_B, None), (SHA_A, self.cache)):
+            with self.subTest(head=head), \
+                 mock.patch("install.git_head", return_value=head), \
+                 mock.patch("install.run_git", side_effect=boom):
+                self.assertEqual(install.update_repo_cache(
+                    self.cache, "u", SHA_A, [], False, "acme", "f"),
+                    expected)
+
+    def test_source_cache_uses_folder_and_ref(self):
+        [source] = install.inventory_sources([inventory_entry(
+            folder="tool")])
+        with mock.patch("install.update_repo_cache") as m:
+            install.update_source_cache(source, dry_run=False)
+        self.assertEqual(m.call_args[0][3], ["skills/tool"])
+        self.assertEqual(m.call_args[0][2], SHA_A)
+
+    def test_install_copies_the_folder_under_the_skill_name(self):
+        [source] = install.inventory_sources([inventory_entry(
+            folder="tool")])
+        self.make_skill("cache/skills", "tool")
+        source["_cache"] = self.cache
+        dest = self.tmp / "dest"
+        with mock.patch("install.SOURCES", [source]):
+            results = install.install_community_for_target(
+                "claude", dest, {"tool-i"}, dry_run=False)
+        self.assertEqual(results, [("claude", "tool-i", "installed")])
+        self.assertTrue((dest / "tool-i" / "SKILL.md").is_file())
+
+
+class TestCheckInventoryUpdates(InventoryTest):
+    def test_counts_sources_behind_upstream(self):
+        self.quiet()
+        sources = install.inventory_sources([
+            inventory_entry(),
+            inventory_entry(source="other/repo", skill="tool-k")])
+        heads = {"https://github.com/acme/skills.git": SHA_A,
+                 "https://github.com/other/repo.git": SHA_B}
+        with mock.patch("install.remote_head", side_effect=heads.get):
+            self.assertEqual(install.check_inventory_updates(sources), 1)
+
+    def test_unreachable_upstream_is_not_counted(self):
+        self.quiet()
+        sources = install.inventory_sources([inventory_entry()])
+        with mock.patch("install.remote_head", return_value=None):
+            self.assertEqual(install.check_inventory_updates(sources), 0)
+
+
+class TestParseSkillSpec(unittest.TestCase):
+    def test_accepted_forms(self):
+        for spec in ("https://skills.sh/vercel-labs/skills/find-skills",
+                     "https://www.skills.sh/vercel-labs/skills/find-skills/",
+                     "vercel-labs/skills@find-skills",
+                     "  vercel-labs/skills@find-skills\n"):
+            with self.subTest(spec):
+                self.assertEqual(install.parse_skill_spec(spec),
+                                 ("vercel-labs/skills", "find-skills"))
+
+    def test_rejected_forms(self):
+        for spec in ("find-skills", "vercel-labs/skills", "../..@x",
+                     "https://github.com/vercel-labs/skills",
+                     "https://skills.sh/vercel-labs/skills"):
+            with self.subTest(spec):
+                with self.assertRaises(install.InventoryError):
+                    install.parse_skill_spec(spec)
+
+    def test_frontmatter_name(self):
+        self.assertEqual(install.frontmatter_name(
+            "---\nname: 'tool-i'\ndescription: x\n---\nbody"), "tool-i")
+        self.assertIsNone(install.frontmatter_name("no frontmatter"))
+
+
+class TestAddInventory(InventoryTest):
+    def setUp(self):
+        super().setUp()
+        self.quiet()
+        self.path = self.write_inventory(inventory_entry())
+
+    def add(self, spec, located=("skills", "tool-new"), head=SHA_B,
+            **kwargs):
+        with mock.patch("install.remote_head", return_value=head) as rh, \
+             mock.patch("install.locate_skill", return_value=located):
+            entry = install.add_inventory(spec, path=self.path, **kwargs)
+        self.remote_head = rh
+        return entry
+
+    def test_appends_pinned_non_default_entry(self):
+        entry = self.add("https://skills.sh/other/repo/tool-new")
+        self.assertEqual(entry, {"source": "other/repo", "skill": "tool-new",
+                                 "ref": SHA_B,
+                                 "targets": ["claude", "copilot"],
+                                 "default": False})
+        self.assertEqual(install.load_inventory(self.path)[-1], entry)
+
+    def test_records_subdir_and_folder_when_they_differ(self):
+        entry = self.add("other/repo@tool-new",
+                         located=(".agents/skills", "new"))
+        self.assertEqual(entry["subdir"], ".agents/skills")
+        self.assertEqual(entry["folder"], "new")
+
+    def test_same_repo_reuses_the_pinned_ref(self):
+        entry = self.add("acme/skills@tool-new")
+        self.assertEqual(entry["ref"], SHA_A)
+        self.remote_head.assert_not_called()
+
+    def test_same_repo_with_another_subdir_rejected(self):
+        with self.assertRaises(install.InventoryError):
+            self.add("acme/skills@tool-new",
+                     located=(".agents/skills", "tool-new"))
+
+    def test_duplicates_and_clashes_rejected(self):
+        for spec in ("acme/skills@tool-i", "other/repo@roj-code-review-pr",
+                     "other/repo@graphify"):
+            with self.subTest(spec):
+                with self.assertRaises(install.InventoryError):
+                    self.add(spec)
+
+    def test_unreachable_upstream_rejected(self):
+        with self.assertRaises(install.InventoryError):
+            self.add("other/repo@tool-new", head=None)
+
+    def test_dry_run_writes_nothing(self):
+        before = self.path.read_text()
+        self.add("other/repo@tool-new", dry_run=True)
+        self.assertEqual(self.path.read_text(), before)
 
 
 if __name__ == "__main__":
