@@ -1,6 +1,6 @@
 ---
 name: roj-code-review-pr-fast
-description: Quick chat-only review of the current Git feature branch diff — no report file, no CodeTour, no commands beyond git. Use when the user says "quick review", "fast review", "sanity check my changes", "review this before I commit", or wants a short pass mid-work. For the full review with a written report, a change summary and a tour, use roj-code-review-pr instead.
+description: Quick chat-only review of the current Git feature branch diff, uncommitted changes included — no report file, no CodeTour, no commands beyond git. Use when the user says "quick review", "fast review", "sanity check my changes", "review this before I commit", or wants a short pass mid-work. For the full review with a written report, a change summary and a tour, use roj-code-review-pr instead.
 license: MIT
 allowed-tools: Read Grep Glob Bash(git diff:*) Bash(git log:*) Bash(git status:*) Bash(git rev-parse:*) Bash(git symbolic-ref:*) Bash(git merge-base:*) Bash(git show:*)
 ---
@@ -36,20 +36,24 @@ the diff spans several stacks, load none and rely on the method plus
 2. **Diff** — `git diff --stat <base>...HEAD`, then
    `git diff -U10 <base>...HEAD`. Three-dot always; two-dot pulls in
    unrelated merged work.
-3. **Read** the whole file for any hunk whose surrounding context matters.
-4. **Review** the changed hunks. Diff-local only — no caller search, no
+3. **Uncommitted** — `git status --porcelain`. When it lists changes, also
+   run `git diff -U10 HEAD` (staged and unstaged edits) and read each
+   untracked file it lists (`??`) as new code. This is the "before I
+   commit" case, so it is reviewed, not skipped. On the base branch itself,
+   the uncommitted diff is the whole review.
+4. **Read** the whole file for any hunk whose surrounding context matters.
+5. **Review** the changed hunks. Diff-local only — no caller search, no
    system pass. Say so at the end, so the user knows what was not checked.
-5. **Report** in chat.
+6. **Report** in chat.
 
-Skip entirely: uncommitted work, generated and vendored paths, renames with
-unchanged content.
+Skip entirely: generated and vendored paths, renames with unchanged content.
 
 ## Output
 
 Six lines of header and findings, nothing else:
 
 ```
-<branch> vs <base> · <n> files · +<a>/-<b> · lens: <one or none>
+<branch> vs <base> (+ uncommitted, when reviewed) · <n> files · +<a>/-<b> · lens: <one or none>
 Verdict: <approve | approve with nits | changes requested | blocked>
 
 🔴 `path:line` · Confirmed — <defect>. Fails when: <scenario>. Fix: <change>.
