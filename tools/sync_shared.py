@@ -20,19 +20,29 @@ from pathlib import Path
 
 SKILLS = Path(__file__).resolve().parent.parent / "skills"
 
-# owner dir (relative to skills/) -> dirs that carry an identical copy
+# owner (relative to skills/) -> dirs that carry an identical copy. An owner
+# dir shares every *.md in it; an owner file shares just that file.
 SHARED = {
     "roj-code-review-pr/references": (
         "roj-code-review-pr-fast/references",
         "roj-review-pr-comment/references",
     ),
+    "roj-tour-codebase/references/mermaid.md": (
+        "roj-explain-logic/references",
+        "roj-explain-feature-changes/references",
+    ),
 }
+
+
+def sources(owner):
+    path = SKILLS / owner
+    return [path] if path.is_file() else sorted(path.glob("*.md"))
 
 
 def pairs():
     """(source file, copy path) for every shared file."""
     for owner, copies in SHARED.items():
-        for src in sorted((SKILLS / owner).glob("*.md")):
+        for src in sources(owner):
             for copy in copies:
                 yield src, SKILLS / copy / src.name
 
@@ -43,7 +53,9 @@ def stale():
     out = [dst for src, dst in pairs()
            if not dst.is_file() or not filecmp.cmp(src, dst, shallow=False)]
     for owner, copies in SHARED.items():
-        names = {p.name for p in (SKILLS / owner).glob("*.md")}
+        if (SKILLS / owner).is_file():  # a single file leaves no orphans
+            continue
+        names = {p.name for p in sources(owner)}
         for copy in copies:
             out += [p for p in sorted((SKILLS / copy).glob("*.md"))
                     if p.name not in names]

@@ -70,7 +70,8 @@ Both the report and `.tours/` are untracked; the skill offers to add both to
 
 Report sections: Changed Files (an inventory table), Feature Change
 Overview, Why This Change Exists, Changes by File, New Functions / Classes,
-End-to-End Flow, Structure Before → After (only when structure changed), Key
+End-to-End Flow, Structure Before → After (only when structure changed,
+drawn as two Mermaid flowcharts), Key
 Things to Understand, PR Explanation, PR Comments, Important Observations.
 Empty sections are left out. Each fact appears in full once; the PR
 Explanation stays under about 300 words, with at most about six PR comments.

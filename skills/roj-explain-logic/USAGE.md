@@ -2,7 +2,8 @@
 
 Guided, step-by-step code comprehension: PR/branch diffs, files, functions —
 explained as Concept → Code flow → Why → Gotchas, with the matching language
-lens (Java / Python / Go / shell / Bamboo API).
+lens (Java / Python / Go / shell / Bamboo API). Flows with three or more
+moving parts come with a Mermaid diagram (`references/mermaid.md`).
 
 ## Commands per platform
 
