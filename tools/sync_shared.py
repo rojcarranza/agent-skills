@@ -27,6 +27,13 @@ SHARED = {
         "roj-code-review-pr-fast/references",
         "roj-review-pr-comment/references",
     ),
+    "roj-code-review-pr/references/graph-first.md": (
+        "roj-tour-codebase/references",
+        "roj-explain-logic/references",
+        "roj-explain-feature-changes/references",
+        "roj-investigate-issue/references",
+        "roj-soundboarding/references",
+    ),
     "roj-tour-codebase/references/mermaid.md": (
         "roj-explain-logic/references",
         "roj-explain-feature-changes/references",

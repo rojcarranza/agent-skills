@@ -70,7 +70,10 @@ story.
    values (versions, config properties, image tags, dependencies) and the
    required new values, and things already compliant — list those too, so
    the team knows they were checked. Record current values exactly as they
-   appear in the files.
+   appear in the files. When the repository has a graph
+   (`references/graph-first.md`), run one `graphify query` per acceptance
+   criterion to find the files, then read them — values still come from the
+   files (rule 1).
 4. **Compose the SB document.** Follow TEMPLATE structure exactly:
    - **Title / Goal:** from the story.
    - **Acceptance Criteria:** copy the story's criteria verbatim as `- [ ]`

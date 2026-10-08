@@ -33,7 +33,8 @@ the method.
 
 Load technology lenses (`lang-*.md`, `platform-*.md`) from the same
 directory only for stacks the diff touches, as the method's *Lens selection*
-section says.
+section says, and `graph-first.md` when the checkout has
+`graphify-out/graph.json`.
 
 ## 2. Resolve the PR
 

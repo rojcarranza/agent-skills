@@ -29,7 +29,9 @@ Priority order:
 A diff alone lies. Always:
 
 - Read the full function/class around each changed hunk.
-- Trace callers and callees (grep/IDE search on names).
+- Trace callers and callees. When `references/graph-first.md` applies, start
+  with `graphify explain` / `graphify path` and read what they name;
+  otherwise grep/IDE search on names.
 - Check tests touching the changed code — tests document intent.
 - Read the PR description and commit messages.
 - Note config/CI in the diff (Bamboo specs, pipelines, Dockerfiles, Helm) —

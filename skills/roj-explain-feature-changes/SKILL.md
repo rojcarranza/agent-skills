@@ -123,7 +123,9 @@ For every new or behavior-changing symbol, follow `references/tracing.md`:
 callers, callees, inputs, outputs, what the caller does with the result, the
 code that did this job before, the tests that exercise it, and the
 configuration that changes it. Then run its architecture checklist, limited
-to what the diff touches.
+to what the diff touches. When `references/graph-first.md` applies, find
+callers and the code that did the job before with `graphify affected` and
+`graphify explain` first, then read those files.
 
 Stop when you can state the behavior before and after in one or two
 sentences each, with line references.

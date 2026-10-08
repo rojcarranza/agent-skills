@@ -23,7 +23,8 @@ Rules that hold for the whole run:
 
 Always load `references/review-method.md` and `references/cross-cutting.md`
 from this skill's own directory before reviewing. Load technology lenses only
-as phase 3 selects them.
+as phase 3 selects them, and `references/graph-first.md` when the repository
+has `graphify-out/graph.json`.
 
 The skill needs a terminal to run `git`. If the agent cannot run commands
 (some Copilot configurations), say so and ask the user to paste

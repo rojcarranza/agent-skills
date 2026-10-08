@@ -224,6 +224,40 @@ class TestSelfContained(SkillTest):
                 self.assertTrue((d / "USAGE.md").is_file())
 
 
+class TestGraphFirst(unittest.TestCase):
+    """Skills that read code ask a graphify graph first when the repo has
+    one (references/graph-first.md); the fast review stays diff-local."""
+
+    USES_GRAPH = ("roj-tour-codebase", "roj-explain-logic",
+                  "roj-explain-feature-changes", "roj-code-review-pr",
+                  "roj-review-pr-comment", "roj-investigate-issue",
+                  "roj-soundboarding")
+    COMMANDS = ("graphify query", "graphify explain", "graphify path",
+                "graphify affected", "graphify update")
+
+    def test_code_reading_skills_point_at_it(self):
+        for name in self.USES_GRAPH:
+            with self.subTest(name):
+                skill = SKILLS / name
+                self.assertIn("graph-first.md",
+                              (skill / "SKILL.md").read_text("utf-8"))
+                self.assertTrue(
+                    (skill / "references" / "graph-first.md").is_file())
+
+    def test_reference_covers_the_commands_and_the_guards(self):
+        text = (SKILLS / "roj-code-review-pr" / "references"
+                / "graph-first.md").read_text("utf-8")
+        for needle in self.COMMANDS + ("graphify-out/graph.json",
+                                       "--budget", "INFERRED"):
+            with self.subTest(needle):
+                self.assertIn(needle, text)
+
+    def test_fast_review_stays_diff_local(self):
+        text = (SKILLS / "roj-code-review-pr-fast" / "SKILL.md").read_text(
+            "utf-8")
+        self.assertIn("`graph-first.md` step does not apply", text)
+
+
 class TestEvals(unittest.TestCase):
     """evals/<skill>/ holds skill-creator eval sets, outside skills/ so no
     install carries them. triggers.json feeds scripts/run_eval.py;
