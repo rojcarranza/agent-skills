@@ -46,7 +46,12 @@ the diff spans several stacks, load none and rely on the method plus
 4. **Read** the whole file for any hunk whose surrounding context matters.
 5. **Review** the changed hunks. Diff-local only — no caller search, no
    system pass. Say so at the end, so the user knows what was not checked.
-6. **Report** in chat.
+6. **Verify** each candidate before printing it. Re-read its lines and check
+   the claim itself, not only its consequence. A claim about what a library
+   call returns or raises (on empty input, on error) is an assumption unless
+   you are certain of it: make it the finding's named Probable assumption,
+   or drop the finding. A wrong finding costs more trust than a missed one.
+7. **Report** in chat.
 
 Skip entirely: generated and vendored paths, renames with unchanged content.
 
@@ -65,8 +70,14 @@ Diff-local pass only — callers, config coupling and tests were not checked.
 Run roj-code-review-pr for the full review.
 ```
 
-Clean diff: say "Nothing to flag" and stop. Never invent findings, never pad
-with Nits, cap at five findings and name the overflow count.
+Only 🔴 Blocker and 🟠 Major findings are printed; Minor and Nit are out of
+scope for a fast pass. A missing test for a defect belongs in that defect's
+Fix, not in a finding of its own. Order findings by severity, cap at five
+and name the overflow count. Clean diff: say "Nothing to flag" and stop.
+Never invent findings.
+
+The lens in the header is the lens file's name without `.md`
+(`lang-python`), or `none`.
 
 ## Condensed tables (fallback only)
 
