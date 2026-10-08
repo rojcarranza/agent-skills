@@ -633,6 +633,20 @@ class TestPickerTags(TempDirTest):
             tag = install.item_tag("community", "code-tour", ["claude"], {})
         self.assertEqual(tag, "[installed] [update]")
 
+    def test_update_tag_follows_the_upstream_folder(self):
+        cache = self.tmp / "cache"
+        (cache / "skills" / "tool").mkdir(parents=True)
+        (cache / "skills" / "tool" / "SKILL.md").write_text("new")
+        root = self.tmp / "claude" / "skills"
+        (root / "tool-i").mkdir(parents=True)
+        (root / "tool-i" / "SKILL.md").write_text("old")
+        sources = install.inventory_sources([inventory_entry(folder="tool")])
+        with mock.patch("install.SOURCES", sources), \
+             mock.patch("install.target_root", return_value=root), \
+             mock.patch("install.source_cache_dir", return_value=cache):
+            tag = install.item_tag("community", "tool-i", ["claude"], {})
+        self.assertEqual(tag, "[installed] [update]")
+
     def test_no_tag_when_absent(self):
         root = self.tmp / "claude" / "skills"
         root.mkdir(parents=True)
@@ -1793,6 +1807,8 @@ class TestLoadInventory(InventoryTest):
             "dotdot subdir": dict(entries=[inventory_entry(subdir="a/../..")]),
             "nested folder": dict(entries=[inventory_entry(folder="a/b")]),
             "dotdot folder": dict(entries=[inventory_entry(folder="..")]),
+            "number folder": dict(entries=[inventory_entry(folder=1)]),
+            "number source": dict(entries=[inventory_entry(source=7)]),
             "bad skill": dict(entries=[inventory_entry(skill="Tool I")]),
             "bad target": dict(entries=[inventory_entry(targets=["vim"])]),
             "no targets": dict(entries=[inventory_entry(targets=[])]),
@@ -1954,9 +1970,10 @@ class TestBumpInventory(InventoryTest):
         trees = trees or {}
 
         def tree(repo, ref, fn):
-            return fn(trees.get(repo, ["skills/tool-i/SKILL.md",
-                                       "skills/tool-j/SKILL.md",
-                                       "skills/k/SKILL.md"]), None)
+            files = trees.get(repo, {"skills/tool-i/SKILL.md": "",
+                                     "skills/tool-j/SKILL.md": "",
+                                     "skills/k/SKILL.md": ""})
+            return fn(sorted(files), files.get)
 
         with mock.patch("install.remote_head",
                         side_effect=lambda url: heads.get(url)), \
@@ -1982,9 +1999,27 @@ class TestBumpInventory(InventoryTest):
     def test_skill_gone_upstream_keeps_the_repo_pin(self):
         heads = {"https://github.com/acme/skills.git": SHA_B}
         _, bumped = self.bump(heads, trees={
-            "acme/skills": ["skills/tool-i/SKILL.md"]})
+            "acme/skills": {"skills/tool-i/SKILL.md": "",
+                            "other/tool-j/SKILL.md": ""}})
         self.assertEqual(bumped, [])
         self.assertEqual(self.refs()["tool-j"], SHA_A)
+
+    def test_follows_a_renamed_upstream_folder(self):
+        heads = {"https://github.com/acme/skills.git": SHA_B}
+        self.bump(heads, trees={"acme/skills": {
+            "skills/tool-i/SKILL.md": "",
+            "skills/renamed-j/SKILL.md": "---\nname: tool-j\n---\n"}})
+        entries = {e["skill"]: e for e in install.load_inventory(self.path)}
+        self.assertEqual(entries["tool-j"]["ref"], SHA_B)
+        self.assertEqual(entries["tool-j"]["folder"], "renamed-j")
+        self.assertNotIn("folder", entries["tool-i"])
+
+    def test_drops_folder_once_upstream_matches_the_name(self):
+        heads = {"https://github.com/other/repo.git": SHA_B}
+        self.bump(heads, trees={"other/repo": {
+            "skills/tool-k/SKILL.md": "---\nname: tool-k\n---\n"}})
+        entries = {e["skill"]: e for e in install.load_inventory(self.path)}
+        self.assertNotIn("folder", entries["tool-k"])
 
     def test_dry_run_reports_but_writes_nothing(self):
         before = self.path.read_text()

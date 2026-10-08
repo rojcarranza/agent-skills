@@ -49,7 +49,7 @@ the error/log, then proceed with what exists.
 
 Stack outside these classes (Terraform, Rust, GitHub Actions, …): no
 reference below covers it, so carry on with the generic method and tell
-the user once, in one line, that a community skill may. If a `find-skills`
+the user once, in one line, that a community skill may cover it. If a `find-skills`
 skill is available, use its search step only; otherwise suggest
 `npx skills find <stack>`. Never install a skill during the run — one worth
 keeping goes into the user's skills inventory

@@ -134,7 +134,9 @@ class InventoryError(ValueError):
 def _safe_path(value, parts):
     """`value` is `parts` '/'-separated names (None = any number), none of
     them '.' or '..' — inventory values become URLs and cache paths."""
-    split = str(value).split("/")
+    if not isinstance(value, str):
+        return False
+    split = value.split("/")
     return ((parts is None or len(split) == parts)
             and all(_PART_RE.fullmatch(s) and s not in (".", "..")
                     for s in split))
@@ -562,8 +564,8 @@ def item_tag(kind, name, targets, plugin_map):
             src = SKILLS_SRC / name
         elif name in reg:
             source = reg[name][0]
-            cand = (source_cache_dir(source)
-                    / source_skills_subdir(source) / name)
+            cand = (source_cache_dir(source) / source_skills_subdir(source)
+                    / skill_folder(source, name))
             if cand.is_dir():
                 src = cand
         if (src and src.is_dir() and not dest.is_symlink()
@@ -980,10 +982,29 @@ def add_inventory(spec, path=None, dry_run=False):
     return entry
 
 
+def relocate_skills(source, paths, read):
+    """{skill: its folder in this tree, or None when gone}, looking only
+    under the source's subdir: the recorded folder, then a folder named
+    after the skill, then a SKILL.md whose frontmatter name matches."""
+    subdir = source_skills_subdir(source)
+    here = [Path(p).parent for p in paths
+            if Path(p).parent.parent.as_posix() == subdir]
+    found = {}
+    for name in source["skills"]:
+        hit = next((f for want in (skill_folder(source, name), name)
+                    for f in here if f.name == want), None)
+        if hit is None:
+            hit = next((f for f in here if frontmatter_name(
+                read((f / "SKILL.md").as_posix())) == name), None)
+        found[name] = hit.name if hit else None
+    return found
+
+
 def bump_inventory(path=None, dry_run=False):
-    """Move every inventory repo's pin to its upstream tip. A repo whose
-    new commit lost one of our skills keeps its pin. Writes the file unless
-    dry_run; returns (entries, [(repo, old, new), ...])."""
+    """Move every inventory repo's pin to its upstream tip, following a
+    skill whose upstream folder was renamed. A repo whose new commit lost
+    one of our skills keeps its pin. Writes the file unless dry_run;
+    returns (entries, [(repo, old, new), ...])."""
     path = INVENTORY_PATH if path is None else Path(path)
     entries = load_inventory(path)
     bumped = []
@@ -998,14 +1019,13 @@ def bump_inventory(path=None, dry_run=False):
             continue
         subdir = source_skills_subdir(source)
         try:
-            present = with_remote_tree(repo, new,
-                                       lambda paths, read: set(paths))
+            found = with_remote_tree(
+                repo, new,
+                lambda paths, read: relocate_skills(source, paths, read))
         except InventoryError as e:
             warn(f"{e} — kept at {old[:7]}")
             continue
-        gone = sorted(n for n in source["skills"]
-                      if f"{subdir}/{skill_folder(source, n)}/SKILL.md"
-                      not in present)
+        gone = sorted(n for n, folder in found.items() if folder is None)
         if gone:
             warn(f"{repo}: {', '.join(gone)} no longer at {subdir}/ in "
                  f"{new[:7]} — kept at {old[:7]}; check upstream")
@@ -1013,6 +1033,13 @@ def bump_inventory(path=None, dry_run=False):
         for entry in entries:
             if entry["source"] == repo:
                 entry["ref"] = new
+                skill, folder = entry["skill"], found[entry["skill"]]
+                if folder != entry.get("folder", skill):
+                    log(f"{skill}: upstream folder is now {subdir}/{folder}")
+                if folder == skill:
+                    entry.pop("folder", None)
+                else:
+                    entry["folder"] = folder
         bumped.append((repo, old, new))
         log(f"{repo}: {old[:7]} -> {new[:7]}  https://github.com/{repo}/"
             f"compare/{old[:12]}...{new[:12]}")
