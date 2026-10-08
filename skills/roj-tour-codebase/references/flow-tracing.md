@@ -2,6 +2,13 @@
 
 Loaded at phase 2, to pick and walk the one path tour 03 traces.
 
+## Contents
+
+- Picking the flow
+- Walking it
+- Entry-point signals per stack
+- Mixed stacks
+
 ## Picking the flow
 
 In order. First rule that fires wins.

@@ -47,8 +47,8 @@ unnoticed failure is worse than a wrong result.
 
 ## Structure and state
 
-- A script that is not safe to re-run: see idempotency in
-  `cross-cutting.md`.
+- A script that is not safe to re-run — a retried build step must not apply
+  its change twice.
 - Temp files created with a predictable name instead of `mktemp`.
 - A lock file created without a trap to remove it.
 - Local variables not declared `local` inside a function, leaking into the

@@ -1,0 +1,36 @@
+{
+  "skill_name": "roj-explain-logic",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "explain this branch to me",
+      "expected_output": "Walkthrough: big picture, flow in execution order, why, gotchas.",
+      "expectations": [
+        "Pulls the real diff before explaining",
+        "Resolves the base branch rather than assuming main",
+        "Walks the flow in execution order, not file by file",
+        "Makes no improvement suggestions"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "what does deploy.sh do?",
+      "expected_output": "Shell lens applied; failure behaviour mid-pipeline stated.",
+      "expectations": [
+        "Reads the whole file",
+        "States what happens when a mid-pipeline command fails",
+        "Ends with runtime impact when the script is CI/CD or infra"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "explain and review this function",
+      "expected_output": "Explanation first, then a separately headed review phase.",
+      "expectations": [
+        "Review appears only after the full explanation under its own header",
+        "Every finding ties to specific lines",
+        "Says the code is solid instead of inventing findings when it is"
+      ]
+    }
+  ]
+}

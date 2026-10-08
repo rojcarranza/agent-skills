@@ -53,7 +53,7 @@ source:
 
 ## Part 5 — Baseline Technical Questions
 
-{{ALL B* entries from base-questions.md (currently B1-B23), embedded in full — Ask / Expected /
+{{ALL B* entries from base-questions.md, embedded in full — Ask / Expected /
 Probe / Red flags / Comment blocks. Order tunable; content fixed. Add a
 one-line skip note where the CV clearly shows depth (still ask, faster).}}
 

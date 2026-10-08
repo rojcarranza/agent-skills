@@ -1,0 +1,37 @@
+{
+  "skill_name": "roj-code-review-pr",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "review my branch before I open the PR",
+      "expected_output": "A review report file at the repo root with change summary, verdict and severity/confidence-tagged findings.",
+      "expectations": [
+        "Resolves the base branch and prints it with the merge-base SHA",
+        "Uses three-dot diffs (<base>...HEAD)",
+        "Writes <branch-slug>-review.md at the repository root",
+        "Every finding carries a severity, a confidence and a path:line inside a diff hunk",
+        "Offers a CodeTour in one line instead of writing one"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "code review this branch - it only changes a Helm chart template that renders a Deployment",
+      "expected_output": "Helm and Kubernetes lenses loaded together; no unrelated lenses.",
+      "expectations": [
+        "Loads platform-helm.md and platform-k8s.md",
+        "Does not load lang-*.md lenses no changed file justifies",
+        "Names the loaded lenses in the report header"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "review my branch, I think it's clean",
+      "expected_output": "On a clean diff the report says so instead of inventing findings.",
+      "expectations": [
+        "Reports no findings when none survive the gates",
+        "Runs no command other than git without asking",
+        "Does not fetch from the remote unasked"
+      ]
+    }
+  ]
+}

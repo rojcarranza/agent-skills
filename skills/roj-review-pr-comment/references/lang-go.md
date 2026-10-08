@@ -4,6 +4,19 @@ Loaded when the diff touches `*.go`, `go.mod`, or `go.sum`. The Go project
 here is a CLI that deploys Kubernetes packages, so weight error propagation,
 context handling, and exit codes.
 
+## Contents
+
+- Errors
+- Context, timeouts, cancellation
+- Concurrency
+- Slices, maps, defer
+- Interfaces and types
+- CLI behavior
+- Kubernetes and Helm client code
+- Modules
+- Tests
+- Not a finding here
+
 ## Errors
 
 - An error assigned to `_`, or returned without being checked at the call
