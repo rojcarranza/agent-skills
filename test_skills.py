@@ -229,8 +229,21 @@ class TestEvals(unittest.TestCase):
     install carries them. triggers.json feeds scripts/run_eval.py;
     evals.json follows skill-creator's schema."""
 
+    # Skills whose descriptions overlap; each must keep an eval set.
+    REQUIRED = {"roj-code-review-pr", "roj-code-review-pr-fast",
+                "roj-review-pr-comment", "roj-explain-logic",
+                "roj-explain-feature-changes"}
+
     def eval_dirs(self):
         return sorted(p for p in (ROOT / "evals").iterdir() if p.is_dir())
+
+    def test_required_eval_sets_exist(self):
+        present = {d.name for d in self.eval_dirs()}
+        self.assertLessEqual(self.REQUIRED, present)
+        for d in self.eval_dirs():
+            with self.subTest(evals=d.name):
+                self.assertTrue((d / "triggers.json").is_file())
+                self.assertTrue((d / "evals.json").is_file())
 
     def test_eval_dirs_name_real_skills(self):
         names = {d.name for d in skill_dirs()}
@@ -261,8 +274,14 @@ class TestEvals(unittest.TestCase):
                 ids = [e["id"] for e in data["evals"]]
                 self.assertEqual(len(ids), len(set(ids)))
                 for e in data["evals"]:
-                    self.assertTrue(e["prompt"])
-                    self.assertTrue(e["expectations"])
+                    with self.subTest(id=e.get("id")):
+                        self.assertIsInstance(e["id"], int)
+                        self.assertTrue(e["prompt"])
+                        self.assertTrue(e["expected_output"])
+                        self.assertIsInstance(e["expectations"], list)
+                        self.assertTrue(e["expectations"])
+                        for x in e["expectations"]:
+                            self.assertIsInstance(x, str)
 
 
 class TestPublishable(unittest.TestCase):

@@ -152,6 +152,14 @@ invoke another worker's copy and score a miss. A skill you already have
 installed competes with its own copy, so its should-trigger scores read
 low.
 
+`run_eval` reads only `triggers.json`. Behaviour checks in `evals.json`
+run through the skill-creator skill itself: ask Claude, with skill-creator
+loaded, to run `evals/<skill>/evals.json` against `skills/<skill>`. It
+runs each prompt with and without the skill, grades the outputs against
+`expectations`, and opens its review viewer. A prompt that names a setup
+in parentheses ("current branch is develop itself", "gh is not
+authenticated") needs a scratch repository put in that state first.
+
 `test_skills.py` checks the files' shape, not the scores.
 
 ## License
