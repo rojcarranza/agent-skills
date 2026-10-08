@@ -23,12 +23,15 @@ Rules that hold for the whole run:
 - Steps are built from evidence gathered in phases 1 and 2. There is no
   second investigation pass while writing tours.
 - Nothing outside `.tours/` and `docs/codebase/` is written, and no command
-  beyond `git` and the delegated skills' own scripts runs without approval.
+  beyond `git`, the read-only `graphify` queries in
+  `references/graph-first.md` and the delegated skills' own scripts runs
+  without approval.
 
 Load `references/mermaid.md` at the end of phase 1, `references/tour-plan.md`
 at phase 2, `references/flow-tracing.md` when phase 2 picks the core flow,
 and `references/step-writing.md` at phase 3. None of them are needed before
-that.
+that. Check for `graphify-out/graph.json` at phase 1; load
+`references/graph-first.md` only when it exists.
 
 ## Phase 0 — Scope
 
@@ -64,6 +67,11 @@ places Claude Code, Copilot and the `skills` CLI install to:
    `<repo>/.agents/skills/`
 2. Personal: `~/.claude/skills/`, `~/.copilot/skills/`, `~/.agents/skills/`
 3. Claude Code plugin: `~/.claude/plugins/cache/*/*/*/skills/`
+
+When `references/graph-first.md` applies, read `graphify-out/GRAPH_REPORT.md`
+first and hand its communities and most-connected nodes to discovery as the
+starting map; in phase 2, trace the core flow with `graphify path` before
+opening files.
 
 Its output contract stands: `STACK.md`, `STRUCTURE.md`, `ARCHITECTURE.md`,
 `CONVENTIONS.md`, `INTEGRATIONS.md`, `TESTING.md` and `CONCERNS.md` in

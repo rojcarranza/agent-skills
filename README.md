@@ -68,6 +68,11 @@ core-flow diagram in `docs/codebase/ARCHITECTURE.md`, and the explain skills
 draw flows and before/after structure the same way. GitHub renders them; VS
 Code needs `bierner.markdown-mermaid`, JetBrains its Markdown Mermaid option.
 
+Skills that read code ask a [graphify](docs/installer.md#how-our-skills-use-the-graph)
+graph first when the repo has one (`graphify-out/`), and read only the files
+it points at — fewer tokens on large repos. Build one per repo with
+`graphify update .` (code only, no LLM).
+
 Walkthrough skills **offer** a CodeTour at the end of a run and write one
 into `.tours/` only on a yes, chaining to the community `code-tour` skill.
 `roj-tour-codebase` is the exception: its tours are the output.

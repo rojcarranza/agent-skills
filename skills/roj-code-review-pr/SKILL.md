@@ -2,7 +2,7 @@
 name: roj-code-review-pr
 description: Review the changes on the current Git feature branch, before or after a PR is opened, and write a review report, plus a CodeTour on request. Use when the user says "review my branch", "review this PR", "code review", "review before I push", "check my changes", or asks for defects/risks in a diff. Detects the stacks the diff touches (Java/Maven, Python, Bash, Go, Bamboo, Docker, Kubernetes, Helm) and loads only the matching rules. Git-only — never calls a PR host API. For pure comprehension ("explain this branch") use roj-explain-logic; for a quick chat-only pass use roj-code-review-pr-fast.
 license: MIT
-allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git status *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git symbolic-ref *) Bash(git merge-base *) Bash(git show *)
+allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git status *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git symbolic-ref *) Bash(git merge-base *) Bash(git show *) Bash(graphify query *) Bash(graphify explain *) Bash(graphify path *) Bash(graphify affected *)
 ---
 
 # Code Review PR
@@ -15,7 +15,8 @@ Rules that hold for the whole run:
 
 - Evidence is the local repository and `git`. There is no PR host access —
   never invent PR state, review comments, or CI results.
-- No command other than `git` runs without explicit approval.
+- No command other than `git` and the read-only `graphify` queries in
+  `references/graph-first.md` runs without explicit approval.
 - Every finding anchors to a line inside a diff hunk, carries a severity and
   a confidence, and dies if it cannot be tied to concrete failure.
 - Quote code, commands, and error strings verbatim.
@@ -23,7 +24,8 @@ Rules that hold for the whole run:
 
 Always load `references/review-method.md` and `references/cross-cutting.md`
 from this skill's own directory before reviewing. Load technology lenses only
-as phase 3 selects them.
+as phase 3 selects them, and `references/graph-first.md` when the repository
+has `graphify-out/graph.json`.
 
 The skill needs a terminal to run `git`. If the agent cannot run commands
 (some Copilot configurations), say so and ask the user to paste

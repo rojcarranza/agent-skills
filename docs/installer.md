@@ -144,6 +144,36 @@ the word `graphify` already appears there. The bullet in `claude/CLAUDE.md`
 is that guard: it keeps graphify skill-only (no per-session token cost) and
 keeps the CLI out of a repo-managed file.
 
+### How our skills use the graph
+
+Installing graphify saves nothing by itself: a skill has to ask the graph
+before reading files. Seven skills do, through the shared
+`references/graph-first.md` (owned by `roj-code-review-pr`, copied by
+`tools/sync_shared.py`):
+
+| Skill | Graph step |
+| --- | --- |
+| `roj-tour-codebase` | `GRAPH_REPORT.md` as the discovery map; `graphify path` for the core flow |
+| `roj-explain-logic` | `graphify explain` / `path` for callers and callees |
+| `roj-explain-feature-changes` | `graphify affected` / `explain` while tracing |
+| `roj-code-review-pr`, `roj-review-pr-comment` | `graphify affected` in the system pass (callers of changed symbols) |
+| `roj-investigate-issue` | `graphify query "<error line>"` in phase 2 |
+| `roj-soundboarding` | one `graphify query` per acceptance criterion |
+
+It applies only when `graphify-out/` has a graph and the CLI runs.
+Freshness is checked with `git`: the `Built from commit:` line in
+`GRAPH_REPORT.md` against `HEAD`, and files changed since are read from
+disk. Skills only run the read-only graphify queries (allowed alongside
+`git` in their command rules and `allowed-tools`); they never update or
+create the graph, and suggest `graphify update .` when it is stale. The graph only says where to
+look: findings and quotes still come from reading the lines.
+`roj-code-review-pr-fast` stays diff-local and never uses it. No skill
+creates `graphify-out/` unasked. Per repo, `graphify update .` builds a
+code-only graph in seconds without an LLM (this repo: about 1,500 nodes);
+`/graphify .` also maps docs and spends tokens doing it. Re-run
+`graphify update .`, or leave `graphify watch .` running, to keep it
+current.
+
 ### Updating an external
 
 Nothing about an external updates itself. Three layers move independently:

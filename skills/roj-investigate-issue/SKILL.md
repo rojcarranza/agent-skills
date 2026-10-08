@@ -51,6 +51,9 @@ the error/log, then proceed with what exists.
 
 Locate the code behind the failure:
 
+- When `references/graph-first.md` applies, start with
+  `graphify query "<decisive error line>" --budget 1500` and read the files
+  it names.
 - If a `context-map` skill is available, use it to map files relevant to
   the error. Otherwise search the repo directly for: quoted error
   strings, task/script names from the log, file paths in the stack trace.
