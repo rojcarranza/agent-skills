@@ -46,8 +46,13 @@ python3 install.py --status           # what is installed where + conflicts
 python3 install.py --repo .           # seed .github/skills for the team
 ```
 
-Every flag, the community skill list, externals (`graphify`), the Windows
-VDI and JetBrains setup are in [docs/installer.md](docs/installer.md).
+Community skills found on [skills.sh](https://skills.sh) go into
+`skills-inventory.json`, pinned to a commit:
+`python3 install.py --add-inventory https://skills.sh/<owner>/<repo>/<skill>`.
+
+Every flag, the community skill list, the skills inventory, externals
+(`graphify`), the Windows VDI and JetBrains setup are in
+[docs/installer.md](docs/installer.md).
 
 ## Skills
 
@@ -87,6 +92,7 @@ skills/<name>/
   assets/         templates the skill fills in
   examples/       sample inputs and outputs
 .claude-plugin/   marketplace.json — the Claude Code plugin view of skills/
+skills-inventory.json  skills.sh community skills, pinned to a commit
 tools/            sync_shared.py — copies shared files into every skill using them
 install.py        full installer (see docs/installer.md)
 test_install.py   installer tests

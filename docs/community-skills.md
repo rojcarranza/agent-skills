@@ -2,7 +2,10 @@
 
 Fetched by `install.py` into `~/.agent-skills-cache/` and installed
 alongside the custom skills. Sources: `github/awesome-copilot`,
-`juliusbrussee/caveman` and `warpdotdev/common-skills`.
+`juliusbrussee/caveman` and `warpdotdev/common-skills`, plus every skill in
+`skills-inventory.json` — skills.sh picks pinned to a commit (see
+[installer.md](installer.md#skills-inventory-skillssh)). Each inventory skill
+needs a section here; a test fails until it has one.
 
 ## code-tour
 Creates CodeTour `.tour` walkthroughs through a repo, PR, or bug.
@@ -56,3 +59,20 @@ folder.
 `roj-explain-feature-changes` requires it and hands it verified facts for the
 PR Explanation section, skipping its `gh` steps. Without it,
 `roj-explain-feature-changes` uses its own fallback rules.
+
+## find-skills
+Searches the open skills ecosystem (`npx skills find <query>`) when a task
+might already have a skill. From `vercel-labs/skills` (MIT), via the
+inventory.
+- `Is there a skill for Terraform plan reviews?`
+- `Find a skill for writing changelogs`
+
+`roj-investigate-issue` (a stack outside its classes) and `roj-soundboarding`
+(a story leaning on an uncovered stack) point at it and fall back to
+suggesting `npx skills find <stack>` when it is absent. Neither installs
+anything during a run.
+
+Upstream gotcha: its last step offers `npx skills add <owner/repo@skill> -g -y`,
+a one-off global install nothing here records. Treat that as a trial; to
+keep a skill, run `python3 install.py --add-inventory <owner/repo@skill>` and
+commit the entry. The community copy is deliberately not patched.

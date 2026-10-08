@@ -17,6 +17,8 @@ python3 install.py --status                      # what is installed where + con
 python3 install.py --uninstall caveman --target copilot
 python3 install.py --list                        # everything installable
 python3 install.py --target claude --skill roj-code-review-pr,pdf   # cherry-pick
+python3 install.py --add-inventory https://skills.sh/vercel-labs/skills/find-skills
+python3 install.py --check-inventory-updates     # pinned skills behind upstream
 ```
 
 Repo scope — seeds `<repo>/.github/skills`, shareable with the team:
@@ -94,6 +96,65 @@ Custom skills never require each other. Files two skills share — the
 review method `roj-code-review-pr-fast` and `roj-review-pr-comment` read —
 are copied into each skill by `tools/sync_shared.py`, so every skill also
 installs alone through `npx skills add`.
+
+## Skills inventory (skills.sh)
+
+`skills-inventory.json` lists community skills picked from
+[skills.sh](https://skills.sh) as data instead of code. The installer merges
+it into the community sources at start-up, so inventory skills behave like
+any other community skill: `--list`, the picker, `--skill`, `--status`,
+`--repo` and `--skills-only` all apply.
+
+```json
+{
+  "skills": [
+    {
+      "source": "vercel-labs/skills",
+      "skill": "find-skills",
+      "ref": "87a266971d9460a3d2606075b8e91edc83325472",
+      "targets": ["claude", "copilot"],
+      "default": true
+    }
+  ]
+}
+```
+
+| Key | Meaning |
+| --- | --- |
+| `source` | GitHub `owner/repo` |
+| `skill` | name skills.sh lists (the `name` in its `SKILL.md`); also the installed folder name |
+| `ref` | full commit SHA — the installer fetches exactly this commit |
+| `targets` | any of `claude`, `copilot`, `repo` |
+| `default` | `true` = installed by flag runs and pre-ticked in the picker |
+| `subdir` | optional, folder holding the skill folders (default `skills`) |
+| `folder` | optional, upstream folder name when it differs from `skill` |
+| `note` | optional, shown when a target is skipped |
+
+**Adding a skill.** Copy the skills.sh URL (or the `owner/repo@skill` form
+`npx skills add` takes) and run `--add-inventory`. It reads the repo's tree at
+the upstream tip, finds the `SKILL.md` whose folder or `name` matches —
+skills.sh lists `vercel-react-best-practices`, which lives in
+`skills/react-best-practices/` — and appends an entry pinned to that commit
+with `default: false`, since every installed description loads into every
+session. A second skill from an already-pinned repo reuses that repo's `ref`:
+one repo is one sparse clone at one commit. Then review the printed
+`SKILL.md` link, add a section to
+[community-skills.md](community-skills.md), and commit.
+
+**Updating.** `--check-inventory-updates` compares each pinned `ref` with the
+upstream tip and prints a compare link for the ones behind; it installs
+nothing. Bump `ref` in a commit, so the new upstream version goes through
+review like any other change. The tool `find-skills` itself installs with
+`npx skills add -g`, outside this file — use that for a trial, the inventory
+for keeps.
+
+**Offline.** A failed fetch reuses the local cache only when it is still at
+the pinned commit; a cache at another commit is skipped rather than installed.
+
+Names may not clash: an inventory skill that matches a custom skill, a
+hardcoded community skill or an external stops the installer with an error.
+The hardcoded sources in `install.py` move into the inventory in a later
+change.
 
 ## External skills (installed by their own CLI)
 

@@ -11,6 +11,8 @@ Usage:
   python3 install.py --target both --upgrade   # newer graphify, then refresh
   python3 install.py --target claude --skill roj-code-review-pr  # cherry-pick
   python3 install.py --list         # what can be installed
+  python3 install.py --add-inventory https://skills.sh/<owner>/<repo>/<skill>
+  python3 install.py --check-inventory-updates
 
 Python >= 3.8, standard library only.
 Copilot gets copies; Claude gets per-skill symlinks (edit the repo, changes
@@ -31,7 +33,8 @@ That directory is gone; every install run removes what those versions
 generated (see retire_prompts).
 
 Skills come from three kinds of source: this repo (skills/), a community git
-repo (SOURCES, sparse-cloned into ~/.agent-skills-cache), and an external CLI
+repo (SOURCES plus skills-inventory.json, sparse-cloned into
+~/.agent-skills-cache; inventory repos at a pinned commit), and an external CLI
 that installs its own skill (EXTERNALS — the installer bootstraps the CLI and
 delegates). Externals need a package index, so --skills-only skips them, and
 nothing about them auto-updates: --upgrade upgrades the CLI, and the same run
@@ -41,6 +44,7 @@ import argparse
 import filecmp
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -192,6 +196,143 @@ REQUIRES = {
     # each skill by tools/sync_shared.py, so every skill also installs alone
     # through `npx skills add`.
 }
+
+
+# Skills inventory: community skills picked from skills.sh, kept as data in
+# skills-inventory.json rather than code. Each entry pins a commit, so an
+# install is reproducible and a version bump is a reviewable diff. Entries
+# from one GitHub repo become one source (one sparse clone) and must pin the
+# same ref. The hardcoded SOURCES above move here in a later change.
+INVENTORY_PATH = REPO_ROOT / "skills-inventory.json"
+INVENTORY_REQUIRED = ("source", "skill", "ref", "targets", "default")
+INVENTORY_KEYS = set(INVENTORY_REQUIRED) | {"subdir", "folder", "note"}
+_PART_RE = re.compile(r"[A-Za-z0-9_.-]+")
+_SKILL_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
+_SHA_RE = re.compile(r"[0-9a-f]{40}")
+
+
+class InventoryError(ValueError):
+    """skills-inventory.json is malformed or clashes with a known name."""
+
+
+def _safe_path(value, parts):
+    """`value` is `parts` '/'-separated names (None = any number), none of
+    them '.' or '..' — inventory values become URLs and cache paths."""
+    split = str(value).split("/")
+    return ((parts is None or len(split) == parts)
+            and all(_PART_RE.fullmatch(s) and s not in (".", "..")
+                    for s in split))
+
+
+def load_inventory(path=None):
+    """Validated entries of the inventory file; [] when there is none."""
+    path = INVENTORY_PATH if path is None else Path(path)
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as e:
+        raise InventoryError(f"{path.name}: not valid JSON ({e})")
+    entries = data.get("skills") if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        raise InventoryError(f'{path.name}: expected {{"skills": [...]}}')
+    seen = set()
+    for i, entry in enumerate(entries, 1):
+        where = f"{path.name} entry {i}"
+        if not isinstance(entry, dict):
+            raise InventoryError(f"{where}: expected an object")
+        missing = [k for k in INVENTORY_REQUIRED if k not in entry]
+        if missing:
+            raise InventoryError(f"{where}: missing {', '.join(missing)}")
+        unknown = sorted(set(entry) - INVENTORY_KEYS)
+        if unknown:
+            raise InventoryError(f"{where}: unknown key {', '.join(unknown)}")
+        if not _safe_path(entry["source"], 2):
+            raise InventoryError(f"{where}: source must be owner/repo")
+        if "subdir" in entry and not _safe_path(entry["subdir"], None):
+            raise InventoryError(f"{where}: subdir must be a relative path "
+                                 f"inside the repo")
+        if "folder" in entry and not _safe_path(entry["folder"], 1):
+            raise InventoryError(f"{where}: folder must be one folder name")
+        if not _SKILL_RE.fullmatch(str(entry["skill"])):
+            raise InventoryError(f"{where}: skill must be lowercase-hyphen")
+        if not _SHA_RE.fullmatch(str(entry["ref"])):
+            raise InventoryError(f"{where}: ref must be a full 40-character "
+                                 f"commit SHA")
+        targets = entry["targets"]
+        if (not isinstance(targets, list) or not targets
+                or any(t not in ANY for t in targets)):
+            raise InventoryError(f"{where}: targets must be a non-empty list "
+                                 f"of {', '.join(ANY)}")
+        if not isinstance(entry["default"], bool):
+            raise InventoryError(f"{where}: default must be true or false")
+        if entry["skill"] in seen:
+            raise InventoryError(f"{where}: {entry['skill']} is listed twice")
+        seen.add(entry["skill"])
+    return entries
+
+
+def inventory_sources(entries):
+    """Inventory entries -> SOURCES-shaped dicts, one per GitHub repo."""
+    by_repo = {}
+    for entry in entries:
+        repo = entry["source"]
+        subdir = entry.get("subdir", "skills")
+        source = by_repo.get(repo)
+        if source is None:
+            source = by_repo[repo] = {
+                "label": repo,
+                "url": f"https://github.com/{repo}.git",
+                "branch": None,
+                "ref": entry["ref"],
+                "cache": repo.replace("/", "--"),
+                "subdir": subdir,
+                "fallback": (f"https://github.com/{repo}/tree/"
+                             f"{entry['ref']}/{subdir}"),
+                "inventory": True,
+                "skills": {},
+            }
+        elif source["ref"] != entry["ref"] or source["subdir"] != subdir:
+            raise InventoryError(f"{entry['skill']}: every {repo} entry must "
+                                 f"pin the same ref and subdir")
+        meta = {"targets": tuple(t for t in ANY if t in entry["targets"]),
+                "default": entry["default"]}
+        # skills.sh lists a skill by its frontmatter name; the folder it
+        # lives in upstream may differ. Installs always use the name.
+        if "folder" in entry:
+            meta["folder"] = entry["folder"]
+        if "note" in entry:
+            meta["note"] = entry["note"]
+        source["skills"][entry["skill"]] = meta
+    return list(by_repo.values())
+
+
+def check_inventory_names(sources, taken):
+    """An inventory skill must not shadow a custom, community or external
+    skill: two sources for one directory name would overwrite each other."""
+    for source in sources:
+        for name in source["skills"]:
+            if name in taken:
+                raise InventoryError(
+                    f"{name}: already provided by this repo or install.py — "
+                    f"remove it from {INVENTORY_PATH.name}")
+
+
+def _inventory_sources():
+    sources = inventory_sources(load_inventory())
+    taken = ({p.name for p in SKILLS_SRC.iterdir() if p.is_dir()}
+             | {n for s in SOURCES for n in s["skills"]}
+             | {e["name"] for e in EXTERNALS})
+    check_inventory_names(sources, taken)
+    return sources
+
+
+try:
+    SOURCES.extend(_inventory_sources())
+except InventoryError as e:
+    if __name__ != "__main__":
+        raise
+    sys.exit(f"install.py: {e}")
 
 
 # Custom skills and prompts were renamed with a "roj-" prefix. Installs made
@@ -710,30 +851,63 @@ def source_cache_dir(source):
     return Path.home() / ".agent-skills-cache" / source["cache"]
 
 
+def skill_folder(source, name):
+    """Upstream folder of a source's skill (inventory entries may differ
+    from the installed name)."""
+    return source["skills"][name].get("folder", name)
+
+
 def update_source_cache(source, dry_run, names=None):
     names = sorted(names) if names else sorted(source["skills"])
     subdir = source_skills_subdir(source)
     return update_repo_cache(
         source_cache_dir(source), source["url"], source["branch"],
-        [f"{subdir}/{n}" for n in names], dry_run, source["label"],
-        source["fallback"], skills_subdir=subdir)
+        [f"{subdir}/{skill_folder(source, n)}" for n in names], dry_run, source["label"],
+        source["fallback"], skills_subdir=subdir, ref=source.get("ref"))
 
 
 def run_git(args):
     subprocess.run(["git", *args], check=True)
 
 
+def git_head(cache):
+    """Commit a cache is checked out at, or None when it cannot be read."""
+    try:
+        out = subprocess.run(["git", "-C", str(cache), "rev-parse", "HEAD"],
+                             check=True, capture_output=True, text=True)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    return out.stdout.strip()
+
+
+def fetch_pinned(cache, url, ref, sparse, label):
+    """Check out exactly `ref` in a sparse cache, whatever the branch says."""
+    if (cache / ".git").is_dir():
+        log(f"Updating {label} cache (pinned {ref[:7]})...")
+    else:
+        log(f"Cloning {label} (sparse, pinned {ref[:7]})...")
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        run_git(["clone", "--depth", "1", "--filter=blob:none", "--sparse",
+                 "--no-checkout", url, str(cache)])
+    run_git(["-C", str(cache), "sparse-checkout", "set", *sparse])
+    run_git(["-C", str(cache), "fetch", "--depth", "1", "origin", ref])
+    run_git(["-C", str(cache), "reset", "--hard", "FETCH_HEAD"])
+
+
 def update_repo_cache(cache, url, branch, sparse, dry_run, label,
-                      fallback_url, skills_subdir="skills"):
+                      fallback_url, skills_subdir="skills", ref=None):
     """Sparse-clone/refresh a skills repo. Returns cache path or None when
     no usable cache exists. skills_subdir: where the skill folders live
-    inside the repo."""
+    inside the repo. ref: a pinned commit (inventory sources) instead of
+    the tip of `branch`."""
     skills_dir = cache / skills_subdir
     if dry_run:
         log(f"dry-run: would clone/update {url} into {cache}")
         return cache if skills_dir.is_dir() else None
     try:
-        if (cache / ".git").is_dir():
+        if ref:
+            fetch_pinned(cache, url, ref, sparse, label)
+        elif (cache / ".git").is_dir():
             log(f"Updating {label} cache...")
             run_git(["-C", str(cache), "sparse-checkout", "set", *sparse])
             run_git(["-C", str(cache), "fetch", "--depth", "1",
@@ -750,6 +924,10 @@ def update_repo_cache(cache, url, branch, sparse, dry_run, label,
         return cache
     except (subprocess.CalledProcessError, FileNotFoundError):
         warn(f"Could not clone/update {label} (offline? proxy?).")
+        if ref and skills_dir.is_dir() and git_head(cache) != ref:
+            warn(f"Existing {label} cache is not at the pinned "
+                 f"{ref[:7]} — skipped rather than install another version.")
+            return None
         if skills_dir.is_dir():
             warn("Using existing local cache instead.")
             return cache
@@ -768,6 +946,155 @@ def update_caveman_cache(dry_run):
 
 def update_addy_cache(dry_run):
     return update_source_cache(source_by_label("addy-agent-skills"), dry_run)
+
+
+def remote_head(url):
+    """Tip commit of a remote's default branch, or None when unreachable."""
+    try:
+        out = subprocess.run(["git", "ls-remote", url, "HEAD"], check=True,
+                             capture_output=True, text=True)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    fields = out.stdout.split()
+    return fields[0] if fields else None
+
+
+def check_inventory_updates(sources=None):
+    """Report inventory sources whose upstream moved past the pinned ref.
+    Never installs; returns how many are behind."""
+    sources = [s for s in (SOURCES if sources is None else sources)
+               if s.get("inventory")]
+    if not sources:
+        log(f"No skills in {INVENTORY_PATH.name}")
+        return 0
+    behind = 0
+    for source in sources:
+        label, ref = source["label"], source["ref"]
+        names = ", ".join(sorted(source["skills"]))
+        head = remote_head(source["url"])
+        if head is None:
+            warn(f"{label} ({names}): upstream unreachable (offline? proxy?)")
+        elif head == ref:
+            ok(f"{label} ({names}): up to date at {ref[:7]}")
+        else:
+            behind += 1
+            warn(f"{label} ({names}): pinned {ref[:7]}, upstream {head[:7]}")
+            warn(f"  review https://github.com/{label}/compare/{ref[:12]}..."
+                 f"{head[:12]}, then bump ref in {INVENTORY_PATH.name}")
+    return behind
+
+
+_SKILLS_SH_RE = re.compile(r"https?://(?:www\.)?skills\.sh/"
+                           r"([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/"
+                           r"([a-z0-9][a-z0-9-]*)/?")
+_CLI_SPEC_RE = re.compile(r"([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)@"
+                          r"([a-z0-9][a-z0-9-]*)")
+def parse_skill_spec(spec):
+    """skills.sh URL or owner/repo@skill -> ("owner/repo", "skill")."""
+    spec = spec.strip()
+    for pattern in (_SKILLS_SH_RE, _CLI_SPEC_RE):
+        m = pattern.fullmatch(spec)
+        if m and _safe_path(f"{m[1]}/{m[2]}", 2):
+            return f"{m[1]}/{m[2]}", m[3]
+    raise InventoryError(f"{spec}: expected https://skills.sh/owner/repo/"
+                         f"skill or owner/repo@skill")
+
+
+def frontmatter_name(text):
+    """`name` from a SKILL.md frontmatter block, or None."""
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return None
+    for line in parts[1].splitlines():
+        key, _, value = line.partition(":")
+        if key.strip() == "name":
+            return value.strip().strip("'\"")
+    return None
+
+
+def locate_skill(repo, ref, skill):
+    """(subdir, folder) of the skill skills.sh calls `skill` in repo at
+    ref. A folder named after the skill wins; otherwise the SKILL.md whose
+    frontmatter name matches, since skills.sh lists skills by that name."""
+    def git(*args):
+        return subprocess.run(["git", "-C", tmp, *args], check=True,
+                              capture_output=True, text=True).stdout
+
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            git("init", "-q")
+            git("remote", "add", "origin", f"https://github.com/{repo}.git")
+            # Blobless: list the tree, then read only the SKILL.md files
+            # we need (fetched on demand).
+            git("fetch", "-q", "--depth", "1", "--filter=blob:none",
+                "origin", ref)
+            paths = sorted((p for p in git("ls-tree", "-r", "--name-only",
+                                           "FETCH_HEAD").splitlines()
+                            if p.endswith("/SKILL.md")),
+                           key=lambda p: (p.count("/"), p))
+            found = next((p for p in paths
+                          if Path(p).parent.name == skill), None)
+            if found is None:
+                found = next((p for p in paths if frontmatter_name(
+                    git("show", f"FETCH_HEAD:{p}")) == skill), None)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            raise InventoryError(f"{repo}: could not fetch {ref[:7]} "
+                                 f"(offline? proxy?)")
+    if found is None:
+        raise InventoryError(f"{skill}: no SKILL.md named {skill} in {repo} "
+                             f"at {ref[:7]}")
+    folder = Path(found).parent
+    if str(folder.parent) == ".":
+        raise InventoryError(f"{skill}: lives at the root of {repo} — "
+                             f"top-level skill folders are not supported")
+    return folder.parent.as_posix(), folder.name
+
+
+def add_inventory(spec, path=None, dry_run=False):
+    """Append a skills.sh skill to the inventory, pinned to the upstream
+    tip (or to the ref its repo is already pinned at). Returns the entry."""
+    path = INVENTORY_PATH if path is None else Path(path)
+    repo, skill = parse_skill_spec(spec)
+    entries = load_inventory(path)
+    if any(e["skill"] == skill for e in entries):
+        raise InventoryError(f"{skill} is already in {path.name}")
+    taken = (custom_skill_names() | all_external_names()
+             | {n for s in SOURCES if not s.get("inventory")
+                for n in s["skills"]})
+    if skill in taken:
+        raise InventoryError(f"{skill}: already provided by this repo or "
+                             f"install.py — install it with --skill")
+    same_repo = [e for e in entries if e["source"] == repo]
+    if same_repo:
+        ref = same_repo[0]["ref"]
+        log(f"{repo} is already pinned at {ref[:7]} — reusing that ref")
+    else:
+        ref = remote_head(f"https://github.com/{repo}.git")
+        if not ref:
+            raise InventoryError(f"{repo}: upstream unreachable (offline? "
+                                 f"proxy? typo?)")
+    subdir, folder = locate_skill(repo, ref, skill)
+    if same_repo and same_repo[0].get("subdir", "skills") != subdir:
+        raise InventoryError(f"{skill}: lives in {subdir}/, but {repo} is "
+                             f"pinned with another subdir — one subdir per "
+                             f"repo")
+    # Not default: every installed description loads into every session.
+    entry = {"source": repo, "skill": skill, "ref": ref,
+             "targets": ["claude", "copilot"], "default": False}
+    if subdir != "skills":
+        entry["subdir"] = subdir
+    if folder != skill:
+        entry["folder"] = folder
+    if dry_run:
+        log(f"dry-run: would add {json.dumps(entry)} to {path.name}")
+        return entry
+    path.write_text(json.dumps({"skills": entries + [entry]}, indent=2)
+                    + "\n", encoding="utf-8")
+    ok(f"Added {skill} ({repo} @ {ref[:7]}) to {path.name}")
+    log(f"Next: review https://github.com/{repo}/blob/{ref}/{subdir}/"
+        f"{folder}/SKILL.md, add a '## {skill}' section to "
+        f"docs/community-skills.md, then commit")
+    return entry
 
 
 def install_community_for_target(target, dest_root, sel_community, dry_run):
@@ -789,7 +1116,8 @@ def install_community_for_target(target, dest_root, sel_community, dry_run):
                 continue
             if not cache:
                 continue
-            src = cache / source_skills_subdir(source) / name
+            src = (cache / source_skills_subdir(source)
+                   / skill_folder(source, name))
             if not src.is_dir():
                 results.append((target, name, "missing in cache — skipped"))
                 continue
@@ -1278,8 +1606,25 @@ def main():
     ap.add_argument("--repo", metavar="PATH",
                     help="also seed <PATH>/.github/skills (repo scope, "
                          "shareable with the team)")
+    ap.add_argument("--add-inventory", metavar="URL|OWNER/REPO@SKILL",
+                    help="add a skills.sh skill to skills-inventory.json, "
+                         "pinned to its current upstream commit")
+    ap.add_argument("--check-inventory-updates", action="store_true",
+                    help="list inventory skills whose upstream moved past "
+                         "the pinned commit (installs nothing)")
     args = ap.parse_args()
     repo = resolve_repo(args.repo) if args.repo else None
+
+    if args.add_inventory:
+        try:
+            add_inventory(args.add_inventory, dry_run=args.dry_run)
+        except InventoryError as e:
+            sys.exit(f"--add-inventory: {e}")
+        return
+
+    if args.check_inventory_updates:
+        check_inventory_updates()
+        return
 
     if args.list:
         show_list()

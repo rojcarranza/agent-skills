@@ -1,0 +1,14 @@
+{
+  "skills": [
+    {
+      "source": "vercel-labs/skills",
+      "skill": "find-skills",
+      "ref": "87a266971d9460a3d2606075b8e91edc83325472",
+      "targets": [
+        "claude",
+        "copilot"
+      ],
+      "default": true
+    }
+  ]
+}
