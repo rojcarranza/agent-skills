@@ -4,31 +4,43 @@
     {
       "id": 1,
       "prompt": "review my branch before I open the PR",
-      "expected_output": "A review report file at the repo root with change summary, verdict and severity/confidence-tagged findings.",
+      "fixture": {
+        "repo": "pyrepo"
+      },
+      "expected_output": "A review report at the repo root that catches the swallowed retry failure.",
       "expectations": [
         "Resolves the base branch and prints it with the merge-base SHA",
         "Uses three-dot diffs (<base>...HEAD)",
         "Writes <branch-slug>-review.md at the repository root",
+        "Flags that upload() in app/uploader.py returns None after the last failed attempt (so app/cli.py's result[\"id\"] fails) as Blocker or Major",
         "Every finding carries a severity, a confidence and a path:line inside a diff hunk",
+        "States no finding that is factually wrong",
         "Offers a CodeTour in one line instead of writing one"
       ]
     },
     {
       "id": 2,
       "prompt": "code review this branch - it only changes a Helm chart template that renders a Deployment",
-      "expected_output": "Helm and Kubernetes lenses loaded together; no unrelated lenses.",
+      "fixture": {
+        "repo": "helm"
+      },
+      "expected_output": "Helm and Kubernetes lenses loaded together; the immutable selector change caught.",
       "expectations": [
-        "Loads platform-helm.md and platform-k8s.md",
-        "Does not load lang-*.md lenses no changed file justifies",
-        "Names the loaded lenses in the report header"
+        "Loads platform-helm.md and platform-k8s.md and no lang-*.md lens",
+        "Names the loaded lenses in the report header",
+        "Flags the new spec.selector.matchLabels entry as breaking helm upgrade of an existing release (immutable field)",
+        "States no finding that is factually wrong"
       ]
     },
     {
       "id": 3,
       "prompt": "review my branch, I think it's clean",
+      "fixture": {
+        "repo": "pyrepo-clean"
+      },
       "expected_output": "On a clean diff the report says so instead of inventing findings.",
       "expectations": [
-        "Reports no findings when none survive the gates",
+        "Reports no Blocker, Major or Minor finding",
         "Runs no command other than git without asking",
         "Does not fetch from the remote unasked"
       ]

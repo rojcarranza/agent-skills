@@ -4,31 +4,45 @@
     {
       "id": 1,
       "prompt": "review PR #123 and comment",
+      "fixture": {
+        "repo": "pyrepo",
+        "gh": "normal"
+      },
       "expected_output": "One COMMENT review posted with inline comments and the head-SHA marker.",
       "expectations": [
         "Posts exactly one review with event COMMENT",
         "Never approves or requests changes",
         "Review body ends with <!-- review-pr-comment:<headRefOid> -->",
-        "Inline comments only on lines inside gh pr diff hunks"
+        "Posts at least one inline comment, and every inline comment's line falls inside a gh pr diff hunk",
+        "An inline comment flags that upload() in app/uploader.py returns None after the last failed attempt",
+        "States no finding that is factually wrong"
       ]
     },
     {
       "id": 2,
-      "prompt": "review PR #123 and comment (a review with this head SHA's marker already exists)",
-      "expected_output": "Skips because the commit was already reviewed.",
+      "prompt": "review PR #123 and comment",
+      "fixture": {
+        "repo": "pyrepo",
+        "gh": "reviewed"
+      },
+      "expected_output": "An earlier review already carries this head SHA's marker: skip without reviewing.",
       "expectations": [
-        "Checks existing reviews for the marker before reviewing",
-        "Prints '<short sha> already reviewed: <url>' and posts nothing"
+        "Makes no gh pr diff call and writes no review",
+        "Says the head commit is already reviewed and posts nothing"
       ]
     },
     {
       "id": 3,
-      "prompt": "post a review on PR 9 (gh is not authenticated)",
-      "expected_output": "Findings printed in chat; clear statement that nothing was posted.",
+      "prompt": "post a review on PR 9",
+      "fixture": {
+        "repo": "pyrepo",
+        "gh": "noauth"
+      },
+      "expected_output": "gh is not authenticated: nothing is posted and no workaround is tried.",
       "expectations": [
-        "Prints findings in the inline-comment format in chat",
-        "Says nothing was posted",
-        "Does not retry with other credentials or tools"
+        "Says plainly that nothing was posted",
+        "Does not retry through other credentials or tools (curl, GH_TOKEN, gh auth login)",
+        "Any findings it prints use the inline-comment format and say which branch or diff they were taken from"
       ]
     }
   ]

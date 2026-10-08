@@ -4,32 +4,55 @@
     {
       "id": 1,
       "prompt": "explain this branch to me",
-      "expected_output": "Walkthrough: big picture, flow in execution order, why, gotchas.",
+      "fixture": {
+        "repo": "develop-go"
+      },
+      "expected_output": "Walkthrough against develop: big picture, run-order flow, why, gotchas.",
       "expectations": [
-        "Pulls the real diff before explaining",
-        "Resolves the base branch rather than assuming main",
-        "Walks the flow in execution order, not file by file",
+        "Uses develop (or origin/develop) as the base and never main",
+        "Walks the flow in run order: workers start, the feeder sends and closes in, a goroutine closes out after wg.Wait(), the caller drains out",
+        "Points out that n <= 0 leaves the feeder blocked forever",
         "Makes no improvement suggestions"
       ]
     },
     {
       "id": 2,
       "prompt": "what does deploy.sh do?",
+      "fixture": {
+        "repo": "deploy-sh"
+      },
       "expected_output": "Shell lens applied; failure behaviour mid-pipeline stated.",
       "expectations": [
         "Reads the whole file",
-        "States what happens when a mid-pipeline command fails",
-        "Ends with runtime impact when the script is CI/CD or infra"
+        "States that without pipefail a failing helm or kubectl is masked by tee's exit status",
+        "Ends with runtime impact"
       ]
     },
     {
       "id": 3,
-      "prompt": "explain and review this function",
-      "expected_output": "Explanation first, then a separately headed review phase.",
+      "prompt": "explain and review this function: fetch in lib/net.py",
+      "fixture": {
+        "repo": "net-py"
+      },
+      "expected_output": "Explanation first, then a separately headed review that catches the dead raise.",
       "expectations": [
-        "Review appears only after the full explanation under its own header",
+        "The review comes after the full explanation, under its own header",
         "Every finding ties to specific lines",
-        "Says the code is solid instead of inventing findings when it is"
+        "Flags that `if i == attempts` can never be true, so the last failure returns None instead of raising",
+        "States no finding that is factually wrong"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "explain and review this function: chunked in lib/iterutil.py",
+      "fixture": {
+        "repo": "clean-py"
+      },
+      "expected_output": "Correct code: the review says so instead of inventing findings.",
+      "expectations": [
+        "The review comes after the full explanation, under its own header",
+        "Says the function has no defects",
+        "Reports no 🔴 or 🟡 finding"
       ]
     }
   ]

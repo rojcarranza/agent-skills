@@ -156,11 +156,22 @@ low.
 run through the skill-creator skill itself: ask Claude, with skill-creator
 loaded, to run `evals/<skill>/evals.json` against `skills/<skill>`. It
 runs each prompt with and without the skill, grades the outputs against
-`expectations`, and opens its review viewer. A prompt that names a setup
-in parentheses ("current branch is develop itself", "gh is not
-authenticated") needs a scratch repository put in that state first.
+`expectations`, and opens its review viewer.
 
-`test_skills.py` checks the files' shape, not the scores.
+Each behaviour eval names the repository it runs in under `fixture`.
+Build a fresh one per run, so no run sees another's output:
+
+```bash
+evals/fixtures/build.sh <fixture.repo> /tmp/run-1          # repo at /tmp/run-1/repo
+evals/fixtures/fake-gh.sh /tmp/run-1 <fixture.gh>          # PR-comment evals only
+```
+
+The fake `gh` serves PR #123 from that repository and records every call
+and review POST under `/tmp/run-1/gh-state/` instead of reaching GitHub;
+put `/tmp/run-1/bin` first on the run's `PATH` and grade from those files.
+
+`test_skills.py` checks that every fixture builds and the files' shape,
+not the scores.
 
 ## License
 

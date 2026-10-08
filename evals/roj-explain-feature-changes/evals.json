@@ -4,31 +4,42 @@
     {
       "id": 1,
       "prompt": "explain my changes compared to develop",
+      "fixture": {
+        "repo": "develop-py"
+      },
       "expected_output": "<branch-slug>-changes.md with comparison line, traced before/after behaviour and PR text.",
       "expectations": [
         "States 'Comparing <branch> -> <base> (merge base <sha>)' before anything else",
-        "Every behaviour claim carries a path:start-end reference",
-        "Every intent claim is labelled confirmed, likely or unknown",
+        "Every behaviour claim carries a path:start-end reference that holds the code it describes",
+        "Every intent claim is labelled confirmed, likely or unknown, and none is marked confirmed without a commit message, doc or test saying so",
+        "States that upload() now returns None after the last failed attempt, where app/cli.py indexes the result",
+        "Describes RETRIES = 3 as three attempts, not three retries",
         "Contains no review findings or refactoring advice",
         "Writes <branch-slug>-changes.md and offers .git/info/exclude"
       ]
     },
     {
       "id": 2,
-      "prompt": "explain my changes (current branch is develop itself)",
-      "expected_output": "Asks which branch to explain instead of diffing develop against itself.",
+      "prompt": "explain my changes",
+      "fixture": {
+        "repo": "develop-py-on-base"
+      },
+      "expected_output": "On the base branch: ask which branch to explain, write nothing.",
       "expectations": [
-        "Detects that the current branch is the base",
-        "Asks one question and writes nothing"
+        "Asks which branch to explain before explaining any change",
+        "Writes no file"
       ]
     },
     {
       "id": 3,
-      "prompt": "explain my branch for the PR (run in a PowerShell terminal)",
-      "expected_output": "Git-only, one command per call, no pipes or Unix text tools.",
+      "prompt": "explain my branch for the PR (I'm running in a PowerShell terminal)",
+      "fixture": {
+        "repo": "develop-py"
+      },
+      "expected_output": "PowerShell-safe: one plain git command per call, and the report still written.",
       "expectations": [
-        "Uses git grep instead of grep/sed/awk",
-        "Uses no $(...) or pipes",
+        "Uses no grep, sed, awk, cat -n, pipes, $(...), or && / ; chaining (the harness's cd prefix excepted)",
+        "Still writes <branch-slug>-changes.md",
         "Never commits, pushes, fetches or checks out"
       ]
     }

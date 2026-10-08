@@ -6,6 +6,9 @@ frontmatter breaks the spec, so these fail loudly instead.
 """
 import json
 import re
+import shutil
+import subprocess
+import tempfile
 import sys
 import unittest
 from pathlib import Path
@@ -227,7 +230,12 @@ class TestSelfContained(SkillTest):
 class TestEvals(unittest.TestCase):
     """evals/<skill>/ holds skill-creator eval sets, outside skills/ so no
     install carries them. triggers.json feeds scripts/run_eval.py;
-    evals.json follows skill-creator's schema."""
+    evals.json follows skill-creator's schema, plus a "fixture" naming the
+    sandbox repo (evals/fixtures/build.sh) and, for the PR-comment skill,
+    the fake gh mode (evals/fixtures/fake-gh.sh)."""
+
+    FIXTURES = ROOT / "evals" / "fixtures"
+    GH_MODES = {"normal", "reviewed", "noauth"}
 
     # Skills whose descriptions overlap; each must keep an eval set.
     REQUIRED = {"roj-code-review-pr", "roj-code-review-pr-fast",
@@ -235,7 +243,46 @@ class TestEvals(unittest.TestCase):
                 "roj-explain-feature-changes"}
 
     def eval_dirs(self):
-        return sorted(p for p in (ROOT / "evals").iterdir() if p.is_dir())
+        return sorted(p for p in (ROOT / "evals").iterdir()
+                      if p.is_dir() and p != self.FIXTURES)
+
+    def fixture_kinds(self):
+        """The case labels of build.sh, one per fixture it can build."""
+        text = (self.FIXTURES / "build.sh").read_text("utf-8")
+        return set(re.findall(r"^([a-z][\w-]*)\)", text, re.M))
+
+    def test_evals_name_buildable_fixtures(self):
+        kinds = self.fixture_kinds()
+        for d in self.eval_dirs():
+            data = json.loads((d / "evals.json").read_text("utf-8"))
+            for e in data["evals"]:
+                with self.subTest(evals=d.name, id=e["id"]):
+                    self.assertIn(e["fixture"]["repo"], kinds)
+                    if "gh" in e["fixture"]:
+                        self.assertIn(e["fixture"]["gh"], self.GH_MODES)
+
+    @unittest.skipUnless(shutil.which("bash") and shutil.which("git"),
+                         "needs bash and git")
+    def test_every_fixture_builds(self):
+        used = set()
+        for d in self.eval_dirs():
+            data = json.loads((d / "evals.json").read_text("utf-8"))
+            used |= {e["fixture"]["repo"] for e in data["evals"]}
+        with tempfile.TemporaryDirectory() as tmp:
+            for kind in sorted(used):
+                with self.subTest(fixture=kind):
+                    dest = Path(tmp) / kind
+                    run = subprocess.run(
+                        ["bash", str(self.FIXTURES / "build.sh"), kind,
+                         str(dest)], capture_output=True, text=True)
+                    self.assertEqual(run.returncode, 0, run.stderr)
+                    self.assertTrue((dest / "repo" / ".git").is_dir())
+            gh = Path(tmp) / "pyrepo"
+            run = subprocess.run(
+                ["bash", str(self.FIXTURES / "fake-gh.sh"), str(gh),
+                 "normal"], capture_output=True, text=True)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertTrue((gh / "bin" / "gh").is_file())
 
     def test_required_eval_sets_exist(self):
         present = {d.name for d in self.eval_dirs()}
