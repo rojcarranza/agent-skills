@@ -293,6 +293,14 @@ then the same run re-copies the skill files the new version ships. It reports
 `--upgrade` a re-run only refreshes the skill files: the bootstrap installs a
 CLI only when it is missing, never over one that already works.
 
+A target whose skill is already stamped with the CLI's version (for
+graphify, `.graphify_version` equal to `graphify --version`) reports
+`up to date` and the CLI's installer is not run at all, so routine runs
+never rewrite the folder. An interrupted install (a leftover
+`references.tmp`, or a `references/` file named in `SKILL.md` but missing)
+is never treated as up to date: the next run repairs it. On Windows a failed CLI install is retried once,
+three seconds later, after clearing a leftover `references.tmp`.
+
 The third layer is the graph itself (`graphify-out/`), which the agent
 rebuilds — a full `/graphify .` or an incremental `graphify update <path>`
 after code changes. A stale graph is worse than none, since the skill tells
@@ -324,6 +332,15 @@ CLI — with `uv` or `pipx` if either is on the box, otherwise plain
 the run prints the manual command and carries on without it — and
 `--skills-only` skips it outright. A `graphify` skill without its CLI is
 inert, and `--status` says so.
+
+`PermissionError: [WinError 5] Access is denied: '...\graphify\references.tmp'
+-> '...\graphify\references'` comes from graphify's own installer: Windows
+refuses to rename a folder while another process holds a file in it — VS
+Code or JetBrains watching `~\.copilot\skills`, or antivirus scanning the
+files graphify just wrote. The installer retries once; if it still fails,
+close the IDEs, delete `~/.copilot/skills/graphify/references.tmp` and
+`references`, and run `python install.py --target copilot --skill graphify`.
+Every other skill in the run is unaffected.
 
 From the dotfiles repo root, `python install.py install agent-skills` does steps 1–4
 for the custom skills only.

@@ -1334,6 +1334,106 @@ class TestInstallExternalForTarget(ExternalTest):
                          [("claude", "tool-y", "skipped (not for claude)")])
 
 
+class TestExternalSkipAndRetry(ExternalTest):
+    """Re-running a CLI's installer is skipped when the stamp already
+    matches; on Windows a failed install is retried once."""
+
+    def setUp(self):
+        super().setUp()
+        self.root = self.tmp / "copilot-skills"
+        self.skill = self.root / "tool-y"
+        out = contextlib.ExitStack()
+        out.enter_context(contextlib.redirect_stdout(io.StringIO()))
+        self.err = out.enter_context(contextlib.redirect_stderr(io.StringIO()))
+        self.addCleanup(out.close)
+
+    def install(self, version="1.2.3", runs=(True,), windows=False):
+        outcomes = list(runs)
+        calls = []
+
+        def fake(argv, cwd):
+            calls.append(argv)
+            return outcomes.pop(0)
+
+        with mock.patch("install.target_root", return_value=self.root), \
+             mock.patch("install.cli_version", return_value=version), \
+             mock.patch("install.run_cli", side_effect=fake), \
+             mock.patch("install.IS_WINDOWS", windows), \
+             mock.patch("install.time.sleep") as sleep:
+            results = install.install_external_for_target(
+                "copilot", self.fake_external(), "/bin/tool-y", None,
+                dry_run=False)
+        return results, calls, sleep
+
+    def stamp(self, version):
+        self.skill.mkdir(parents=True)
+        (self.skill / "SKILL.md").write_text("body")
+        (self.skill / ".tool_y_version").write_text(version + "\n")
+
+    def test_skips_when_stamp_matches_the_cli(self):
+        self.stamp("1.2.3")
+        results, calls, _ = self.install()
+        self.assertEqual(results, [("copilot", "tool-y", "up to date")])
+        self.assertEqual(calls, [])
+
+    def test_half_finished_install_is_not_current(self):
+        # The WinError 5 failure: references/ deleted, rename never done,
+        # stamp left at the current version.
+        self.stamp("1.2.3")
+        (self.skill / "SKILL.md").write_text(
+            "See references/github-and-merge.md")
+        _, calls, _ = self.install()
+        self.assertEqual(len(calls), 1)
+
+    def test_leftover_staging_dir_is_not_current(self):
+        self.stamp("1.2.3")
+        (self.skill / "references.tmp").mkdir()
+        _, calls, _ = self.install()
+        self.assertEqual(len(calls), 1)
+
+    def test_complete_install_with_references_is_current(self):
+        self.stamp("1.2.3")
+        (self.skill / "SKILL.md").write_text(
+            "See references/github-and-merge.md")
+        (self.skill / "references").mkdir()
+        (self.skill / "references" / "github-and-merge.md").write_text("x")
+        results, calls, _ = self.install()
+        self.assertEqual(calls, [])
+        self.assertEqual(results[0][2], "up to date")
+
+    def test_runs_when_the_cli_is_newer(self):
+        self.stamp("1.2.2")
+        results, calls, _ = self.install()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(results[0][2], "installed (by CLI)")
+
+    def test_runs_when_the_version_is_unknown(self):
+        self.stamp("1.2.3")
+        _, calls, _ = self.install(version=None)
+        self.assertEqual(len(calls), 1)
+
+    def test_windows_retries_once_and_clears_staging(self):
+        (self.skill / "references.tmp").mkdir(parents=True)
+        results, calls, sleep = self.install(runs=(False, True),
+                                             windows=True)
+        self.assertEqual(len(calls), 2)
+        sleep.assert_called_once()
+        self.assertFalse((self.skill / "references.tmp").exists())
+        self.assertEqual(results[0][2], "installed (by CLI)")
+
+    def test_windows_second_failure_reports_with_a_hint(self):
+        results, calls, _ = self.install(runs=(False, False), windows=True)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(results[0][2], "failed")
+        self.assertIn("close VS Code and JetBrains", self.err.getvalue())
+
+    def test_no_retry_off_windows(self):
+        results, calls, sleep = self.install(runs=(False,), windows=False)
+        self.assertEqual(len(calls), 1)
+        sleep.assert_not_called()
+        self.assertEqual(results[0][2], "failed")
+
+
 class TestInstallExternalsForTarget(ExternalTest):
     def test_only_selected_externals_run(self):
         ext = self.fake_external()
