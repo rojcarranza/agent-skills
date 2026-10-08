@@ -96,6 +96,9 @@ EXTERNALS = [
         # directory the installer was launched from; repo scope runs in the
         # repo, where the file belongs.
         "repo_cwd": True,
+        # Written into the repo by `vscode install` alongside the skill;
+        # repo scope is only current while it is there.
+        "repo_files": (".github/copilot-instructions.md",),
         "version_file": ".graphify_version",
     },
 ]
@@ -1351,7 +1354,10 @@ def install_external_for_target(target, ext, exe, repo, dry_run):
         return planned
     if not exe:
         return [(target, name, "skipped (CLI unavailable)")]
-    if external_current(ext, exe, target_root(target, repo) / name):
+    if (external_current(ext, exe, target_root(target, repo) / name)
+            and (target != "repo" or all(
+                (Path(repo) / f).is_file()
+                for f in ext.get("repo_files", ())))):
         return [(target, name, "up to date")]
     # The CLI writes the personal skill; repo scope copies it afterwards.
     cli_dest = target_root(argv_key) / name

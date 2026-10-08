@@ -1427,6 +1427,32 @@ class TestExternalSkipAndRetry(ExternalTest):
         self.assertEqual(results[0][2], "failed")
         self.assertIn("close VS Code and JetBrains", self.err.getvalue())
 
+    def test_repo_scope_reinstalls_when_a_repo_file_is_missing(self):
+        repo = self.tmp / "proj"
+        self.stamp("1.2.3")
+        ext = self.fake_external(
+            repo_files=(".github/copilot-instructions.md",))
+        calls = []
+
+        def fake(argv, cwd):
+            calls.append(argv)
+            return True
+
+        def run():
+            with mock.patch("install.target_root", return_value=self.root), \
+                 mock.patch("install.cli_version", return_value="1.2.3"), \
+                 mock.patch("install.run_cli", side_effect=fake):
+                return install.install_external_for_target(
+                    "repo", ext, "/bin/tool-y", repo, dry_run=False)
+
+        run()
+        self.assertEqual(len(calls), 1)
+        (repo / ".github").mkdir(parents=True)
+        (repo / ".github" / "copilot-instructions.md").write_text("x")
+        results = run()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(results, [("repo", "tool-y", "up to date")])
+
     def test_no_retry_off_windows(self):
         results, calls, sleep = self.install(runs=(False,), windows=False)
         self.assertEqual(len(calls), 1)
