@@ -13,6 +13,7 @@ Usage:
   python3 install.py --list         # what can be installed
   python3 install.py --add-inventory https://skills.sh/<owner>/<repo>/<skill>
   python3 install.py --check-inventory-updates
+  python3 install.py --update       # latest pins + refresh what is installed
 
 Python >= 3.8, standard library only.
 Copilot gets copies; Claude gets per-skill symlinks (edit the repo, changes
@@ -55,16 +56,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent
 SKILLS_SRC = REPO_ROOT / "skills"
 
-AWESOME_REPO_URL = "https://github.com/github/awesome-copilot.git"
-AWESOME_BRANCH = "main"
-ZIP_FALLBACK_URL = "https://github.com/github/awesome-copilot/tree/main/skills"
-CAVEMAN_REPO_URL = "https://github.com/juliusbrussee/caveman.git"
-CAVEMAN_BRANCH = "main"
-ADDY_REPO_URL = "https://github.com/addyosmani/agent-skills.git"
-ADDY_BRANCH = "main"
-WARP_REPO_URL = "https://github.com/warpdotdev/common-skills.git"
-WARP_BRANCH = "main"
-
 BOTH = ("copilot", "claude")
 # Also safe to vendor into a repo's .github/ for the whole team.
 ANY = BOTH + ("repo",)
@@ -72,85 +63,10 @@ ANY = BOTH + ("repo",)
 REPO_SKILLS_SUBDIR = Path(".github") / "skills"
 REPO_PROMPTS_SUBDIR = Path(".github") / "prompts"
 
-# Community sources. Per skill: targets it may install to, whether it is
-# pre-selected (default) or an explicit cherry-pick, and an optional note
-# shown when a target is skipped.
-SOURCES = [
-    {
-        "label": "awesome-copilot",
-        "url": AWESOME_REPO_URL,
-        "branch": AWESOME_BRANCH,
-        "cache": "awesome-copilot",
-        "fallback": ZIP_FALLBACK_URL,
-        "skills": {
-            "code-tour": {"targets": ANY, "default": True},
-            "acquire-codebase-knowledge": {"targets": ANY, "default": True},
-            "context-map": {"targets": ANY, "default": True},
-            # Cherry-picks: their descriptions load into every session, and
-            # neither has a dependent. Install explicitly when needed.
-            "architecture-blueprint-generator": {"targets": ANY,
-                                                 "default": False},
-            "add-educational-comments": {"targets": ANY, "default": False},
-        },
-    },
-    {
-        "label": "caveman",
-        "url": CAVEMAN_REPO_URL,
-        "branch": CAVEMAN_BRANCH,
-        "cache": "caveman",
-        "fallback": "https://github.com/juliusbrussee/caveman/tree/main/skills",
-        "skills": {
-            "caveman": {"targets": ("copilot",), "default": True,
-                        "note": "claude uses the caveman plugin"},
-        },
-    },
-    {
-        "label": "addy-agent-skills",
-        "url": ADDY_REPO_URL,
-        "branch": ADDY_BRANCH,
-        "cache": "addy-agent-skills",
-        "fallback": "https://github.com/addyosmani/agent-skills/tree/main/skills",
-        "skills": {
-            # Chained by roj-investigate-issue on Copilot; Claude uses
-            # superpowers:systematic-debugging instead.
-            "debugging-and-error-recovery": {
-                "targets": ("copilot",), "default": True,
-                "note": "claude uses superpowers:systematic-debugging"},
-            "observability-and-instrumentation": {"targets": BOTH,
-                                                  "default": False},
-            "ci-cd-and-automation": {"targets": BOTH, "default": False},
-            "security-and-hardening": {"targets": BOTH, "default": False},
-            "deprecation-and-migration": {"targets": BOTH, "default": False},
-        },
-    },
-    {
-        "label": "warp-common-skills",
-        "url": WARP_REPO_URL,
-        "branch": WARP_BRANCH,
-        "cache": "warp-common-skills",
-        # warpdotdev keeps its skills under .agents/skills, not skills/.
-        "subdir": ".agents/skills",
-        "fallback": ("https://github.com/warpdotdev/common-skills/tree/main/"
-                     ".agents/skills"),
-        "skills": {
-            # Shapes the PR Explanation section of roj-explain-feature-changes.
-            "write-pr-description": {"targets": ANY, "default": True},
-        },
-    },
-    {
-        "label": "anthropics-skills",
-        "url": "https://github.com/anthropics/skills.git",
-        "branch": "main",
-        "cache": "anthropics-skills",
-        "fallback": "https://github.com/anthropics/skills/tree/main/skills",
-        "skills": {
-            "pdf": {"targets": BOTH, "default": False},
-            "docx": {"targets": BOTH, "default": False},
-            "pptx": {"targets": BOTH, "default": False},
-            "xlsx": {"targets": BOTH, "default": False},
-        },
-    },
-]
+# Community sources, built from skills-inventory.json below. Per skill:
+# targets it may install to, whether it is pre-selected (default) or an
+# explicit cherry-pick, and an optional note shown when a target is skipped.
+SOURCES = []
 
 # External skills: shipped and installed by their own CLI, never vendored
 # here. We bootstrap the CLI, then delegate each target's install to it, so an
@@ -202,7 +118,7 @@ REQUIRES = {
 # skills-inventory.json rather than code. Each entry pins a commit, so an
 # install is reproducible and a version bump is a reviewable diff. Entries
 # from one GitHub repo become one source (one sparse clone) and must pin the
-# same ref. The hardcoded SOURCES above move here in a later change.
+# same ref.
 INVENTORY_PATH = REPO_ROOT / "skills-inventory.json"
 INVENTORY_REQUIRED = ("source", "skill", "ref", "targets", "default")
 INVENTORY_KEYS = set(INVENTORY_REQUIRED) | {"subdir", "folder", "note"}
@@ -283,7 +199,6 @@ def inventory_sources(entries):
             source = by_repo[repo] = {
                 "label": repo,
                 "url": f"https://github.com/{repo}.git",
-                "branch": None,
                 "ref": entry["ref"],
                 "cache": repo.replace("/", "--"),
                 "subdir": subdir,
@@ -308,20 +223,19 @@ def inventory_sources(entries):
 
 
 def check_inventory_names(sources, taken):
-    """An inventory skill must not shadow a custom, community or external
-    skill: two sources for one directory name would overwrite each other."""
+    """An inventory skill must not shadow a custom skill or an external:
+    two sources for one directory name would overwrite each other."""
     for source in sources:
         for name in source["skills"]:
             if name in taken:
                 raise InventoryError(
-                    f"{name}: already provided by this repo or install.py — "
+                    f"{name}: already a custom skill or external — "
                     f"remove it from {INVENTORY_PATH.name}")
 
 
 def _inventory_sources():
     sources = inventory_sources(load_inventory())
     taken = ({p.name for p in SKILLS_SRC.iterdir() if p.is_dir()}
-             | {n for s in SOURCES for n in s["skills"]}
              | {e["name"] for e in EXTERNALS})
     check_inventory_names(sources, taken)
     return sources
@@ -396,10 +310,6 @@ def default_community_names():
     return {n for n, (_, meta) in registry().items() if meta["default"]}
 
 
-# Legacy constants, derived — external callers and tests rely on them.
-COMMUNITY_SKILLS = list(source_by_label("awesome-copilot")["skills"])
-CAVEMAN_SKILLS = list(source_by_label("caveman")["skills"])
-ADDY_SKILLS = list(source_by_label("addy-agent-skills")["skills"])
 
 
 def required_by(skills, requires=None):
@@ -825,30 +735,26 @@ def retire_prompts(target, dest_root, dry_run, repo=None):
     return results
 
 
-def cache_dir():
-    return Path.home() / ".agent-skills-cache" / "awesome-copilot"
-
-
-def caveman_cache_dir():
-    return Path.home() / ".agent-skills-cache" / "caveman"
-
-
-def addy_cache_dir():
-    return Path.home() / ".agent-skills-cache" / "addy-agent-skills"
-
-
-# Legacy cache dirs pre-date the registry; keep them authoritative so
-# existing caches (and tests that patch them) stay valid.
-_LEGACY_CACHE_FUNCS = {"awesome-copilot": "cache_dir",
-                       "caveman": "caveman_cache_dir",
-                       "addy-agent-skills": "addy_cache_dir"}
+CACHE_ROOT = Path.home() / ".agent-skills-cache"
+# Cache dirs from before skills-inventory.json, when each source had a
+# hand-picked name. Every non-dry install run removes them once.
+LEGACY_CACHES = ("awesome-copilot", "caveman", "addy-agent-skills",
+                 "warp-common-skills", "anthropics-skills")
 
 
 def source_cache_dir(source):
-    fn_name = _LEGACY_CACHE_FUNCS.get(source["label"])
-    if fn_name:
-        return globals()[fn_name]()
-    return Path.home() / ".agent-skills-cache" / source["cache"]
+    return CACHE_ROOT / source["cache"]
+
+
+def remove_legacy_caches(dry_run):
+    for name in LEGACY_CACHES:
+        cache = CACHE_ROOT / name
+        if (cache / ".git").is_dir():
+            if dry_run:
+                log(f"dry-run: would remove old cache {cache}")
+            else:
+                shutil.rmtree(cache, ignore_errors=True)
+                log(f"Removed old cache {cache} (now pinned per repo)")
 
 
 def skill_folder(source, name):
@@ -861,9 +767,9 @@ def update_source_cache(source, dry_run, names=None):
     names = sorted(names) if names else sorted(source["skills"])
     subdir = source_skills_subdir(source)
     return update_repo_cache(
-        source_cache_dir(source), source["url"], source["branch"],
-        [f"{subdir}/{skill_folder(source, n)}" for n in names], dry_run, source["label"],
-        source["fallback"], skills_subdir=subdir, ref=source.get("ref"))
+        source_cache_dir(source), source["url"], source["ref"],
+        [f"{subdir}/{skill_folder(source, n)}" for n in names], dry_run,
+        source["label"], source["fallback"], skills_subdir=subdir)
 
 
 def run_git(args):
@@ -894,58 +800,32 @@ def fetch_pinned(cache, url, ref, sparse, label):
     run_git(["-C", str(cache), "reset", "--hard", "FETCH_HEAD"])
 
 
-def update_repo_cache(cache, url, branch, sparse, dry_run, label,
-                      fallback_url, skills_subdir="skills", ref=None):
-    """Sparse-clone/refresh a skills repo. Returns cache path or None when
-    no usable cache exists. skills_subdir: where the skill folders live
-    inside the repo. ref: a pinned commit (inventory sources) instead of
-    the tip of `branch`."""
+def update_repo_cache(cache, url, ref, sparse, dry_run, label,
+                      fallback_url, skills_subdir="skills"):
+    """Sparse-clone/refresh a skills repo at the pinned commit `ref`.
+    Returns the cache path, or None when no usable cache exists.
+    skills_subdir: where the skill folders live inside the repo."""
     skills_dir = cache / skills_subdir
     if dry_run:
-        log(f"dry-run: would clone/update {url} into {cache}")
+        log(f"dry-run: would fetch {url} at {ref[:7]} into {cache}")
         return cache if skills_dir.is_dir() else None
     try:
-        if ref:
-            fetch_pinned(cache, url, ref, sparse, label)
-        elif (cache / ".git").is_dir():
-            log(f"Updating {label} cache...")
-            run_git(["-C", str(cache), "sparse-checkout", "set", *sparse])
-            run_git(["-C", str(cache), "fetch", "--depth", "1",
-                     "origin", branch])
-            run_git(["-C", str(cache), "reset", "--hard",
-                     f"origin/{branch}"])
-        else:
-            log(f"Cloning {label} (sparse, only needed skills)...")
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            run_git(["clone", "--depth", "1", "--filter=blob:none", "--sparse",
-                     "-b", branch, url, str(cache)])
-            run_git(["-C", str(cache), "sparse-checkout", "set", *sparse])
+        fetch_pinned(cache, url, ref, sparse, label)
         ok(f"{label} cache ready")
         return cache
     except (subprocess.CalledProcessError, FileNotFoundError):
         warn(f"Could not clone/update {label} (offline? proxy?).")
-        if ref and skills_dir.is_dir() and git_head(cache) != ref:
+        if not skills_dir.is_dir():
+            warn(f"Fallback: download the skill folders as ZIP from "
+                 f"{fallback_url}")
+            warn(f"and unzip into {skills_dir}, then re-run this script.")
+            return None
+        if git_head(cache) != ref:
             warn(f"Existing {label} cache is not at the pinned "
                  f"{ref[:7]} — skipped rather than install another version.")
             return None
-        if skills_dir.is_dir():
-            warn("Using existing local cache instead.")
-            return cache
-        warn(f"Fallback: download the skill folders as ZIP from {fallback_url}")
-        warn(f"and unzip into {skills_dir}, then re-run this script.")
-        return None
-
-
-def update_community_cache(dry_run):
-    return update_source_cache(source_by_label("awesome-copilot"), dry_run)
-
-
-def update_caveman_cache(dry_run):
-    return update_source_cache(source_by_label("caveman"), dry_run)
-
-
-def update_addy_cache(dry_run):
-    return update_source_cache(source_by_label("addy-agent-skills"), dry_run)
+        warn("Using existing local cache instead.")
+        return cache
 
 
 def remote_head(url):
@@ -1012,10 +892,10 @@ def frontmatter_name(text):
     return None
 
 
-def locate_skill(repo, ref, skill):
-    """(subdir, folder) of the skill skills.sh calls `skill` in repo at
-    ref. A folder named after the skill wins; otherwise the SKILL.md whose
-    frontmatter name matches, since skills.sh lists skills by that name."""
+def with_remote_tree(repo, ref, fn):
+    """fn(paths, read) against repo at ref, without a checkout: paths are
+    its SKILL.md files, shallowest first; read(path) returns a file's text
+    (blobs are fetched on demand)."""
     def git(*args):
         return subprocess.run(["git", "-C", tmp, *args], check=True,
                               capture_output=True, text=True).stdout
@@ -1024,22 +904,28 @@ def locate_skill(repo, ref, skill):
         try:
             git("init", "-q")
             git("remote", "add", "origin", f"https://github.com/{repo}.git")
-            # Blobless: list the tree, then read only the SKILL.md files
-            # we need (fetched on demand).
             git("fetch", "-q", "--depth", "1", "--filter=blob:none",
                 "origin", ref)
             paths = sorted((p for p in git("ls-tree", "-r", "--name-only",
                                            "FETCH_HEAD").splitlines()
                             if p.endswith("/SKILL.md")),
                            key=lambda p: (p.count("/"), p))
-            found = next((p for p in paths
-                          if Path(p).parent.name == skill), None)
-            if found is None:
-                found = next((p for p in paths if frontmatter_name(
-                    git("show", f"FETCH_HEAD:{p}")) == skill), None)
+            return fn(paths, lambda p: git("show", f"FETCH_HEAD:{p}"))
         except (subprocess.CalledProcessError, FileNotFoundError):
             raise InventoryError(f"{repo}: could not fetch {ref[:7]} "
                                  f"(offline? proxy?)")
+
+
+def locate_skill(repo, ref, skill):
+    """(subdir, folder) of the skill skills.sh calls `skill` in repo at
+    ref. A folder named after the skill wins; otherwise the SKILL.md whose
+    frontmatter name matches, since skills.sh lists skills by that name."""
+    def pick(paths, read):
+        return (next((p for p in paths if Path(p).parent.name == skill), None)
+                or next((p for p in paths
+                         if frontmatter_name(read(p)) == skill), None))
+
+    found = with_remote_tree(repo, ref, pick)
     if found is None:
         raise InventoryError(f"{skill}: no SKILL.md named {skill} in {repo} "
                              f"at {ref[:7]}")
@@ -1058,12 +944,9 @@ def add_inventory(spec, path=None, dry_run=False):
     entries = load_inventory(path)
     if any(e["skill"] == skill for e in entries):
         raise InventoryError(f"{skill} is already in {path.name}")
-    taken = (custom_skill_names() | all_external_names()
-             | {n for s in SOURCES if not s.get("inventory")
-                for n in s["skills"]})
-    if skill in taken:
-        raise InventoryError(f"{skill}: already provided by this repo or "
-                             f"install.py — install it with --skill")
+    if skill in custom_skill_names() | all_external_names():
+        raise InventoryError(f"{skill}: already a custom skill or external "
+                             f"— install it with --skill")
     same_repo = [e for e in entries if e["source"] == repo]
     if same_repo:
         ref = same_repo[0]["ref"]
@@ -1095,6 +978,97 @@ def add_inventory(spec, path=None, dry_run=False):
         f"{folder}/SKILL.md, add a '## {skill}' section to "
         f"docs/community-skills.md, then commit")
     return entry
+
+
+def bump_inventory(path=None, dry_run=False):
+    """Move every inventory repo's pin to its upstream tip. A repo whose
+    new commit lost one of our skills keeps its pin. Writes the file unless
+    dry_run; returns (entries, [(repo, old, new), ...])."""
+    path = INVENTORY_PATH if path is None else Path(path)
+    entries = load_inventory(path)
+    bumped = []
+    for source in inventory_sources(entries):
+        repo, old = source["label"], source["ref"]
+        new = remote_head(source["url"])
+        if new is None:
+            warn(f"{repo}: upstream unreachable — kept at {old[:7]}")
+            continue
+        if new == old:
+            ok(f"{repo}: up to date at {old[:7]}")
+            continue
+        subdir = source_skills_subdir(source)
+        try:
+            present = with_remote_tree(repo, new,
+                                       lambda paths, read: set(paths))
+        except InventoryError as e:
+            warn(f"{e} — kept at {old[:7]}")
+            continue
+        gone = sorted(n for n in source["skills"]
+                      if f"{subdir}/{skill_folder(source, n)}/SKILL.md"
+                      not in present)
+        if gone:
+            warn(f"{repo}: {', '.join(gone)} no longer at {subdir}/ in "
+                 f"{new[:7]} — kept at {old[:7]}; check upstream")
+            continue
+        for entry in entries:
+            if entry["source"] == repo:
+                entry["ref"] = new
+        bumped.append((repo, old, new))
+        log(f"{repo}: {old[:7]} -> {new[:7]}  https://github.com/{repo}/"
+            f"compare/{old[:12]}...{new[:12]}")
+    if bumped and not dry_run:
+        path.write_text(json.dumps({"skills": entries}, indent=2) + "\n",
+                        encoding="utf-8")
+        ok(f"{path.name}: {len(bumped)} repo(s) bumped — review "
+           f"`git diff {path.name}` and commit, so other machines get the "
+           f"same versions")
+    return entries, bumped
+
+
+def check_checkout_current(root=None):
+    """Warn when this agent-skills checkout is behind its upstream branch.
+    Reads only; never pulls. Returns 'current', 'ahead', 'behind' or None
+    when it cannot tell (no upstream, offline)."""
+    root = str(REPO_ROOT if root is None else root)
+
+    def git(*args):
+        return subprocess.run(["git", "-C", root, *args], check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    try:
+        upstream = git("rev-parse", "--abbrev-ref", "--symbolic-full-name",
+                       "@{u}")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        log("agent-skills checkout tracks no branch (pinned?) — not "
+            "checking for newer custom skills")
+        return None
+    remote, _, branch = upstream.partition("/")
+    try:
+        tip = git("ls-remote", remote, f"refs/heads/{branch}").split()[0]
+        head = git("rev-parse", "HEAD")
+    except (subprocess.CalledProcessError, FileNotFoundError, IndexError):
+        warn(f"could not reach {upstream} — not checking for newer custom "
+             f"skills")
+        return None
+    if tip == head:
+        ok(f"agent-skills checkout is current with {upstream}")
+        return "current"
+    try:
+        git("merge-base", "--is-ancestor", tip, "HEAD")
+        return "ahead"
+    except subprocess.CalledProcessError:
+        warn(f"agent-skills checkout is behind {upstream}: run "
+             f"`git -C {root} pull` for the latest custom skills, then "
+             f"--update again")
+        return "behind"
+
+
+def installed_names(dest_root):
+    """Directory names in a target root (what --update refreshes)."""
+    if not dest_root.is_dir():
+        return set()
+    return {p.name for p in dest_root.iterdir()
+            if p.is_dir() or p.is_symlink()}
 
 
 def install_community_for_target(target, dest_root, sel_community, dry_run):
@@ -1609,6 +1583,10 @@ def main():
     ap.add_argument("--add-inventory", metavar="URL|OWNER/REPO@SKILL",
                     help="add a skills.sh skill to skills-inventory.json, "
                          "pinned to its current upstream commit")
+    ap.add_argument("--update", action="store_true",
+                    help="bump every skills-inventory.json pin to upstream, "
+                         "then refresh only the skills already installed "
+                         "(and upgrade their external CLIs)")
     ap.add_argument("--check-inventory-updates", action="store_true",
                     help="list inventory skills whose upstream moved past "
                          "the pinned commit (installs nothing)")
@@ -1662,8 +1640,25 @@ def main():
         print_summary(results, targets, args.dry_run)
         return
 
-    interactive = args.target is None and repo is None and not args.skill
-    targets = pick_targets(args.target, repo)
+    interactive = (args.target is None and repo is None and not args.skill
+                   and not args.update)
+    if args.update:
+        # Refresh what is there; never prompts, never installs anything new.
+        targets = status_targets(args.target, repo)
+        args.upgrade = not args.skills_only
+        check_checkout_current()
+        if args.skills_only:
+            log("--skills-only: inventory pins left as they are")
+        else:
+            try:
+                entries, _ = bump_inventory(dry_run=args.dry_run)
+                SOURCES[:] = inventory_sources(entries)
+            except InventoryError as e:
+                sys.exit(f"--update: {e}")
+        present = {t: installed_names(target_root(t, repo)) for t in targets}
+    else:
+        targets = pick_targets(args.target, repo)
+        present = None
     custom = sorted(p for p in SKILLS_SRC.iterdir() if p.is_dir())
     if not custom:
         sys.exit(f"No skills found in {SKILLS_SRC}")
@@ -1689,14 +1684,20 @@ def main():
         sel_skills, sel_community, sel_externals = resolve_skill_args(
             args.skill)
         custom = [p for p in custom if p.name in sel_skills]
+    elif args.update:
+        everything = set().union(*present.values())
+        sel_community = all_community_names() & everything
+        sel_externals = all_external_names() & everything
+        custom = [p for p in custom if p.name in everything]
     else:
         sel_community = default_community_names()
         sel_externals = default_external_names()
 
-    names, sel_community, sel_externals = add_requirements(
-        {p.name for p in custom}, sel_community, sel_externals)
-    custom = sorted(p for p in SKILLS_SRC.iterdir()
-                    if p.is_dir() and p.name in names)
+    if not args.update:
+        names, sel_community, sel_externals = add_requirements(
+            {p.name for p in custom}, sel_community, sel_externals)
+        custom = sorted(p for p in SKILLS_SRC.iterdir()
+                        if p.is_dir() and p.name in names)
 
     if args.skills_only:
         # Externals fetch from a package index, same network the community
@@ -1706,6 +1707,7 @@ def main():
         for source in SOURCES:
             source["_cache"] = None
     else:
+        remove_legacy_caches(args.dry_run)
         for source in SOURCES:
             wanted = sel_community & set(source["skills"])
             source["_cache"] = (update_source_cache(source, args.dry_run,
@@ -1733,7 +1735,11 @@ def main():
         if not args.dry_run:
             dest_root.mkdir(parents=True, exist_ok=True)
         results.extend(remove_legacy(target, dest_root, args.dry_run))
+        # --update: only what this target already has.
+        only = present[target] if present is not None else None
         for skill in custom:
+            if only is not None and skill.name not in only:
+                continue
             if target == "claude":
                 status = install_symlink(skill, dest_root / skill.name,
                                          args.dry_run)
@@ -1742,9 +1748,12 @@ def main():
                                       args.dry_run)
             results.append((target, skill.name, status))
         results.extend(install_community_for_target(
-            target, dest_root, sel_community, args.dry_run))
+            target, dest_root,
+            sel_community if only is None else sel_community & only,
+            args.dry_run))
         results.extend(install_externals_for_target(
-            target, sel_externals, repo, args.dry_run))
+            target, sel_externals if only is None else sel_externals & only,
+            repo, args.dry_run))
         results.extend(retire_prompts(target, dest_root, args.dry_run,
                                       repo=repo))
 

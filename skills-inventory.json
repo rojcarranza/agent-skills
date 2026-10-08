@@ -1,6 +1,217 @@
 {
   "skills": [
     {
+      "source": "github/awesome-copilot",
+      "skill": "code-tour",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": true
+    },
+    {
+      "source": "github/awesome-copilot",
+      "skill": "acquire-codebase-knowledge",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": true
+    },
+    {
+      "source": "github/awesome-copilot",
+      "skill": "context-map",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": true
+    },
+    {
+      "source": "github/awesome-copilot",
+      "skill": "architecture-blueprint-generator",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": false
+    },
+    {
+      "source": "github/awesome-copilot",
+      "skill": "add-educational-comments",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": false
+    },
+    {
+      "source": "github/awesome-copilot",
+      "skill": "arch-linux-triage",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": false
+    },
+    {
+      "source": "github/awesome-copilot",
+      "skill": "centos-linux-triage",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": false
+    },
+    {
+      "source": "github/awesome-copilot",
+      "skill": "debian-linux-triage",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": false
+    },
+    {
+      "source": "github/awesome-copilot",
+      "skill": "fedora-linux-triage",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": false
+    },
+    {
+      "source": "juliusbrussee/caveman",
+      "skill": "caveman",
+      "ref": "2e08b9177c07bb7249a8a2d1a6758e5db281d002",
+      "targets": [
+        "copilot"
+      ],
+      "default": true,
+      "note": "claude uses the caveman plugin"
+    },
+    {
+      "source": "addyosmani/agent-skills",
+      "skill": "debugging-and-error-recovery",
+      "ref": "1401c8b8030e023baeebb31781a6653fe8e93026",
+      "targets": [
+        "copilot"
+      ],
+      "default": true,
+      "note": "claude uses superpowers:systematic-debugging"
+    },
+    {
+      "source": "addyosmani/agent-skills",
+      "skill": "observability-and-instrumentation",
+      "ref": "1401c8b8030e023baeebb31781a6653fe8e93026",
+      "targets": [
+        "claude",
+        "copilot"
+      ],
+      "default": false
+    },
+    {
+      "source": "addyosmani/agent-skills",
+      "skill": "ci-cd-and-automation",
+      "ref": "1401c8b8030e023baeebb31781a6653fe8e93026",
+      "targets": [
+        "claude",
+        "copilot"
+      ],
+      "default": false
+    },
+    {
+      "source": "addyosmani/agent-skills",
+      "skill": "security-and-hardening",
+      "ref": "1401c8b8030e023baeebb31781a6653fe8e93026",
+      "targets": [
+        "claude",
+        "copilot"
+      ],
+      "default": false
+    },
+    {
+      "source": "addyosmani/agent-skills",
+      "skill": "deprecation-and-migration",
+      "ref": "1401c8b8030e023baeebb31781a6653fe8e93026",
+      "targets": [
+        "claude",
+        "copilot"
+      ],
+      "default": false
+    },
+    {
+      "source": "warpdotdev/common-skills",
+      "skill": "write-pr-description",
+      "ref": "2a03b403b4f8d42cb54b8953697737193b2e8306",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": true,
+      "subdir": ".agents/skills"
+    },
+    {
+      "source": "anthropics/skills",
+      "skill": "pdf",
+      "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+      "targets": [
+        "claude",
+        "copilot"
+      ],
+      "default": false
+    },
+    {
+      "source": "anthropics/skills",
+      "skill": "docx",
+      "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+      "targets": [
+        "claude",
+        "copilot"
+      ],
+      "default": false
+    },
+    {
+      "source": "anthropics/skills",
+      "skill": "pptx",
+      "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+      "targets": [
+        "claude",
+        "copilot"
+      ],
+      "default": false
+    },
+    {
+      "source": "anthropics/skills",
+      "skill": "xlsx",
+      "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+      "targets": [
+        "claude",
+        "copilot"
+      ],
+      "default": false
+    },
+    {
       "source": "vercel-labs/skills",
       "skill": "find-skills",
       "ref": "87a266971d9460a3d2606075b8e91edc83325472",
