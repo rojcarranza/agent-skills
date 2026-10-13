@@ -30,8 +30,8 @@ Rules that hold for the whole run:
 Load `references/mermaid.md` at the end of phase 1, `references/tour-plan.md`
 at phase 2, `references/flow-tracing.md` when phase 2 picks the core flow,
 and `references/step-writing.md` at phase 3. None of them are needed before
-that. Graph check, first and every run: look for `graphify-out/graph.json` at
-the start of phase 1. Present: load `references/graph-first.md`. Absent:
+that. Graph check, first and every run: look for `graphify-out/graph.json` as
+soon as phase 0 has resolved the repository root, before any discovery. Present: load `references/graph-first.md`. Absent:
 discover directly. Close the final chat message with one line: `Graph: used`,
 `Graph: stale, skipped` or `Graph: none found, searched directly`.
 

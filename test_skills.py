@@ -283,10 +283,24 @@ class TestGraphFirst(unittest.TestCase):
             with self.subTest(name):
                 text = (SKILLS / name / "SKILL.md").read_text("utf-8")
                 flat = " ".join(text.split())
-                self.assertIn("Graph check, first and every run", flat)
+                start = flat.index("Graph check, first and every run")
+                rule = flat[start:start + 700]
+                # The statuses must sit in the closing instruction of the
+                # rule itself, not in unrelated prose elsewhere.
+                self.assertIn("Close", rule)
+                closing = rule[rule.index("Close"):]
                 for status in ("`Graph: used`", "`Graph: stale, skipped`",
                                "`Graph: none found, searched directly`"):
-                    self.assertIn(status, flat)
+                    self.assertIn(status, closing)
+
+    def test_graph_reference_has_only_three_statuses(self):
+        text = (SKILLS / "roj-code-review-pr" / "references"
+                / "graph-first.md").read_text("utf-8")
+        flat = " ".join(text.split())
+        statuses = set(re.findall(r"`Graph: [^`]*`", flat))
+        self.assertEqual(statuses, {
+            "`Graph: used`", "`Graph: stale, skipped`",
+            "`Graph: none found, searched directly`"})
 
     def test_fast_review_stays_diff_local(self):
         text = (SKILLS / "roj-code-review-pr-fast" / "SKILL.md").read_text(
