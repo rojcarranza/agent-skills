@@ -275,6 +275,19 @@ class TestGraphFirst(unittest.TestCase):
                         self.assertIn(f"Bash(graphify {cmd} *)",
                                       tools.group(1))
 
+    def test_graph_check_runs_every_time_and_reports(self):
+        # The check for graph.json must not hide behind "when it applies":
+        # each skill states it as a rule and closes its output with one of
+        # the three Graph: status lines.
+        for name in self.USES_GRAPH:
+            with self.subTest(name):
+                text = (SKILLS / name / "SKILL.md").read_text("utf-8")
+                flat = " ".join(text.split())
+                self.assertIn("Graph check, first and every run", flat)
+                for status in ("`Graph: used`", "`Graph: stale, skipped`",
+                               "`Graph: none found, searched directly`"):
+                    self.assertIn(status, flat)
+
     def test_fast_review_stays_diff_local(self):
         text = (SKILLS / "roj-code-review-pr-fast" / "SKILL.md").read_text(
             "utf-8")
