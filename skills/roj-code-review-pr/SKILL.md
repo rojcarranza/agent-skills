@@ -21,6 +21,10 @@ Rules that hold for the whole run:
   a confidence, and dies if it cannot be tied to concrete failure.
 - Quote code, commands, and error strings verbatim.
 - A clean branch is reported as clean. Never invent findings.
+- Graph check, first and every run: look for `graphify-out/graph.json` at the
+  repository root. Present: follow `references/graph-first.md`. Absent: search
+  directly. Close the report with one line: `Graph: used`,
+  `Graph: stale, skipped` or `Graph: none found, searched directly`.
 
 Always load `references/review-method.md` and `references/cross-cutting.md`
 from this skill's own directory before reviewing. Load technology lenses only

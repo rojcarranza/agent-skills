@@ -138,6 +138,12 @@ plainly — never invent findings.
 
 ## Rules
 
+- Graph check, first and every run: look for `graphify-out/graph.json` at the
+  repository root before tracing callers. Present: follow
+  `references/graph-first.md`. Absent: search directly. Close the answer with
+  one line: `Graph: used`, `Graph: stale, skipped` or
+  `Graph: none found, searched directly`. The read-only `graphify` queries in
+  that file are allowed alongside `git`.
 - Never invent behavior — if you can't see the code a call resolves to,
   say so and go read it.
 - Prefer "this line does X because Y" over "this improves Z".

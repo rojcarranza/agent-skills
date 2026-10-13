@@ -47,6 +47,12 @@ the user sees where the SB document will be written.
    `git diff`) are allowed.
 4. **Ask, don't guess:** when something is ambiguous, ask the user one
    question and wait for the answer.
+5. **Graph check, first and every run:** before investigating a repository,
+   look for `graphify-out/graph.json` at its root. Present: follow
+   `references/graph-first.md`. Absent: search directly. Close the final chat
+   message with one line: `Graph: used`, `Graph: stale, skipped` or
+   `Graph: none found, searched directly`. The read-only `graphify` queries in
+   that file are allowed alongside the read-only git commands.
 
 ## Flow 1: Create an SB document
 

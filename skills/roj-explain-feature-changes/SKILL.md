@@ -20,6 +20,10 @@ feature should be understood (Important Observations in
   the tour validator in phase 8 and the read-only `graphify` queries in
   `references/graph-first.md`. Never commit, push, reset, rebase,
   checkout, switch, stash, fetch or edit source code unless the user asks.
+- Graph check, first and every run: look for `graphify-out/graph.json` at the
+  repository root. Present: follow `references/graph-first.md`. Absent: search
+  directly. Close your final chat message with one line: `Graph: used`,
+  `Graph: stale, skipped` or `Graph: none found, searched directly`.
 - Write at most two files: the report (phase 6) and, only if the user
   accepts the offer, the tour (phase 8).
 - One plain `git` command per call. No `$(...)`, no pipes, no `grep`,

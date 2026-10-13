@@ -20,6 +20,12 @@ Rules that hold for the whole run:
   **Probable** (evidence-only) — never presented as certain when it is not.
 - Quote error strings, commands, and code verbatim.
 - Skipping a phase must be justified in the report.
+- Graph check, first and every run: look for `graphify-out/graph.json` at the
+  repository root before searching for the failing code. Present: follow
+  `references/graph-first.md`. Absent: search directly. Close the report with
+  one line: `Graph: used`, `Graph: stale, skipped` or
+  `Graph: none found, searched directly`. The read-only `graphify` queries in
+  that file are allowed alongside `git`.
 
 Helper skills are optional: every chain step below has an inline
 fallback, so the workflow succeeds with no helpers installed.

@@ -51,5 +51,10 @@ it.
   stale.
 - Skills that list their allowed commands allow these read-only graphify
   commands alongside `git`; nothing else is added.
-- Note in one line of the output that the graph was used, and that it was
-  updated first if it was.
+- The check for `graphify-out/graph.json` runs every time, before the first
+  file search. Close the output with exactly one of three lines:
+  `Graph: used`, `Graph: stale, skipped` or
+  `Graph: none found, searched directly`. A stale graph that still helped
+  (changed files read from disk) is `Graph: used`; say so in the sentence
+  before the line, not in the line. Mention "refreshed first" there too if the
+  user updated the graph before the run.

@@ -1,5 +1,26 @@
 # agent-skills — instructions for agents working in this repo
 
+## Track every change with an issue
+
+- Before implementing a change, create a GitHub issue (or user story) for
+  it: a one-line user story ("As ..., I want ..., so that ..."), the
+  background, checkable acceptance criteria and what is out of scope. If a
+  matching open issue exists, use it instead of creating a duplicate.
+- Title it `<type>(<scope>): <summary>` (Conventional Commits), with the same
+  type as the branch and the PR: `feat(skills): ...`, `fix(install): ...`,
+  `docs: ...`, `test: ...`, `chore: ...`. Lowercase, imperative, no trailing
+  period. The branch, the commit and the PR title reuse the same line.
+- Write the story for one user-visible outcome, small enough for one PR, and
+  phrase each acceptance criterion so it can be checked yes or no.
+- Create the issue first, then the branch, then the code. Do not start
+  implementing until the issue exists.
+- The pull request description starts with `Closes #<issue>` so the two stay
+  linked and the issue closes on merge. Mention the PR number in the issue.
+- A change that grows beyond its acceptance criteria gets the issue updated
+  first, then the code.
+- Skip the issue only for a typo or a one-line fix with no behavior change,
+  and say so in the pull request.
+
 ## Commits and pull requests
 
 - Author **and** committer are Roj Carranza <rojjamescarranza@gmail.com>,

@@ -23,6 +23,10 @@ Rules for the whole run:
 - Every finding anchors to a line inside a diff hunk, carries a severity and
   a confidence, and dies if it cannot be tied to concrete failure.
 - A clean PR is reported as clean. Never invent findings.
+- Graph check, first and every run: look for `graphify-out/graph.json` at the
+  checkout root. Present: follow `graph-first.md`. Absent: search directly.
+  Close the final report (step 8) with one line: `Graph: used`,
+  `Graph: stale, skipped` or `Graph: none found, searched directly`.
 - No Claude attribution anywhere in the review.
 
 ## 1. Load the method
