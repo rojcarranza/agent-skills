@@ -6,6 +6,12 @@
   it: a one-line user story ("As ..., I want ..., so that ..."), the
   background, checkable acceptance criteria and what is out of scope. If a
   matching open issue exists, use it instead of creating a duplicate.
+- Title it `<type>(<scope>): <summary>` (Conventional Commits), with the same
+  type as the branch and the PR: `feat(skills): ...`, `fix(install): ...`,
+  `docs: ...`, `test: ...`, `chore: ...`. Lowercase, imperative, no trailing
+  period. The branch, the commit and the PR title reuse the same line.
+- Write the story for one user-visible outcome, small enough for one PR, and
+  phrase each acceptance criterion so it can be checked yes or no.
 - Create the issue first, then the branch, then the code. Do not start
   implementing until the issue exists.
 - The pull request description starts with `Closes #<issue>` so the two stay
