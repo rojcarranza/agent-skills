@@ -5,7 +5,8 @@ commit (see [installer.md](installer.md#skills-inventory-skillssh)).
 `install.py` fetches each repo into `~/.agent-skills-cache/<owner>--<repo>`
 and installs the skills alongside the custom ones. Sources:
 `github/awesome-copilot`, `juliusbrussee/caveman`, `addyosmani/agent-skills`,
-`warpdotdev/common-skills`, `anthropics/skills` and `vercel-labs/skills`.
+`warpdotdev/common-skills`, `anthropics/skills`, `vercel-labs/skills` and
+`mattpocock/skills`.
 Each inventory skill needs a section here; a test fails until it has one.
 
 ## code-tour
@@ -137,3 +138,35 @@ Upstream gotcha: its last step offers `npx skills add <owner/repo@skill> -g -y`,
 a one-off global install nothing here records. Treat that as a trial; to
 keep a skill, run `python3 install.py --add-inventory <owner/repo@skill>` and
 commit the entry. The community copy is deliberately not patched.
+
+## grilling
+Interviews you about a plan, decision or idea in rounds: every question that
+can be answered now, numbered, each with a recommended answer that "yes"
+accepts. Looks facts up itself and leaves the decisions to you. From
+`mattpocock/skills` (MIT), fetched from its `skills/productivity/` folder.
+Cherry-pick.
+- `Grill me on this migration plan`
+- `Stress-test my idea for splitting the build agents`
+
+`roj-grill-plan` uses the same round format for user stories and SB
+documents and writes the answers back into the file; it works without this
+skill installed.
+
+## grill-me
+Slash-only wrapper (`/grill-me`) that calls `grilling`. Claude only: its body
+tells the agent to call the Skill tool, which Copilot does not have. Install
+it together with `grilling`. Cherry-pick from `mattpocock/skills`.
+- `/grill-me` followed by the plan
+
+## to-questionnaire
+Turns a decision you cannot answer alone into a Markdown questionnaire for
+one person to fill in, written to `to-questionnaire-<slug>.md`. Cherry-pick
+from `mattpocock/skills`.
+- `Turn the open questions on the cache design into a questionnaire for the platform team`
+
+`roj-grill-plan` offers it at the end of a run for questions only someone
+else can answer, and lists them in chat when it is absent.
+
+Only `skills/productivity/` is pinned: the installer takes one subdir per
+source, so `mattpocock/skills` engineering skills (`grill-with-docs`,
+`domain-modeling`, ...) are not in the inventory.

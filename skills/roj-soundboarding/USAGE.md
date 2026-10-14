@@ -53,6 +53,10 @@ the Bamboo API to v12.1.6 and verify agents and plans still work.
    land in Questions, not in Core tasks. Output shape:
    [`examples/SB-PROJ-1001.md`](examples/SB-PROJ-1001.md).
 2. Team refines the SB (acceptance criteria, task list, testing table).
+   To settle the Questions section first, answer yes to "Grill the open
+   questions now?" at the end of step 1, or run
+   `/roj-grill-plan SB-PROJ-1001` later (see
+   [roj-grill-plan](../roj-grill-plan/USAGE.md)).
 3. From the repo where the work happens:
    `/roj-soundboarding implement SB-PROJ-1001` — executes core tasks one at
    a time, verifies each diff against the SB's before/after table, stops

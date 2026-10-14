@@ -262,6 +262,7 @@ before reading files. Seven skills do, through the shared
 | `roj-code-review-pr`, `roj-review-pr-comment` | `graphify affected` in the system pass (callers of changed symbols) |
 | `roj-investigate-issue` | `graphify query "<error line>"` in phase 2 |
 | `roj-soundboarding` | one `graphify query` per acceptance criterion |
+| `roj-grill-plan` | `graphify query` for each fact a question needs |
 
 It applies only when `graphify-out/` has a graph and the CLI runs.
 Freshness is checked with `git`: the `Built from commit:` line in
@@ -399,7 +400,7 @@ Setup checklist:
 3. `python install.py --target copilot` (behind the proxy, add
    `--skills-only`; skills with requirements then warn and run on their
    fallbacks).
-4. Reopen the IDE. In agent-mode chat type `/skill:roj-` — all nine custom
+4. Reopen the IDE. In agent-mode chat type `/skill:roj-` — all ten custom
    skills should list.
 5. Optional, per repo: `python install.py --repo .` seeds `.github/skills/`
    to share them with teammates.

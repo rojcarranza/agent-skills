@@ -1,0 +1,50 @@
+[
+  {
+    "query": "grill me on SB-PROJ-2001.md before we implement it",
+    "should_trigger": true
+  },
+  {
+    "query": "stress-test this plan: move the uploader to httpx and drop requests next sprint",
+    "should_trigger": true
+  },
+  {
+    "query": "poke holes in my plan for splitting the build agents per team",
+    "should_trigger": true
+  },
+  {
+    "query": "resolve the open questions in the SB with me",
+    "should_trigger": true
+  },
+  {
+    "query": "PROJ-2001.md has vague acceptance criteria, grill me until they're checkable",
+    "should_trigger": true
+  },
+  {
+    "query": "yes, grill the open questions now",
+    "should_trigger": true
+  },
+  {
+    "query": "create an SB from PROJ-2001.md",
+    "should_trigger": false
+  },
+  {
+    "query": "implement SB-PROJ-2001",
+    "should_trigger": false
+  },
+  {
+    "query": "review my branch for bugs",
+    "should_trigger": false
+  },
+  {
+    "query": "explain what app/uploader.py does",
+    "should_trigger": false
+  },
+  {
+    "query": "prepare interview questions for this CV",
+    "should_trigger": false
+  },
+  {
+    "query": "why did last night's build fail? here's the log",
+    "should_trigger": false
+  }
+]

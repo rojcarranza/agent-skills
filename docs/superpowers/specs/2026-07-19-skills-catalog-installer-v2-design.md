@@ -114,8 +114,10 @@ Sources:
 | addyosmani/agent-skills | observability-and-instrumentation, ci-cd, security-and-hardening, deprecation-and-migration | both | **no** (cherry-pick) |
 | anthropics/skills | document skills (pdf, docx, pptx, xlsx) | both | **no** (cherry-pick) |
 
-mattpocock/skills: excluded — slash-command/plugin oriented; install
-as a Claude plugin manually if ever wanted.
+mattpocock/skills: its `skills/productivity` skills `grilling`,
+`grill-me` and `to-questionnaire` are inventory cherry-picks (see
+[community-skills.md](../../community-skills.md#grilling)); its other
+folders are not installed, since a source takes one subdir.
 
 Exact addyosmani/anthropics skill folder names verified against the
 upstream repos at implementation time; registry adjusted to what

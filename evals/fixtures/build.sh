@@ -383,6 +383,53 @@ EOF
   G add -A; G commit -qm "Add chunked() helper"; push_all ;;
 develop-py)    init_repo develop; py_base; py_retry_feature; push_all ;;
 develop-py-on-base) init_repo develop; py_base; py_retry_feature; push_all; G checkout -q develop ;;
+grill-sb)      init_repo main; py_base
+  cat > PROJ-2001.md <<'EOF'
+# PROJ-2001: Retry failed uploads
+
+As a CLI user, I want uploads to retry on transient errors, so that a
+flaky network does not fail the whole run.
+
+## Acceptance criteria
+
+- Uploads survive short outages.
+- The CLI still fails fast on bad input.
+EOF
+  cat > SB-PROJ-2001.md <<'EOF'
+# Example Platform / PROJ-2001
+
+> **Goal:** Retry uploads on transient errors.
+
+## Acceptance Criteria
+
+- [ ] Uploads survive short outages.
+- [ ] The CLI still fails fast on bad input.
+- [ ] Retries are logged. *(proposed)*
+
+## Core tasks
+
+- [ ] `uploader`: mount an HTTPAdapter with a Retry policy in `app/uploader.py`.
+- [ ] `uploader`: add a test for the retry policy in `tests/test_uploader.py`.
+
+## Questions
+
+- Which requests version are we on, and does it support urllib3 Retry?
+- How many retries, and with what backoff?
+- Should retries cover POST, which is not idempotent?
+- Does the API team need to know about the extra load from retries?
+- Do we add a slide to our sprint review presentation for this story?
+
+## Notes
+
+- Impacted repositories: uploader
+
+## Testing
+
+| Test Case ID | Situation | Expected result | Log | Build result link |
+|--------------|-----------|-----------------|-----|-------------------|
+| TC-1 | Server returns 503 twice, then 200 | Upload succeeds | | |
+EOF
+  G add -A; G commit -qm "Add PROJ-2001 story and SB"; push_all ;;
 *) echo "unknown fixture $kind" >&2; exit 2 ;;
 esac
 echo "built $kind at $dest/repo on $(git -C "$dest/repo" branch --show-current)"

@@ -33,6 +33,7 @@ SHARED = {
         "roj-explain-feature-changes/references",
         "roj-investigate-issue/references",
         "roj-soundboarding/references",
+        "roj-grill-plan/references",
     ),
     "roj-tour-codebase/references/mermaid.md": (
         "roj-explain-logic/references",
