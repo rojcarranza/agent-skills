@@ -57,10 +57,14 @@ jobs:
           mkdir -p "$HOME"
           python install.py --skills-only
           test -f "$HOME/.apm/apm.yml"
-          test -f "$HOME/.claude/skills/roj-explain-logic/SKILL.md"
+          for d in skills/*/; do
+            n=$(basename "$d")
+            test -f "$HOME/.claude/skills/$n/SKILL.md"
+            test -f "$HOME/.agents/skills/$n/SKILL.md"
+          done
           test -f "$HOME/.claude/skills/code-tour/SKILL.md"
           test -f "$HOME/.agents/skills/caveman/SKILL.md"
-          ! test -e "$HOME/.claude/skills/caveman"   # copilot-only stays out of Claude
+          test ! -e "$HOME/.claude/skills/caveman"   # copilot-only stays out of Claude
           test -f "$HOME/.copilot/instructions/personal.instructions.md"
           ls "$HOME/.claude/skills" "$HOME/.agents/skills" "$HOME/.copilot/instructions"
 
