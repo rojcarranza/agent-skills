@@ -1103,110 +1103,202 @@ OWNED = "---\nname: {}\ndescription: x\n---\n"
 
 
 class TestLegacyCleanup(TempDirTest):
+    LOCK = "deployed_files:\n  - .claude/skills/{}/SKILL.md\n"
+
     def setUp(self):
         super().setUp()
         self.clone_skills = self.tmp / "clone" / "skills"
         self.make_skill("clone/skills", name="roj-a")
+        deps = [
+            {"name": "roj-a", "path": "./skills/roj-a", "active": True,
+             "targets": None},
+            {"name": "code-tour", "path": "github/x/skills/code-tour",
+             "active": True, "targets": None},
+            {"name": "caveman", "path": "skills/caveman", "active": True,
+             "targets": ("copilot",)},
+            {"name": "pdf", "path": "anthropics/skills/skills/pdf",
+             "active": False, "targets": None}]
         for p in (mock.patch("install.SKILLS_SRC", self.clone_skills),
-                  mock.patch("install.manifest_deps", return_value=[
-                      {"name": "roj-a", "path": "./skills/roj-a"},
-                      {"name": "code-tour", "path": "github/x/skills/code-tour"},
-                      {"name": "pdf", "path": "anthropics/skills/skills/pdf"}])):
+                  mock.patch("install.manifest_deps", return_value=deps)):
             p.start()
             self.addCleanup(p.stop)
 
+    def cleanup(self, target, root, lock_text=None, dry_run=False):
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            results = install.remove_installer_skills(
+                target, root, dry_run, lock_text=lock_text)
+        return results, err.getvalue()
+
+    def link(self, entry, to):
+        entry.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            entry.symlink_to(to, target_is_directory=True)
+        except OSError:
+            self.skipTest("symlinks unsupported here")
+
     def test_legacy_names_are_custom_plus_community(self):
         self.assertEqual(install.legacy_skill_names(),
-                         {"roj-a", "code-tour", "pdf"})
+                         {"roj-a", "code-tour", "caveman", "pdf"})
+
+    def test_managed_names_follow_active_deps_and_targets(self):
+        self.assertEqual(install.managed_skill_names("claude"),
+                         {"roj-a", "code-tour"})
+        self.assertEqual(install.managed_skill_names("copilot"),
+                         {"roj-a", "code-tour", "caveman"})
 
     def test_symlink_into_clone_always_removed(self):
         root = self.tmp / "claude"
-        root.mkdir()
-        try:
-            (root / "roj-a").symlink_to(self.clone_skills / "roj-a",
-                                        target_is_directory=True)
-        except OSError:
-            self.skipTest("symlinks unsupported here")
-        results = install.remove_installer_skills("claude", root, apm_owns=True,
-                                                  dry_run=False)
+        self.link(root / "roj-a", self.clone_skills / "roj-a")
+        results, _ = self.cleanup("claude", root,
+                                  lock_text=self.LOCK.format("roj-a"))
         self.assertFalse((root / "roj-a").is_symlink())
         self.assertEqual(results, [("claude", "roj-a", "removed (pre-APM link)")])
 
+    def test_link_into_another_checkout_removed(self):
+        other = self.tmp / "main-checkout"
+        self.make_skill("main-checkout/skills", name="roj-a")
+        (other / "install.py").write_text("")
+        (other / ".claude-plugin").mkdir()
+        (other / ".claude-plugin" / "marketplace.json").write_text("{}")
+        root = self.tmp / "claude"
+        self.link(root / "roj-a", other / "skills" / "roj-a")
+        results, err = self.cleanup("claude", root)
+        self.assertFalse((root / "roj-a").is_symlink())
+        self.assertTrue((other / "skills" / "roj-a").is_dir())
+        self.assertEqual(results, [("claude", "roj-a", "removed (pre-APM link)")])
+        self.assertEqual(err, "")
+
+    def test_link_into_unmarked_skills_dir_kept_with_warning(self):
+        # skills/<name> alone does not make a checkout of this repo.
+        self.make_skill("lookalike/skills", name="roj-a")
+        (self.tmp / "lookalike" / "install.py").write_text("")
+        root = self.tmp / "claude"
+        self.link(root / "roj-a", self.tmp / "lookalike" / "skills" / "roj-a")
+        results, err = self.cleanup("claude", root)
+        self.assertTrue((root / "roj-a").is_symlink())
+        self.assertEqual(results, [])
+        self.assertIn("outside this clone", err)
+
     def test_claude_copies_removed_before_apm_owns_them(self):
         self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
-        results = install.remove_installer_skills(
-            "claude", self.tmp / "claude", apm_owns=False, dry_run=False)
+        results, _ = self.cleanup("claude", self.tmp / "claude")
         self.assertFalse((self.tmp / "claude" / "code-tour").exists())
         self.assertEqual(results, [("claude", "code-tour", "removed (pre-APM copy)")])
 
-    def test_claude_copies_kept_after_apm_owns_them(self):
+    def test_claude_copy_kept_when_the_lockfile_lists_it(self):
         self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
-        results = install.remove_installer_skills(
-            "claude", self.tmp / "claude", apm_owns=True, dry_run=False)
+        results, _ = self.cleanup("claude", self.tmp / "claude",
+                                  lock_text=self.LOCK.format("code-tour"))
+        self.assertTrue((self.tmp / "claude" / "code-tour").is_dir())
+        self.assertEqual(results, [])
+
+    def test_claude_copy_removed_when_lockfile_is_copilot_only(self):
+        # A --target copilot run wrote the lockfile; APM never deployed to
+        # ~/.claude/skills, so the copy is still ours.
+        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
+        results, _ = self.cleanup(
+            "claude", self.tmp / "claude",
+            lock_text="deployed_files:\n  - .agents/skills/code-tour/SKILL.md\n")
+        self.assertFalse((self.tmp / "claude" / "code-tour").exists())
+        self.assertEqual(len(results), 1)
+
+    def test_lockfile_prefix_match_does_not_count(self):
+        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
+        results, _ = self.cleanup("claude", self.tmp / "claude",
+                                  lock_text=self.LOCK.format("code-tour-x"))
+        self.assertFalse((self.tmp / "claude" / "code-tour").exists())
+        self.assertEqual(len(results), 1)
+
+    def test_lockfile_windows_separators(self):
+        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
+        results, _ = self.cleanup(
+            "claude", self.tmp / "claude",
+            lock_text="  - C:\\Users\\me\\.claude\\skills\\code-tour\\SKILL.md\n")
         self.assertTrue((self.tmp / "claude" / "code-tour").is_dir())
         self.assertEqual(results, [])
 
     def test_copilot_copies_always_removed(self):
-        self.make_skill("copilot", name="pdf", content=OWNED.format("pdf"))
-        install.remove_installer_skills("copilot", self.tmp / "copilot",
-                                        apm_owns=True, dry_run=False)
-        self.assertFalse((self.tmp / "copilot" / "pdf").exists())
+        self.make_skill("copilot", name="code-tour", content=OWNED.format("code-tour"))
+        self.cleanup("copilot", self.tmp / "copilot",
+                     lock_text="  - .copilot/skills/code-tour/\n")
+        self.assertFalse((self.tmp / "copilot" / "code-tour").exists())
+
+    def test_optional_skill_copy_kept_with_warning(self):
+        # pdf is commented out in apm.yml: APM would not put it back.
+        self.make_skill("claude", name="pdf", content=OWNED.format("pdf"))
+        results, err = self.cleanup("claude", self.tmp / "claude")
+        self.assertTrue((self.tmp / "claude" / "pdf").is_dir())
+        self.assertEqual(results, [])
+        self.assertIn("APM does not manage pdf for claude", err)
+        self.assertIn("uncomment it in apm.yml", err)
+        self.assertEqual(err.count("[ warn ]"), 1)
+
+    def test_copilot_only_skill_copy_kept_for_claude(self):
+        self.make_skill("claude", name="caveman", content=OWNED.format("caveman"))
+        results, err = self.cleanup("claude", self.tmp / "claude")
+        self.assertTrue((self.tmp / "claude" / "caveman").is_dir())
+        self.assertEqual(results, [])
+        self.assertIn("APM does not manage caveman for claude", err)
+
+    def test_copilot_only_skill_copy_removed_for_copilot(self):
+        self.make_skill("copilot", name="caveman", content=OWNED.format("caveman"))
+        results, _ = self.cleanup("copilot", self.tmp / "copilot")
+        self.assertFalse((self.tmp / "copilot" / "caveman").exists())
+        self.assertEqual(results, [("copilot", "caveman", "removed (pre-APM copy)")])
+
+    def test_unmanaged_foreign_copy_kept_silently(self):
+        self.make_skill("claude", name="pdf", content=OWNED.format("my-pdf"))
+        results, err = self.cleanup("claude", self.tmp / "claude")
+        self.assertTrue((self.tmp / "claude" / "pdf").is_dir())
+        self.assertEqual((results, err), ([], ""))
 
     def test_copy_without_matching_name_kept(self):
-        self.make_skill("copilot", name="pdf", content=OWNED.format("my-pdf"))
-        results = install.remove_installer_skills(
-            "copilot", self.tmp / "copilot", apm_owns=False, dry_run=False)
-        self.assertTrue((self.tmp / "copilot" / "pdf").is_dir())
+        self.make_skill("copilot", name="code-tour", content=OWNED.format("my-tour"))
+        results, _ = self.cleanup("copilot", self.tmp / "copilot")
+        self.assertTrue((self.tmp / "copilot" / "code-tour").is_dir())
         self.assertEqual(results, [])
 
+    def test_copy_with_undecodable_skill_md_is_not_a_crash(self):
+        d = self.tmp / "copilot" / "code-tour"
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_bytes(b"---\nname: code-tour\n\xff\xfe\n---\n")
+        results, _ = self.cleanup("copilot", self.tmp / "copilot")
+        self.assertEqual(len(results), 1)
+
     def test_foreign_link_kept_with_warning(self):
-        outside = self.tmp / "elsewhere" / "pdf"
+        outside = self.tmp / "elsewhere" / "code-tour"
         outside.mkdir(parents=True)
         root = self.tmp / "copilot"
-        root.mkdir()
-        try:
-            (root / "pdf").symlink_to(outside, target_is_directory=True)
-        except OSError:
-            self.skipTest("symlinks unsupported here")
-        err = io.StringIO()
-        with mock.patch("sys.stderr", err):
-            results = install.remove_installer_skills(
-                "copilot", root, apm_owns=False, dry_run=False)
-        self.assertTrue((root / "pdf").is_symlink())
+        self.link(root / "code-tour", outside)
+        results, err = self.cleanup("copilot", root)
+        self.assertTrue((root / "code-tour").is_symlink())
         self.assertEqual(results, [])
-        self.assertIn("outside this clone", err.getvalue())
+        self.assertIn("outside this clone", err)
 
     def test_dangling_link_removed(self):
         root = self.tmp / "claude"
-        root.mkdir()
-        try:
-            (root / "roj-a").symlink_to(self.tmp / "gone" / "roj-a",
-                                        target_is_directory=True)
-        except OSError:
-            self.skipTest("symlinks unsupported here")
-        results = install.remove_installer_skills(
-            "claude", root, apm_owns=True, dry_run=False)
+        self.link(root / "roj-a", self.tmp / "gone" / "roj-a")
+        results, _ = self.cleanup("claude", root,
+                                  lock_text=self.LOCK.format("roj-a"))
         self.assertFalse((root / "roj-a").is_symlink())
         self.assertEqual(results, [("claude", "roj-a", "removed (pre-APM link)")])
 
     def test_unknown_and_graphify_untouched(self):
         self.make_skill("copilot", name="graphify")
         self.make_skill("copilot", name="my-own")
-        results = install.remove_installer_skills(
-            "copilot", self.tmp / "copilot", apm_owns=False, dry_run=False)
+        results, _ = self.cleanup("copilot", self.tmp / "copilot")
         self.assertEqual(results, [])
         self.assertTrue((self.tmp / "copilot" / "graphify").is_dir())
 
     def test_dry_run_removes_nothing(self):
-        self.make_skill("copilot", name="pdf", content=OWNED.format("pdf"))
-        results = install.remove_installer_skills(
-            "copilot", self.tmp / "copilot", apm_owns=False, dry_run=True)
-        self.assertTrue((self.tmp / "copilot" / "pdf").is_dir())
+        self.make_skill("copilot", name="code-tour", content=OWNED.format("code-tour"))
+        results, _ = self.cleanup("copilot", self.tmp / "copilot", dry_run=True)
+        self.assertTrue((self.tmp / "copilot" / "code-tour").is_dir())
         self.assertEqual(len(results), 1)
 
     def test_missing_root_is_fine(self):
-        self.assertEqual(install.remove_installer_skills(
-            "claude", self.tmp / "nope", apm_owns=False, dry_run=False), [])
+        self.assertEqual(self.cleanup("claude", self.tmp / "nope")[0], [])
 
 
 class TestInstructionCopy(TempDirTest):
@@ -1257,11 +1349,13 @@ class TestInstructionCopy(TempDirTest):
 class TestMain(TempDirTest):
     """main() end to end with apm, externals and homes faked."""
 
-    def run_main(self, argv, apm="/bin/apm", apm_code=0, lock=False, wsl=False):
+    def run_main(self, argv, apm="/bin/apm", apm_code=0, lock=False, wsl=False,
+                 externals=(), bootstrap=None):
         home = self.tmp / "home"
         (home / ".apm").mkdir(parents=True, exist_ok=True)
         if lock:
-            (home / ".apm" / "apm.lock.yaml").write_text("x")
+            (home / ".apm" / "apm.lock.yaml").write_text(
+                lock if isinstance(lock, str) else "x")
         calls = []
 
         def fake_run(cmd):
@@ -1274,7 +1368,7 @@ class TestMain(TempDirTest):
             for p in (
                 mock.patch("install.apm_home", return_value=home / ".apm"),
                 mock.patch("install.target_root",
-                           side_effect=lambda t, repo=None: home / t),
+                           side_effect=lambda t: home / t),
                 mock.patch("install.copilot_instruction_path",
                            return_value=home / "instr" / "p.instructions.md"),
                 mock.patch("install.claude_commands_dir",
@@ -1282,7 +1376,9 @@ class TestMain(TempDirTest):
                 mock.patch("install.find_cli",
                            side_effect=lambda n: apm if n == "apm" else None),
                 mock.patch("install.run_apm", side_effect=fake_run),
-                mock.patch("install.EXTERNALS", []),
+                mock.patch("install.EXTERNALS", list(externals)),
+                mock.patch("install.bootstrap_cli",
+                           side_effect=bootstrap or (lambda ext, dry: None)),
                 mock.patch("install.is_wsl", return_value=wsl),
                 mock.patch("install.vscode_prompts_dir", return_value=None),
                 mock.patch("sys.argv", ["install.py", *argv]),
@@ -1358,6 +1454,36 @@ class TestMain(TempDirTest):
     def test_status_lists_apm_deps(self):
         _, calls, _, _ = self.run_main(["--status"])
         self.assertEqual(calls, [["/bin/apm", "deps", "list", "-g"]])
+
+    def test_status_without_apm_warns_and_succeeds(self):
+        code, calls, _, err = self.run_main(["--status"], apm=None)
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [])
+        self.assertIn("apm is not installed", err)
+
+    def test_skills_only_never_bootstraps_externals(self):
+        ext = ExternalTest.fake_external(None)
+        boots = []
+        code, _, out, _ = self.run_main(
+            ["--skills-only", "--target", "claude"], externals=[ext],
+            bootstrap=lambda e, dry: boots.append(e["name"]))
+        self.assertEqual(code, 0)
+        self.assertEqual(boots, [])
+        self.assertIn("--skills-only", out)
+
+    def test_claude_copy_listed_in_lockfile_survives_install(self):
+        self.make_skill("home/claude", name="code-tour",
+                        content=OWNED.format("code-tour"))
+        self.run_main(["--target", "claude"],
+                      lock="  - .claude/skills/code-tour/SKILL.md\n")
+        self.assertTrue((self.tmp / "home" / "claude" / "code-tour").is_dir())
+
+    def test_claude_copy_removed_when_lockfile_is_copilot_only(self):
+        self.make_skill("home/claude", name="code-tour",
+                        content=OWNED.format("code-tour"))
+        self.run_main(["--target", "claude"],
+                      lock="  - .agents/skills/code-tour/SKILL.md\n")
+        self.assertFalse((self.tmp / "home" / "claude" / "code-tour").exists())
 
     def test_removed_flags_are_rejected(self):
         for flag in (["--repo", "."], ["--skill", "x"], ["--list"],

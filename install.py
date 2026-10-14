@@ -285,36 +285,84 @@ def legacy_skill_names():
                                    if not d["path"].startswith("./")}
 
 
-def _links_into_clone(entry):
+def managed_skill_names(target):
+    """Skills APM installs for target: ours, and every active apm.yml
+    dependency not limited to other targets. Only these are safe to remove —
+    APM puts them straight back."""
+    return custom_skill_names() | {
+        d["name"] for d in manifest_deps()
+        if d["active"] and (d["targets"] is None or target in d["targets"])}
+
+
+def read_lockfile():
+    """~/.apm/apm.lock.yaml text, or None before APM's first install."""
+    try:
+        return (apm_home() / "apm.lock.yaml").read_text(
+            encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+
+def apm_deployed_claude_skill(name, lock_text):
+    """True if the lockfile records APM deploying ~/.claude/skills/<name>.
+    The name must end there: code-tour is not code-tour-x."""
+    if lock_text is None:
+        return False
+    pattern = r"\.claude/skills/" + re.escape(name) + r"(?![\w.-])"
+    return re.search(pattern, lock_text.replace("\\", "/")) is not None
+
+
+def _links_into_a_checkout(entry):
+    """True for a link to <root>/skills/<name> in any checkout of this repo
+    (this clone, the main checkout of a worktree, or another clone): a root
+    with install.py and .claude-plugin/marketplace.json."""
     try:
         target = Path(os.readlink(entry))
     except OSError:
         return False
     if not target.is_absolute():
         target = entry.parent / target
-    return SKILLS_SRC.resolve() in target.resolve().parents
+    target = target.resolve()
+    if SKILLS_SRC.resolve() in target.parents:
+        return True
+    root = target.parent.parent
+    return (target.parent.name == "skills" and target.name == entry.name
+            and target.is_dir() and (root / "install.py").is_file()
+            and (root / ".claude-plugin" / "marketplace.json").is_file())
 
 
-def remove_installer_skills(target, dest_root, apm_owns, dry_run):
-    """Remove what pre-APM installs left in dest_root. apm_owns: APM has
-    installed at user scope here (~/.apm/apm.lock.yaml exists), so a Claude
-    copy is APM's, not ours."""
+def remove_installer_skills(target, dest_root, dry_run, lock_text=None):
+    """Remove what pre-APM installs left in dest_root, for skills APM now
+    installs for target. lock_text is ~/.apm/apm.lock.yaml: a Claude copy it
+    lists is APM's, not ours. APM never writes ~/.copilot/skills, so a copy
+    there is always ours. A leftover APM will not reinstall is kept."""
     results = []
     if not dest_root.is_dir():
         return results
     names = legacy_skill_names()
+    managed = managed_skill_names(target)
     for entry in sorted(dest_root.iterdir()):
         if entry.name not in names:
             continue
         if entry.is_symlink():
-            if _links_into_clone(entry) or not entry.exists():
+            ours = _links_into_a_checkout(entry) or not entry.exists()
+        else:
+            ours = entry.is_dir() and is_ours(entry, entry.name)
+        if entry.name not in managed:
+            if ours:
+                warn(f"{entry} was installed by the old installer; APM does "
+                     f"not manage {entry.name} for {target} — uncomment it in "
+                     f"apm.yml to keep it updated, or delete it")
+            continue
+        if entry.is_symlink():
+            if ours:
                 _remove(entry, dry_run)
                 results.append((target, entry.name, "removed (pre-APM link)"))
             else:
                 warn(f"{entry} is a link outside this clone — APM cannot "
                      f"install {entry.name} over it; remove it if it is stale")
-        elif (entry.is_dir() and (target == "copilot" or not apm_owns)
-              and is_ours(entry, entry.name)):
+        elif ours and (target == "copilot" or not apm_deployed_claude_skill(
+                entry.name, lock_text)):
             _remove(entry, dry_run)
             results.append((target, entry.name, "removed (pre-APM copy)"))
     return results
@@ -487,7 +535,8 @@ def is_ours(entry, old):
     skill_md = entry / "SKILL.md"
     if not skill_md.is_file():
         return False
-    for line in skill_md.read_text(encoding="utf-8").splitlines()[:5]:
+    for line in skill_md.read_text(encoding="utf-8",
+                                   errors="replace").splitlines()[:5]:
         if line.strip() == f"name: {old}":
             return True
     return False
@@ -825,10 +874,11 @@ def show_status(targets):
     else:
         warn("apm is not installed — nothing APM manages can be listed")
     warnings = []
-    apm_owns = (apm_home() / "apm.lock.yaml").exists()
+    lock_text = read_lockfile()
     for target in targets:
         root = target_root(target)
-        left = remove_installer_skills(target, root, apm_owns, dry_run=True)
+        left = remove_installer_skills(target, root, dry_run=True,
+                                       lock_text=lock_text)
         if left:
             warnings.append(f"{target}: {', '.join(n for _, n, _ in left)} "
                             f"left by a pre-APM install in {root} — re-run "
@@ -917,10 +967,10 @@ def main():
     # Refuse a foreign ~/.apm/apm.yml before anything is removed.
     write_user_manifest(manifest, args.force, dry_run=True)
     results = []
-    apm_owns = (apm_home() / "apm.lock.yaml").exists()
+    lock_text = read_lockfile()
     for target in targets:
         results.extend(remove_installer_skills(
-            target, target_root(target), apm_owns, args.dry_run))
+            target, target_root(target), args.dry_run, lock_text=lock_text))
         results.extend(remove_legacy(target, target_root(target),
                                      args.dry_run))
         results.extend(retire_prompts(target, target_root(target),
