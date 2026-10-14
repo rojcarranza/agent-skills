@@ -808,23 +808,11 @@ class TestExplainFeatureChangesSkill(unittest.TestCase):
                     self.assertNotIn(name, text)
 
 
-SHA_A = "a" * 40
-SHA_B = "b" * 40
-
-
-def inventory_entry(**overrides):
-    entry = {"source": "acme/skills", "skill": "tool-i", "ref": SHA_A,
-             "targets": ["claude", "copilot"], "default": False}
-    entry.update(overrides)
-    return entry
-
-
 class TestSkillDependencies(unittest.TestCase):
     """Every outside skill a custom skill names must be installable: in
-    skills-inventory.json, an external, another custom skill, or provided
-    by a Claude plugin. A new chain to an unknown skill fails here, so it
-    gets an inventory entry instead of silently relying on a manual
-    install."""
+    apm.yml, an external, another custom skill, or provided by a Claude
+    plugin. A new chain to an unknown skill fails here, so it gets listed in
+    apm.yml instead of silently relying on a manual install."""
 
     # Claude plugins (not skills.sh skills) that our skills chain to.
     PLUGIN_PROVIDED = {"systematic-debugging"}
@@ -1266,10 +1254,6 @@ class TestInstructionCopy(TempDirTest):
         self.assertEqual(install.remove_instruction_copy(dry_run=False), [])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestMain(TempDirTest):
     """main() end to end with apm, externals and homes faked."""
 
@@ -1343,6 +1327,29 @@ class TestMain(TempDirTest):
         code, _, _, _ = self.run_main([], apm_code=2)
         self.assertEqual(code, 2)
 
+    def test_update_without_apm_stops_with_hint(self):
+        code, calls, _, err = self.run_main(["--update"], apm=None)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, [])
+        self.assertIn("brew install apm", err)
+
+    def test_update_dry_run_runs_nothing(self):
+        code, calls, out, _ = self.run_main(["--update", "--dry-run"])
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [])
+        self.assertIn("would run apm outdated -g", out)
+
+    def test_foreign_manifest_stops_before_cleanup(self):
+        apm_dir = self.tmp / "home" / ".apm"
+        apm_dir.mkdir(parents=True)
+        (apm_dir / "apm.yml").write_text("name: mine\n")
+        self.make_skill("home/copilot", name="code-tour",
+                        content="---\nname: code-tour\ndescription: x\n---\n")
+        code, calls, _, _ = self.run_main(["--target", "copilot"], lock=True)
+        self.assertNotEqual(code, 0)
+        self.assertEqual(calls, [])
+        self.assertTrue((self.tmp / "home" / "copilot" / "code-tour").exists())
+
     def test_update_reports_outdated(self):
         code, calls, _, _ = self.run_main(["--update"])
         self.assertEqual(calls, [["/bin/apm", "outdated", "-g"]])
@@ -1383,3 +1390,7 @@ class TestMain(TempDirTest):
         _, _, _, err = self.run_main(["--status", "--target", "claude"])
         self.assertIn("roj-explain-logic", err)
         self.assertIn("re-run install.py", err)
+
+
+if __name__ == "__main__":
+    unittest.main()

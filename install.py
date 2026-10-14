@@ -903,11 +903,19 @@ def main():
         return
 
     exe = find_cli("apm")
+    if args.update:
+        if not exe:
+            sys.exit(APM_INSTALL_HINT)
+        if args.dry_run:
+            log("dry-run: would run apm outdated -g")
+            return
+        sys.exit(run_apm([exe, "outdated", "-g"]))
     if not exe and not args.dry_run:
         sys.exit(APM_INSTALL_HINT)
-    if args.update:
-        sys.exit(run_apm([exe, "outdated", "-g"]))
 
+    manifest = render_user_manifest()
+    # Refuse a foreign ~/.apm/apm.yml before anything is removed.
+    write_user_manifest(manifest, args.force, dry_run=True)
     results = []
     apm_owns = (apm_home() / "apm.lock.yaml").exists()
     for target in targets:
@@ -920,7 +928,7 @@ def main():
     if "copilot" in targets:
         results.extend(remove_instruction_copy(args.dry_run))
     results.append(("apm", "~/.apm/apm.yml", write_user_manifest(
-        render_user_manifest(), args.force, args.dry_run)))
+        manifest, args.force, args.dry_run)))
     argv = apm_install_argv(exe or "apm", targets)
     if args.dry_run:
         if not exe:
