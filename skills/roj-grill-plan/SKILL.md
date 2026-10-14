@@ -19,7 +19,9 @@ each decision branches into the decisions that hang off it. Work the tree in
 - **Plan in chat**: pasted text or the plan from the current conversation.
 
 Resolve a file as given relative to the workspace first, then inside
-`$SOUNDBOARD_DIR` when that variable is set. Not found: STOP and ask. Never
+`$SOUNDBOARD_DIR` when that variable is set. The `.md` suffix is optional and
+matching is case-insensitive (`SB-PROJ-1001` finds `SB-PROJ-1001.md`).
+Multiple matches: list them and ask which. Not found: STOP and ask. Never
 grill an invented story.
 
 ## Hard rules
@@ -27,14 +29,20 @@ grill an invented story.
 1. **Facts are yours, decisions are the user's.** When a question needs a
    fact (a version, a path, whether a config or caller exists), find it
    yourself by reading files and running read-only git (`git log`,
-   `git show`, `git grep`). Never ask the user for something you can look
-   up. Put each decision to the user and wait.
+   `git show`, `git grep`) and the read-only `graphify` queries. Never ask
+   the user for something you can look up. Put each decision to the user and
+   wait.
 2. **Truthfulness.** State as fact only what you read during this run, with
    `file:line`. A fact you cannot reach (repository not cloned, another
    team's system) is not guessed: it becomes a "needs someone else" item.
 3. **No acting on the plan.** Do not implement anything. The only file this
    skill edits is the input file, and only after the confirmation in step 5.
 4. **Git: hands off.** Never create a branch, commit or push.
+5. **Graph check, first and every run:** before looking facts up in a
+   repository, look for `graphify-out/graph.json` at its root. Present:
+   follow `references/graph-first.md`. Absent: search directly. Close the
+   final chat message with one line: `Graph: used`, `Graph: stale, skipped`
+   or `Graph: none found, searched directly`.
 
 ## Flow
 

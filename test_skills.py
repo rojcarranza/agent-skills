@@ -234,7 +234,7 @@ class TestGraphFirst(unittest.TestCase):
     USES_GRAPH = ("roj-tour-codebase", "roj-explain-logic",
                   "roj-explain-feature-changes", "roj-code-review-pr",
                   "roj-review-pr-comment", "roj-investigate-issue",
-                  "roj-soundboarding")
+                  "roj-soundboarding", "roj-grill-plan")
     COMMANDS = ("graphify query", "graphify explain", "graphify path",
                 "graphify affected", "graphify update")
 
