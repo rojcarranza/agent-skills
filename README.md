@@ -51,7 +51,7 @@ releases; bump the SHA in `apm.yml` and re-run.
 then `/plugin install roj-skills@roj-agent-skills`. Plugin skills are
 namespaced (`/roj-skills:roj-code-review-pr`).
 
-Use one route per machine — `install.py --status` flags duplicates.
+Use one route per machine: a plugin plus a skills-dir install lists each skill twice.
 
 **In a team repository** — add an `apm.yml` to that repo listing the skills
 it needs, e.g. `rojcarranza/agent-skills/skills/roj-code-review-pr#<commit>` (pin a commit), and

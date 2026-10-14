@@ -233,9 +233,9 @@ Run everything with `python` (Git Bash has no `python3` unless you alias it).
 4. `python install.py --target both` — installs through APM (install APM
    first; see the [README](../README.md#install)), then `graphify`.
 5. `python install.py --status` — verify new installs.
-6. If the proxy blocks GitHub, APM cannot fetch the community skills; use
-   `--skills-only` to skip `graphify` and install the rest where GitHub is
-   reachable.
+6. APM fetches the community skills from GitHub, so run the install from a
+   network that reaches GitHub. `--skills-only` only skips `graphify`; it
+   helps when PyPI is the blocked part.
 
 Step 4 also installs `graphifyy` from PyPI so the `graphify` skill has its
 CLI — with `uv` or `pipx` if either is on the box, otherwise plain
@@ -257,8 +257,8 @@ From the dotfiles repo root, `python install.py install agent-skills` does steps
 
 APM installs skills as copies on every platform, so Windows needs no symlink
 rights. Copies are snapshots: **re-run the installer after editing a skill** to
-refresh them. `--status` flags any leftover `<skill>.bak` directory from an
-older run — delete those, the agents load them as extra skills.
+refresh them. A re-run removes legacy `<skill>.bak` directories that older runs left; the
+agents load them as extra skills.
 
 Paths on Windows resolve under `%USERPROFILE%`: `~/.claude/skills` for
 Claude, `~/.agents/skills` for Copilot skills, `~/.copilot/instructions` for
@@ -299,9 +299,8 @@ Setup checklist:
    date, signed in.
 2. **Settings → Languages & Frameworks → GitHub Copilot → Chat → Agent** —
    enable agent mode. Restart the IDE if the toggle has just appeared.
-3. `python install.py --target copilot` (behind the proxy, add
-   `--skills-only`; our skills fall back inline when a community skill is
-   missing).
+3. `python install.py --target copilot` from a network that reaches GitHub
+   (APM needs it; `--skills-only` only skips `graphify`, for a blocked PyPI).
 4. Reopen the IDE. In agent-mode chat type `/skill:roj-` — all nine custom
    skills should list.
 5. Optional, per repo: an `apm.yml` in the team repo shares them with
@@ -310,6 +309,7 @@ Setup checklist:
 Nothing shows up: confirm chat is in agent mode, that the plugin is current,
 and that `install.py --status` lists the skills under `~/.agents/skills`
 with no leftover-prompt warnings.
+
 ## History: the roj- rename and retired prompts
 
 Before APM (2026-10), `install.py` copied community skills from

@@ -737,8 +737,8 @@ def run_cli_install(argv, cwd, skill_dir):
     if run_cli(argv, cwd):
         return True
     warn(f"{skill_dir} is locked: close VS Code and JetBrains (they watch "
-         f"the skills folder), then re-run with --skill "
-         f"{skill_dir.name}")
+         f"the skills folder), then re-run "
+         f"install.py --target copilot")
     return False
 
 
