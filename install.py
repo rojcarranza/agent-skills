@@ -24,7 +24,6 @@ Any single skill also installs without this script, in any agent the
 `skills` CLI supports: npx skills add rojcarranza/agent-skills -s <name>.
 """
 import argparse
-import filecmp
 import json
 import os
 import re
@@ -40,11 +39,6 @@ REPO_ROOT = Path(__file__).resolve().parent
 SKILLS_SRC = REPO_ROOT / "skills"
 
 BOTH = ("copilot", "claude")
-# Also safe to vendor into a repo's .github/ for the whole team.
-ANY = BOTH + ("repo",)
-
-REPO_SKILLS_SUBDIR = Path(".github") / "skills"
-REPO_PROMPTS_SUBDIR = Path(".github") / "prompts"
 
 
 # External skills: shipped and installed by their own CLI, never vendored
@@ -55,7 +49,7 @@ EXTERNALS = [
         "name": "graphify",
         "package": "graphifyy",
         "cli": "graphify",
-        "targets": ANY,
+        "targets": BOTH,
         "default": True,
         "doc": "knowledge graph over code/docs/PDFs — /graphify",
         # Per target: argv for the CLI. Claude's own install auto-picks the
@@ -69,14 +63,8 @@ EXTERNALS = [
         "install": {"claude": ["install"], "copilot": ["vscode", "install"]},
         "uninstall": {"claude": ["claude", "uninstall"],
                       "copilot": ["vscode", "uninstall"]},
-        # `vscode install` also writes <cwd>/.github/copilot-instructions.md.
-        # Personal scope runs in a scratch cwd to keep that out of whatever
-        # directory the installer was launched from; repo scope runs in the
-        # repo, where the file belongs.
-        "repo_cwd": True,
-        # Written into the repo by `vscode install` alongside the skill;
-        # repo scope is only current while it is there.
-        "repo_files": (".github/copilot-instructions.md",),
+        # `vscode install` also writes <cwd>/.github/copilot-instructions.md,
+        # so the CLI runs in a scratch cwd (install_external_for_target).
         "version_file": ".graphify_version",
     },
 ]
@@ -441,41 +429,7 @@ def warn(msg):
     print(f"[ warn ] {msg}", file=sys.stderr)
 
 
-def dirs_equal(a, b):
-    """Recursive content comparison of two directories (like diff -rq)."""
-    cmp = filecmp.dircmp(a, b)
-    if cmp.left_only or cmp.right_only or cmp.funny_files:
-        return False
-    _, mismatch, errors = filecmp.cmpfiles(a, b, cmp.common_files, shallow=False)
-    if mismatch or errors:
-        return False
-    return all(dirs_equal(Path(a) / d, Path(b) / d) for d in cmp.common_dirs)
-
-
-def install_copy(src, dest, dry_run):
-    """Copy skill dir src -> dest. Returns 'installed'|'updated'|'up to date'."""
-    src, dest = Path(src), Path(dest)
-    if dest.is_symlink() or dest.is_file():
-        if not dry_run:
-            dest.unlink()
-            shutil.copytree(src, dest)
-        return "updated"
-    if not dest.exists():
-        if not dry_run:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(src, dest)
-        return "installed"
-    if dirs_equal(src, dest):
-        return "up to date"
-    if not dry_run:
-        shutil.rmtree(dest)
-        shutil.copytree(src, dest)
-    return "updated"
-
-
-def target_root(target, repo=None):
-    if target == "repo":
-        return Path(repo) / REPO_SKILLS_SUBDIR
+def target_root(target):
     return Path.home() / (".copilot" if target == "copilot"
                           else ".claude") / "skills"
 
@@ -510,10 +464,8 @@ def claude_commands_dir():
     return Path.home() / ".claude" / "commands"
 
 
-def prompts_dir_for(target, repo=None):
+def prompts_dir_for(target):
     """Where earlier installs put *.prompt.md for a target, or None."""
-    if target == "repo":
-        return Path(repo) / REPO_PROMPTS_SUBDIR
     if target == "copilot":
         return vscode_prompts_dir()
     return None                      # claude never used prompt files
@@ -576,7 +528,7 @@ def remove_legacy(target, dest_root, dry_run):
     return results
 
 
-def retire_prompts(target, dest_root, dry_run, repo=None):
+def retire_prompts(target, dest_root, dry_run):
     """Remove everything earlier installs generated from prompts/, under
     current and pre-rename names: generated skill dirs in dest_root, Claude
     slash commands, and .prompt.md copies, plus a <name>.bak copy of a
@@ -600,7 +552,7 @@ def retire_prompts(target, dest_root, dry_run, repo=None):
                 and is_generated(cmd)):
             _remove(cmd, dry_run)
             results.append((target, f"command:{name}", status))
-    pdir = prompts_dir_for(target, repo)
+    pdir = prompts_dir_for(target)
     if pdir is not None and pdir.is_dir():
         for name in names:
             old = pdir / f"{name}.prompt.md"
@@ -813,49 +765,29 @@ def external_current(ext, exe, dest):
                for ref in set(_SKILL_REF_RE.findall(body)))
 
 
-def install_external_for_target(target, ext, exe, repo, dry_run):
-    """Delegate one external's install for one target.
-
-    Personal scope runs the CLI in a scratch directory so the repo-scoped
-    files some installers write next to the cwd land nowhere. Repo scope runs
-    it in the repo (where those files belong), then copies the personal skill
-    into <repo>/.github/skills for JetBrains Copilot."""
+def install_external_for_target(target, ext, exe, dry_run):
+    """Delegate one external's install for one target. The CLI runs in a
+    scratch directory so the repo-scoped files some installers write next to
+    the cwd land nowhere."""
     name = ext["name"]
     if target not in ext["targets"]:
         return [(target, name, f"skipped (not for {target})")]
-    # Repo scope reuses the copilot install: same skill, seeded per project.
-    argv_key = "copilot" if target == "repo" else target
-    argv = [exe or ext["cli"], *ext["install"][argv_key]]
-    shown = " ".join([ext["cli"], *ext["install"][argv_key]])
+    argv = [exe or ext["cli"], *ext["install"][target]]
+    shown = " ".join([ext["cli"], *ext["install"][target]])
     if dry_run:
-        planned = [(target, name, f"dry-run: would run {shown}")]
-        if target == "repo":
-            planned.append((target, name, "dry-run: would copy into "
-                            f"{target_root('repo', repo) / name}"))
-        return planned
+        return [(target, name, f"dry-run: would run {shown}")]
     if not exe:
         return [(target, name, "skipped (CLI unavailable)")]
-    if (external_current(ext, exe, target_root(target, repo) / name)
-            and (target != "repo" or all(
-                (Path(repo) / f).is_file()
-                for f in ext.get("repo_files", ())))):
+    dest = target_root(target) / name
+    if external_current(ext, exe, dest):
         return [(target, name, "up to date")]
-    # The CLI writes the personal skill; repo scope copies it afterwards.
-    cli_dest = target_root(argv_key) / name
     with tempfile.TemporaryDirectory() as scratch:
-        cwd = repo if (target == "repo" and ext.get("repo_cwd")) else scratch
-        if not run_cli_install(argv, cwd, cli_dest):
+        if not run_cli_install(argv, scratch, dest):
             return [(target, name, "failed")]
-    if target != "repo":
-        return [(target, name, "installed (by CLI)")]
-    src = target_root("copilot") / name
-    if not src.is_dir():
-        return [(target, name, f"failed — {src} missing after install")]
-    return [(target, name,
-             install_copy(src, target_root("repo", repo) / name, dry_run))]
+    return [(target, name, "installed (by CLI)")]
 
 
-def install_externals_for_target(target, sel_externals, repo, dry_run):
+def install_externals_for_target(target, sel_externals, dry_run):
     """Install selected externals for one target. Each carries its resolved
     CLI path under '_exe' (None = missing and not installable)."""
     results = []
@@ -863,7 +795,7 @@ def install_externals_for_target(target, sel_externals, repo, dry_run):
         if ext["name"] not in sel_externals:
             continue
         results.extend(install_external_for_target(
-            target, ext, ext.get("_exe"), repo, dry_run))
+            target, ext, ext.get("_exe"), dry_run))
     return results
 
 
@@ -1006,7 +938,7 @@ def main():
             results.append(("external", ext["name"], ext["_upgrade"]))
     for target in targets:
         results.extend(install_externals_for_target(
-            target, sel_externals, None, args.dry_run))
+            target, sel_externals, args.dry_run))
 
     print_summary(results, targets, args.dry_run)
     if is_wsl():

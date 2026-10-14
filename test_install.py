@@ -26,74 +26,6 @@ class TempDirTest(unittest.TestCase):
         return d
 
 
-class TestDirsEqual(TempDirTest):
-    def test_identical_trees_equal(self):
-        a = self.make_skill("a")
-        b = self.make_skill("b")
-        self.assertTrue(install.dirs_equal(a, b))
-
-    def test_different_file_content_not_equal(self):
-        a = self.make_skill("a", content="one")
-        b = self.make_skill("b", content="two")
-        self.assertFalse(install.dirs_equal(a, b))
-
-    def test_extra_file_not_equal(self):
-        a = self.make_skill("a")
-        b = self.make_skill("b")
-        (b / "extra.md").write_text("x")
-        self.assertFalse(install.dirs_equal(a, b))
-
-    def test_nested_difference_detected(self):
-        a = self.make_skill("a")
-        b = self.make_skill("b")
-        (a / "sub").mkdir()
-        (a / "sub" / "f.txt").write_text("1")
-        (b / "sub").mkdir()
-        (b / "sub" / "f.txt").write_text("2")
-        self.assertFalse(install.dirs_equal(a, b))
-
-
-class TestInstallCopy(TempDirTest):
-    def test_new_install(self):
-        src = self.make_skill("src")
-        dest = self.tmp / "dest" / "skill-a"
-        status = install.install_copy(src, dest, dry_run=False)
-        self.assertEqual(status, "installed")
-        self.assertEqual((dest / "SKILL.md").read_text(), "hello")
-
-    def test_up_to_date(self):
-        src = self.make_skill("src")
-        dest = self.tmp / "dest" / "skill-a"
-        install.install_copy(src, dest, dry_run=False)
-        self.assertEqual(install.install_copy(src, dest, dry_run=False), "up to date")
-
-    def test_updated(self):
-        src = self.make_skill("src")
-        dest = self.tmp / "dest" / "skill-a"
-        install.install_copy(src, dest, dry_run=False)
-        (src / "SKILL.md").write_text("changed")
-        self.assertEqual(install.install_copy(src, dest, dry_run=False), "updated")
-        self.assertEqual((dest / "SKILL.md").read_text(), "changed")
-
-    def test_dry_run_writes_nothing(self):
-        src = self.make_skill("src")
-        dest = self.tmp / "dest" / "skill-a"
-        status = install.install_copy(src, dest, dry_run=True)
-        self.assertEqual(status, "installed")
-        self.assertFalse(dest.exists())
-
-    def test_replaces_symlink_with_copy(self):
-        src = self.make_skill("src")
-        other = self.make_skill("other", name="skill-b")
-        dest = self.tmp / "dest" / "skill-a"
-        dest.parent.mkdir(parents=True)
-        dest.symlink_to(other)
-        status = install.install_copy(src, dest, dry_run=False)
-        self.assertEqual(status, "updated")
-        self.assertFalse(dest.is_symlink())
-        self.assertEqual((dest / "SKILL.md").read_text(), "hello")
-
-
 class TestVscodePromptsDir(TempDirTest):
     def test_appdata_windows_layout(self):
         user = self.tmp / "AppData" / "Code" / "User"
@@ -183,14 +115,13 @@ class TestRetirePrompts(TempDirTest):
         self.pdir = self.tmp / "Code" / "User" / "prompts"
         self.pdir.mkdir(parents=True)
 
-    def retire(self, target="copilot", dry_run=False, repo=None):
+    def retire(self, target="copilot", dry_run=False):
         with mock.patch.multiple(
                 "install", RETIRED_PROMPTS=("roj-create-sb",
                                             "roj-code-review-pr"),
                 claude_commands_dir=mock.Mock(return_value=self.cmds),
                 vscode_prompts_dir=mock.Mock(return_value=self.pdir)):
-            return install.retire_prompts(target, self.dest, dry_run,
-                                          repo=repo)
+            return install.retire_prompts(target, self.dest, dry_run)
 
     def test_removes_generated_skill_dir(self):
         gen = self.dest / "roj-create-sb"
@@ -288,13 +219,12 @@ class ExternalTest(TempDirTest):
     def fake_external(self, **overrides):
         ext = {
             "name": "tool-y", "package": "tool-y-pkg", "cli": "tool-y",
-            "targets": ("copilot", "claude", "repo"), "default": True,
+            "targets": ("copilot", "claude"), "default": True,
             "doc": "does things",
             "install": {"claude": ["install"],
                         "copilot": ["vscode", "install"]},
             "uninstall": {"claude": ["claude", "uninstall"],
                           "copilot": ["vscode", "uninstall"]},
-            "repo_cwd": True,
             "version_file": ".tool_y_version",
         }
         ext.update(overrides)
@@ -540,7 +470,7 @@ class TestInstallExternalForTarget(ExternalTest):
         calls, patched = self.record_runs()
         with patched:
             results = install.install_external_for_target(
-                "claude", self.fake_external(), "/bin/tool-y", None,
+                "claude", self.fake_external(), "/bin/tool-y",
                 dry_run=False)
         self.assertEqual(results, [("claude", "tool-y", "installed (by CLI)")])
         argv, cwd = calls[0]
@@ -551,47 +481,15 @@ class TestInstallExternalForTarget(ExternalTest):
         calls, patched = self.record_runs()
         with patched:
             install.install_external_for_target(
-                "copilot", self.fake_external(), "/bin/tool-y", None,
+                "copilot", self.fake_external(), "/bin/tool-y",
                 dry_run=False)
         self.assertEqual(calls[0][0],
                          ["/bin/tool-y", "vscode", "install"])
 
-    def test_repo_runs_in_repo_then_copies_personal_skill(self):
-        home_skill = self.tmp / "copilot-skills" / "tool-y"
-        home_skill.mkdir(parents=True)
-        (home_skill / "SKILL.md").write_text("body")
-        repo = self.tmp / "proj"
-        (repo / ".github" / "skills").mkdir(parents=True)
-        calls, patched = self.record_runs()
-        with patched, mock.patch(
-                "install.target_root",
-                side_effect=lambda t, r=None: (
-                    home_skill.parent if t == "copilot"
-                    else repo / ".github" / "skills")):
-            results = install.install_external_for_target(
-                "repo", self.fake_external(), "/bin/tool-y", repo,
-                dry_run=False)
-        self.assertEqual(calls[0][1], str(repo))
-        self.assertEqual(results, [("repo", "tool-y", "installed")])
-        self.assertTrue(
-            (repo / ".github" / "skills" / "tool-y" / "SKILL.md").is_file())
-
-    def test_repo_reports_failure_when_personal_skill_missing(self):
-        repo = self.tmp / "proj"
-        repo.mkdir()
-        calls, patched = self.record_runs()
-        with patched, mock.patch("install.target_root",
-                                 side_effect=lambda t, r=None:
-                                 self.tmp / "ghost"):
-            results = install.install_external_for_target(
-                "repo", self.fake_external(), "/bin/tool-y", repo,
-                dry_run=False)
-        self.assertIn("failed", results[0][2])
-
     def test_dry_run_plans_without_running(self):
         with mock.patch("install.run_cli") as run:
             results = install.install_external_for_target(
-                "claude", self.fake_external(), None, None, dry_run=True)
+                "claude", self.fake_external(), None, dry_run=True)
         run.assert_not_called()
         self.assertEqual(results,
                          [("claude", "tool-y",
@@ -600,7 +498,7 @@ class TestInstallExternalForTarget(ExternalTest):
     def test_missing_cli_skips_instead_of_failing(self):
         with mock.patch("install.run_cli") as run:
             results = install.install_external_for_target(
-                "claude", self.fake_external(), None, None, dry_run=False)
+                "claude", self.fake_external(), None, dry_run=False)
         run.assert_not_called()
         self.assertEqual(results,
                          [("claude", "tool-y", "skipped (CLI unavailable)")])
@@ -609,7 +507,7 @@ class TestInstallExternalForTarget(ExternalTest):
         ext = self.fake_external(targets=("copilot",))
         with mock.patch("install.run_cli") as run:
             results = install.install_external_for_target(
-                "claude", ext, "/bin/tool-y", None, dry_run=False)
+                "claude", ext, "/bin/tool-y", dry_run=False)
         run.assert_not_called()
         self.assertEqual(results,
                          [("claude", "tool-y", "skipped (not for claude)")])
@@ -642,7 +540,7 @@ class TestExternalSkipAndRetry(ExternalTest):
              mock.patch("install.IS_WINDOWS", windows), \
              mock.patch("install.time.sleep") as sleep:
             results = install.install_external_for_target(
-                "copilot", self.fake_external(), "/bin/tool-y", None,
+                "copilot", self.fake_external(), "/bin/tool-y",
                 dry_run=False)
         return results, calls, sleep
 
@@ -708,32 +606,6 @@ class TestExternalSkipAndRetry(ExternalTest):
         self.assertEqual(results[0][2], "failed")
         self.assertIn("close VS Code and JetBrains", self.err.getvalue())
 
-    def test_repo_scope_reinstalls_when_a_repo_file_is_missing(self):
-        repo = self.tmp / "proj"
-        self.stamp("1.2.3")
-        ext = self.fake_external(
-            repo_files=(".github/copilot-instructions.md",))
-        calls = []
-
-        def fake(argv, cwd):
-            calls.append(argv)
-            return True
-
-        def run():
-            with mock.patch("install.target_root", return_value=self.root), \
-                 mock.patch("install.cli_version", return_value="1.2.3"), \
-                 mock.patch("install.run_cli", side_effect=fake):
-                return install.install_external_for_target(
-                    "repo", ext, "/bin/tool-y", repo, dry_run=False)
-
-        run()
-        self.assertEqual(len(calls), 1)
-        (repo / ".github").mkdir(parents=True)
-        (repo / ".github" / "copilot-instructions.md").write_text("x")
-        results = run()
-        self.assertEqual(len(calls), 1)
-        self.assertEqual(results, [("repo", "tool-y", "up to date")])
-
     def test_no_retry_off_windows(self):
         results, calls, sleep = self.install(runs=(False,), windows=False)
         self.assertEqual(len(calls), 1)
@@ -748,9 +620,9 @@ class TestInstallExternalsForTarget(ExternalTest):
         calls, patched = self.record_runs()
         with patched, mock.patch("install.EXTERNALS", [ext]):
             selected = install.install_externals_for_target(
-                "claude", {"tool-y"}, None, dry_run=False)
+                "claude", {"tool-y"}, dry_run=False)
             skipped = install.install_externals_for_target(
-                "claude", set(), None, dry_run=False)
+                "claude", set(), dry_run=False)
         self.assertEqual(len(calls), 1)
         self.assertEqual(len(selected), 1)
         self.assertEqual(skipped, [])
