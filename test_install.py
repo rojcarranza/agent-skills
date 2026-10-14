@@ -2403,6 +2403,69 @@ class TestAddInventory(InventoryTest):
         self.assertEqual(self.path.read_text(), before)
 
 
+class TestParseManifest(unittest.TestCase):
+    TEXT = """\
+name: roj-ai-setup
+version: 1.0.0
+targets: [claude, copilot]
+dependencies:
+  apm:
+    # Own skills.
+    - ./skills/roj-explain-logic
+    - github/awesome-copilot/skills/code-tour#7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+    - git: https://github.com/juliusbrussee/caveman.git     # Claude: plugin
+      path: skills/caveman
+      ref: 2e08b9177c07bb7249a8a2d1a6758e5db281d002
+      targets: [copilot]
+    # Optional — uncomment and re-run install.py:
+    # - anthropics/skills/skills/pdf#683bc88e56f3e09ba94f7055977f3d3aa499f202
+  mcp:
+    - io.github.github/github-mcp-server
+    # - io.github.microsoft/playwright-mcp   # only for UI projects
+"""
+
+    def setUp(self):
+        self.parsed = install.parse_manifest(self.TEXT)
+
+    def test_local_dependency(self):
+        dep = self.parsed["apm"][0]
+        self.assertEqual((dep["path"], dep["ref"], dep["name"], dep["active"]),
+                         ("./skills/roj-explain-logic", None,
+                          "roj-explain-logic", True))
+
+    def test_shorthand_splits_ref(self):
+        dep = self.parsed["apm"][1]
+        self.assertEqual(dep["path"], "github/awesome-copilot/skills/code-tour")
+        self.assertEqual(dep["ref"], "7cce7cfb4b61196c36d7e8eb8475ae84b356b126")
+        self.assertEqual(dep["name"], "code-tour")
+        self.assertIsNone(dep["targets"])
+
+    def test_object_form_with_targets_and_inline_comment(self):
+        dep = self.parsed["apm"][2]
+        self.assertEqual(dep["git"], "https://github.com/juliusbrussee/caveman.git")
+        self.assertEqual((dep["path"], dep["name"], dep["targets"]),
+                         ("skills/caveman", "caveman", ("copilot",)))
+        self.assertEqual(dep["ref"], "2e08b9177c07bb7249a8a2d1a6758e5db281d002")
+
+    def test_commented_dependency_is_inactive(self):
+        dep = self.parsed["apm"][3]
+        self.assertEqual((dep["name"], dep["active"]), ("pdf", False))
+        self.assertEqual(len(self.parsed["apm"]), 4)
+
+    def test_mcp_section(self):
+        names = [(d["name"], d["active"]) for d in self.parsed["mcp"]]
+        self.assertEqual(names, [("github-mcp-server", True),
+                                 ("playwright-mcp", False)])
+
+    def test_top_level_keys_end_a_section(self):
+        parsed = install.parse_manifest(self.TEXT + "compilation:\n  exclude: [x]\n")
+        self.assertEqual(len(parsed["mcp"]), 2)
+
+    def test_crlf_input(self):
+        parsed = install.parse_manifest(self.TEXT.replace("\n", "\r\n"))
+        self.assertEqual(parsed["apm"][1]["name"], "code-tour")
+
+
 if __name__ == "__main__":
     unittest.main()
 

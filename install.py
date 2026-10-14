@@ -118,6 +118,82 @@ REQUIRES = {
 }
 
 
+# apm.yml: the manifest APM installs from (https://microsoft.github.io/apm/).
+# Read here only for names — status, legacy cleanup and tests — with a line
+# parser for the shapes this repo's apm.yml uses, so no YAML dependency.
+MANIFEST_PATH = REPO_ROOT / "apm.yml"
+_DEP_ITEM_RE = re.compile(r"^\s*(#\s*)?-\s+(.*)$")
+_OBJECT_KEY_RE = re.compile(r"^[\w-]+:\s")
+
+
+def _strip_comment(value):
+    return re.sub(r"\s+#.*$", "", value).strip()
+
+
+def _normalise_dep(dep):
+    """Fill path/ref/targets/name for the shorthand and the object form."""
+    spec = dep.get("spec")
+    if spec is not None:
+        path, _, ref = spec.partition("#")
+        dep["path"], dep["ref"] = path, ref or None
+    else:
+        dep["path"] = dep.get("path") or dep.get("git") or dep.get("name", "")
+        dep["ref"] = dep.get("ref")
+    targets = dep.get("targets")
+    dep["targets"] = (tuple(t.strip() for t in targets.strip("[]").split(",")
+                            if t.strip())
+                      if isinstance(targets, str) else None)
+    dep["name"] = dep["path"].rstrip("/").rsplit("/", 1)[-1]
+    return dep
+
+
+def parse_manifest(text):
+    """apm.yml text -> {'apm': [dep, ...], 'mcp': [dep, ...]}. A commented
+    list item (`# - x`) is a dependency with active False — how apm.yml marks
+    optional skills."""
+    out = {"apm": [], "mcp": []}
+    section, current = None, None
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        stripped = line.strip()
+        if not stripped:
+            continue
+        indent = len(line) - len(line.lstrip())
+        if indent <= 2 and not stripped.startswith(("-", "#")):
+            key = stripped.split(":", 1)[0]
+            section = key if indent == 2 and key in out else None
+            current = None
+            continue
+        if section is None:
+            continue
+        item = _DEP_ITEM_RE.match(line)
+        if item:
+            body = _strip_comment(item.group(2))
+            current = {"active": not item.group(1)}
+            if _OBJECT_KEY_RE.match(body):
+                key, _, value = body.partition(":")
+                current[key.strip()] = _strip_comment(value)
+            else:
+                current["spec"] = body
+            out[section].append(current)
+        elif not stripped.startswith("#") and current is not None:
+            key, _, value = stripped.partition(":")
+            current[key.strip()] = _strip_comment(value)
+    return {name: [_normalise_dep(d) for d in deps]
+            for name, deps in out.items()}
+
+
+def manifest_deps(path=None, section="apm"):
+    text = Path(path or MANIFEST_PATH).read_text(encoding="utf-8")
+    return parse_manifest(text)[section]
+
+
+def manifest_skill_names(active_only=True):
+    """Skill folder names apm.yml installs (or lists, with active_only off)."""
+    return {d["name"] for d in manifest_deps()
+            if d["active"] or not active_only}
+
+
 # Skills inventory: community skills picked from skills.sh, kept as data in
 # skills-inventory.json rather than code. Each entry pins a commit, so an
 # install is reproducible and a version bump is a reviewable diff. Entries
