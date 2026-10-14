@@ -130,6 +130,22 @@ def _strip_comment(value):
     return re.sub(r"\s+#.*$", "", value).strip()
 
 
+def _unquote(value):
+    """A YAML scalar in double quotes (JSON escapes) or single quotes."""
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value[1:-1]
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        return value[1:-1]
+    return value
+
+
+def _scalar(raw):
+    return _unquote(_strip_comment(raw))
+
+
 def _normalise_dep(dep):
     """Fill path/ref/targets/name for the shorthand and the object form."""
     spec = dep.get("spec")
@@ -143,7 +159,8 @@ def _normalise_dep(dep):
     dep["targets"] = (tuple(t.strip() for t in targets.strip("[]").split(",")
                             if t.strip())
                       if isinstance(targets, str) else None)
-    dep["name"] = dep["path"].rstrip("/").rsplit("/", 1)[-1]
+    name = dep["path"].rstrip("/").rsplit("/", 1)[-1]
+    dep["name"] = name[:-len(".git")] if name.endswith(".git") else name
     return dep
 
 
@@ -172,13 +189,13 @@ def parse_manifest(text):
             current = {"active": not item.group(1)}
             if _OBJECT_KEY_RE.match(body):
                 key, _, value = body.partition(":")
-                current[key.strip()] = _strip_comment(value)
+                current[key.strip()] = _unquote(value.strip())
             else:
-                current["spec"] = body
+                current["spec"] = _unquote(body)
             out[section].append(current)
         elif not stripped.startswith("#") and current is not None:
             key, _, value = stripped.partition(":")
-            current[key.strip()] = _strip_comment(value)
+            current[key.strip()] = _scalar(value)
     return {name: [_normalise_dep(d) for d in deps]
             for name, deps in out.items()}
 
