@@ -116,6 +116,9 @@ Sources:
 
 mattpocock/skills: excluded — slash-command/plugin oriented; install
 as a Claude plugin manually if ever wanted.
+(Superseded: its `skills/productivity` skills `grilling`, `grill-me` and
+`to-questionnaire` are now inventory cherry-picks, see
+[community-skills.md](../../community-skills.md#grilling).)
 
 Exact addyosmani/anthropics skill folder names verified against the
 upstream repos at implementation time; registry adjusted to what

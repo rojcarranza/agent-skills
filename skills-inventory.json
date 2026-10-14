@@ -220,6 +220,40 @@
         "copilot"
       ],
       "default": true
+    },
+    {
+      "source": "mattpocock/skills",
+      "skill": "grilling",
+      "subdir": "skills/productivity",
+      "ref": "49dd158d1076134a641b33efb035946536778336",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": false
+    },
+    {
+      "source": "mattpocock/skills",
+      "skill": "grill-me",
+      "subdir": "skills/productivity",
+      "ref": "49dd158d1076134a641b33efb035946536778336",
+      "targets": [
+        "claude"
+      ],
+      "default": false
+    },
+    {
+      "source": "mattpocock/skills",
+      "skill": "to-questionnaire",
+      "subdir": "skills/productivity",
+      "ref": "49dd158d1076134a641b33efb035946536778336",
+      "targets": [
+        "claude",
+        "copilot",
+        "repo"
+      ],
+      "default": false
     }
   ]
 }

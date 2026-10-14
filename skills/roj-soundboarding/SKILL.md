@@ -111,6 +111,11 @@ story.
    and ask before overwriting.
 6. **Report.** End with a short summary: repositories investigated, findings
    verified vs assumed, and the open questions for team refinement.
+   When Questions has open items, offer in one line: "Grill the open
+   questions now?" On a yes, chain to the `roj-grill-plan` skill on the SB
+   file; if it is not installed, list the open questions with a recommended
+   answer each. Never start grilling unasked. Skip the offer in Flow 3,
+   which asks exactly one question.
 7. **Tour (ask first).** Offer a tour of the code the core tasks will touch
    (see Tour output) and build it only on a yes.
 
