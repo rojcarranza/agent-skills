@@ -2617,6 +2617,9 @@ class TestApm(TempDirTest):
                 self.assertEqual(install.is_wsl(), expected)
 
 
+OWNED = "---\nname: {}\ndescription: x\n---\n"
+
+
 class TestLegacyCleanup(TempDirTest):
     def setUp(self):
         super().setUp()
@@ -2648,24 +2651,61 @@ class TestLegacyCleanup(TempDirTest):
         self.assertEqual(results, [("claude", "roj-a", "removed (pre-APM link)")])
 
     def test_claude_copies_removed_before_apm_owns_them(self):
-        self.make_skill("claude", name="code-tour")
+        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
         results = install.remove_installer_skills(
             "claude", self.tmp / "claude", apm_owns=False, dry_run=False)
         self.assertFalse((self.tmp / "claude" / "code-tour").exists())
         self.assertEqual(results, [("claude", "code-tour", "removed (pre-APM copy)")])
 
     def test_claude_copies_kept_after_apm_owns_them(self):
-        self.make_skill("claude", name="code-tour")
+        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
         results = install.remove_installer_skills(
             "claude", self.tmp / "claude", apm_owns=True, dry_run=False)
         self.assertTrue((self.tmp / "claude" / "code-tour").is_dir())
         self.assertEqual(results, [])
 
     def test_copilot_copies_always_removed(self):
-        self.make_skill("copilot", name="pdf")
+        self.make_skill("copilot", name="pdf", content=OWNED.format("pdf"))
         install.remove_installer_skills("copilot", self.tmp / "copilot",
                                         apm_owns=True, dry_run=False)
         self.assertFalse((self.tmp / "copilot" / "pdf").exists())
+
+    def test_copy_without_matching_name_kept(self):
+        self.make_skill("copilot", name="pdf", content=OWNED.format("my-pdf"))
+        results = install.remove_installer_skills(
+            "copilot", self.tmp / "copilot", apm_owns=False, dry_run=False)
+        self.assertTrue((self.tmp / "copilot" / "pdf").is_dir())
+        self.assertEqual(results, [])
+
+    def test_foreign_link_kept_with_warning(self):
+        outside = self.tmp / "elsewhere" / "pdf"
+        outside.mkdir(parents=True)
+        root = self.tmp / "copilot"
+        root.mkdir()
+        try:
+            (root / "pdf").symlink_to(outside, target_is_directory=True)
+        except OSError:
+            self.skipTest("symlinks unsupported here")
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            results = install.remove_installer_skills(
+                "copilot", root, apm_owns=False, dry_run=False)
+        self.assertTrue((root / "pdf").is_symlink())
+        self.assertEqual(results, [])
+        self.assertIn("outside this clone", err.getvalue())
+
+    def test_dangling_link_removed(self):
+        root = self.tmp / "claude"
+        root.mkdir()
+        try:
+            (root / "roj-a").symlink_to(self.tmp / "gone" / "roj-a",
+                                        target_is_directory=True)
+        except OSError:
+            self.skipTest("symlinks unsupported here")
+        results = install.remove_installer_skills(
+            "claude", root, apm_owns=True, dry_run=False)
+        self.assertFalse((root / "roj-a").is_symlink())
+        self.assertEqual(results, [("claude", "roj-a", "removed (pre-APM link)")])
 
     def test_unknown_and_graphify_untouched(self):
         self.make_skill("copilot", name="graphify")
@@ -2676,7 +2716,7 @@ class TestLegacyCleanup(TempDirTest):
         self.assertTrue((self.tmp / "copilot" / "graphify").is_dir())
 
     def test_dry_run_removes_nothing(self):
-        self.make_skill("copilot", name="pdf")
+        self.make_skill("copilot", name="pdf", content=OWNED.format("pdf"))
         results = install.remove_installer_skills(
             "copilot", self.tmp / "copilot", apm_owns=False, dry_run=True)
         self.assertTrue((self.tmp / "copilot" / "pdf").is_dir())

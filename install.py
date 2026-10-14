@@ -332,7 +332,11 @@ def remove_installer_skills(target, dest_root, apm_owns, dry_run):
             if _links_into_clone(entry) or not entry.exists():
                 _remove(entry, dry_run)
                 results.append((target, entry.name, "removed (pre-APM link)"))
-        elif entry.is_dir() and (target == "copilot" or not apm_owns):
+            else:
+                warn(f"{entry} is a link outside this clone — APM cannot "
+                     f"install {entry.name} over it; remove it if it is stale")
+        elif (entry.is_dir() and (target == "copilot" or not apm_owns)
+              and is_ours(entry, entry.name)):
             _remove(entry, dry_run)
             results.append((target, entry.name, "removed (pre-APM copy)"))
     return results
