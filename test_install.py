@@ -2617,6 +2617,121 @@ class TestApm(TempDirTest):
                 self.assertEqual(install.is_wsl(), expected)
 
 
+class TestLegacyCleanup(TempDirTest):
+    def setUp(self):
+        super().setUp()
+        self.clone_skills = self.tmp / "clone" / "skills"
+        self.make_skill("clone/skills", name="roj-a")
+        for p in (mock.patch("install.SKILLS_SRC", self.clone_skills),
+                  mock.patch("install.manifest_deps", return_value=[
+                      {"name": "roj-a", "path": "./skills/roj-a"},
+                      {"name": "code-tour", "path": "github/x/skills/code-tour"},
+                      {"name": "pdf", "path": "anthropics/skills/skills/pdf"}])):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def test_legacy_names_are_custom_plus_community(self):
+        self.assertEqual(install.legacy_skill_names(),
+                         {"roj-a", "code-tour", "pdf"})
+
+    def test_symlink_into_clone_always_removed(self):
+        root = self.tmp / "claude"
+        root.mkdir()
+        try:
+            (root / "roj-a").symlink_to(self.clone_skills / "roj-a",
+                                        target_is_directory=True)
+        except OSError:
+            self.skipTest("symlinks unsupported here")
+        results = install.remove_installer_skills("claude", root, apm_owns=True,
+                                                  dry_run=False)
+        self.assertFalse((root / "roj-a").is_symlink())
+        self.assertEqual(results, [("claude", "roj-a", "removed (pre-APM link)")])
+
+    def test_claude_copies_removed_before_apm_owns_them(self):
+        self.make_skill("claude", name="code-tour")
+        results = install.remove_installer_skills(
+            "claude", self.tmp / "claude", apm_owns=False, dry_run=False)
+        self.assertFalse((self.tmp / "claude" / "code-tour").exists())
+        self.assertEqual(results, [("claude", "code-tour", "removed (pre-APM copy)")])
+
+    def test_claude_copies_kept_after_apm_owns_them(self):
+        self.make_skill("claude", name="code-tour")
+        results = install.remove_installer_skills(
+            "claude", self.tmp / "claude", apm_owns=True, dry_run=False)
+        self.assertTrue((self.tmp / "claude" / "code-tour").is_dir())
+        self.assertEqual(results, [])
+
+    def test_copilot_copies_always_removed(self):
+        self.make_skill("copilot", name="pdf")
+        install.remove_installer_skills("copilot", self.tmp / "copilot",
+                                        apm_owns=True, dry_run=False)
+        self.assertFalse((self.tmp / "copilot" / "pdf").exists())
+
+    def test_unknown_and_graphify_untouched(self):
+        self.make_skill("copilot", name="graphify")
+        self.make_skill("copilot", name="my-own")
+        results = install.remove_installer_skills(
+            "copilot", self.tmp / "copilot", apm_owns=False, dry_run=False)
+        self.assertEqual(results, [])
+        self.assertTrue((self.tmp / "copilot" / "graphify").is_dir())
+
+    def test_dry_run_removes_nothing(self):
+        self.make_skill("copilot", name="pdf")
+        results = install.remove_installer_skills(
+            "copilot", self.tmp / "copilot", apm_owns=False, dry_run=True)
+        self.assertTrue((self.tmp / "copilot" / "pdf").is_dir())
+        self.assertEqual(len(results), 1)
+
+    def test_missing_root_is_fine(self):
+        self.assertEqual(install.remove_installer_skills(
+            "claude", self.tmp / "nope", apm_owns=False, dry_run=False), [])
+
+
+class TestInstructionCopy(TempDirTest):
+    def setUp(self):
+        super().setUp()
+        self.src = self.tmp / "clone" / "personal.instructions.md"
+        self.src.parent.mkdir(parents=True)
+        self.src.write_text("rules\n")
+        self.dest = self.tmp / "home" / ".copilot" / "instructions" / "personal.instructions.md"
+        self.dest.parent.mkdir(parents=True)
+        for p in (mock.patch("install.INSTRUCTIONS_SRC", self.src),
+                  mock.patch("install.copilot_instruction_path",
+                             return_value=self.dest)):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def test_symlink_removed(self):
+        other = self.tmp / "dotfiles" / "personal.instructions.md"
+        other.parent.mkdir()
+        other.write_text("rules\n")
+        try:
+            self.dest.symlink_to(other)
+        except OSError:
+            self.skipTest("symlinks unsupported here")
+        results = install.remove_instruction_copy(dry_run=False)
+        self.assertFalse(self.dest.is_symlink())
+        self.assertTrue(other.exists())
+        self.assertEqual(results[0][2], "removed (dotfiles link — APM deploys it now)")
+
+    def test_identical_copy_removed(self):
+        self.dest.write_text("rules\n")
+        install.remove_instruction_copy(dry_run=False)
+        self.assertFalse(self.dest.exists())
+
+    def test_edited_instruction_copy_kept(self):
+        self.dest.write_text("my local edits\n")
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            results = install.remove_instruction_copy(dry_run=False)
+        self.assertEqual(self.dest.read_text(), "my local edits\n")
+        self.assertIn("differs", err.getvalue())
+        self.assertEqual(results, [])
+
+    def test_absent_is_fine(self):
+        self.assertEqual(install.remove_instruction_copy(dry_run=False), [])
+
+
 if __name__ == "__main__":
     unittest.main()
 

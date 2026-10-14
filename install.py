@@ -292,6 +292,76 @@ def is_wsl():
         return False
 
 
+# Before APM, this script copied or linked every skill itself. Those entries
+# would collide with APM's: it rejects a symlinked skill destination, and on
+# Copilot it deploys to ~/.agents/skills, so an old ~/.copilot/skills copy
+# would load as a duplicate.
+INSTRUCTIONS_SRC = REPO_ROOT / ".apm" / "instructions" / "personal.instructions.md"
+
+
+def legacy_skill_names():
+    """Every skill an earlier install.py put in a skills dir itself: ours,
+    and every community skill apm.yml lists (all were in the old inventory).
+    Externals are left to their own CLI."""
+    return custom_skill_names() | {d["name"] for d in manifest_deps()
+                                   if not d["path"].startswith("./")}
+
+
+def _links_into_clone(entry):
+    try:
+        target = Path(os.readlink(entry))
+    except OSError:
+        return False
+    if not target.is_absolute():
+        target = entry.parent / target
+    return SKILLS_SRC.resolve() in target.resolve().parents
+
+
+def remove_installer_skills(target, dest_root, apm_owns, dry_run):
+    """Remove what pre-APM installs left in dest_root. apm_owns: APM has
+    installed at user scope here (~/.apm/apm.lock.yaml exists), so a Claude
+    copy is APM's, not ours."""
+    results = []
+    if not dest_root.is_dir():
+        return results
+    names = legacy_skill_names()
+    for entry in sorted(dest_root.iterdir()):
+        if entry.name not in names:
+            continue
+        if entry.is_symlink():
+            if _links_into_clone(entry) or not entry.exists():
+                _remove(entry, dry_run)
+                results.append((target, entry.name, "removed (pre-APM link)"))
+        elif entry.is_dir() and (target == "copilot" or not apm_owns):
+            _remove(entry, dry_run)
+            results.append((target, entry.name, "removed (pre-APM copy)"))
+    return results
+
+
+def copilot_instruction_path():
+    return (Path.home() / ".copilot" / "instructions"
+            / INSTRUCTIONS_SRC.name)
+
+
+def remove_instruction_copy(dry_run):
+    """The dotfiles repo linked (or, on Windows, copied) the same file APM
+    now deploys. Remove a link or an identical copy; keep an edited one."""
+    dest = copilot_instruction_path()
+    if dest.is_symlink():
+        _remove(dest, dry_run)
+        return [("copilot", dest.name,
+                 "removed (dotfiles link — APM deploys it now)")]
+    if not dest.is_file():
+        return []
+    if dest.read_bytes() == INSTRUCTIONS_SRC.read_bytes():
+        _remove(dest, dry_run)
+        return [("copilot", dest.name,
+                 "removed (dotfiles copy — APM deploys it now)")]
+    warn(f"{dest} differs from {INSTRUCTIONS_SRC} — left in place; merge "
+         f"your edits into the repo copy, delete it, and re-run")
+    return []
+
+
 # Skills inventory: community skills picked from skills.sh, kept as data in
 # skills-inventory.json rather than code. Each entry pins a commit, so an
 # install is reproducible and a version bump is a reviewable diff. Entries
