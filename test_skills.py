@@ -18,6 +18,7 @@ SKILLS = ROOT / "skills"
 sys.path.insert(0, str(ROOT / "tools"))
 
 import sync_shared  # noqa: E402
+import install  # noqa: E402
 
 SPEC_KEYS = {"name", "description", "license", "compatibility", "metadata",
              "allowed-tools"}
@@ -414,7 +415,9 @@ class TestEvals(unittest.TestCase):
 
 class TestPublishable(unittest.TestCase):
     def test_no_private_paths_or_employer_details(self):
-        for f in sorted(SKILLS.rglob("*.md")):
+        for f in sorted([*SKILLS.rglob("*.md"),
+                         *(ROOT / ".apm").rglob("*.md"),
+                         ROOT / "apm.yml"]):
             text = f.read_text(encoding="utf-8")
             for n, line in enumerate(text.splitlines(), 1):
                 with self.subTest(file=str(f.relative_to(ROOT)), line=n):
@@ -451,6 +454,51 @@ class TestPublishable(unittest.TestCase):
                         for s in plugin["skills"])
         self.assertEqual(listed,
                          [f"./skills/{d.name}" for d in skill_dirs()])
+
+
+SHA_RE = re.compile(r"[0-9a-f]{40}")
+
+
+class TestManifest(unittest.TestCase):
+    """apm.yml is the one list of what install.py installs."""
+
+    def setUp(self):
+        self.deps = install.manifest_deps()
+
+    def test_every_skill_is_a_live_local_dependency(self):
+        live = {d["path"] for d in self.deps if d["active"]}
+        for d in skill_dirs():
+            with self.subTest(skill=d.name):
+                self.assertIn(f"./skills/{d.name}", live)
+
+    def test_every_requirement_is_live(self):
+        live = install.manifest_skill_names()
+        for skill, deps in install.REQUIRES.items():
+            for dep in deps:
+                with self.subTest(skill=skill, dep=dep):
+                    self.assertIn(dep, live)
+
+    def test_community_refs_are_full_shas(self):
+        for d in self.deps:
+            if d["path"].startswith("./"):
+                continue
+            with self.subTest(dep=d["name"]):
+                self.assertRegex(d["ref"] or "", SHA_RE)
+
+    def test_names_are_unique(self):
+        names = [d["name"] for d in self.deps]
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_github_mcp_is_live(self):
+        mcp = {d["name"]: d["active"]
+               for d in install.manifest_deps(section="mcp")}
+        self.assertTrue(mcp.get("github-mcp-server"))
+
+    def test_instructions_apply_everywhere(self):
+        text = (ROOT / ".apm" / "instructions"
+                / "personal.instructions.md").read_text(encoding="utf-8")
+        self.assertTrue(text.startswith("---\n"))
+        self.assertIn('applyTo: "**"', text.split("---", 2)[1])
 
 
 if __name__ == "__main__":
