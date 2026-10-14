@@ -17,7 +17,7 @@ python3 install.py --dry-run         # what would happen, nothing written
 python3 install.py --status          # what is installed where, leftovers
 python3 install.py --update          # pins with newer releases (reports only)
 python3 install.py --upgrade         # newer graphify, then refresh its skill
-python3 install.py --skills-only     # skip graphify (offline/proxy)
+python3 install.py --skills-only     # skip graphify (e.g. PyPI blocked)
 ```
 
 | Flag | Meaning |
@@ -28,7 +28,7 @@ python3 install.py --skills-only     # skip graphify (offline/proxy)
 | `--status` | show what APM installed, graphify, and leftovers |
 | `--update` | run `apm outdated -g`: lists `apm.yml` pins with newer upstream releases; changes nothing |
 | `--upgrade` | upgrade external CLIs (`graphify`) before refreshing their skill files |
-| `--skills-only` | skip externals (`graphify`) |
+| `--skills-only` | skip `graphify` (e.g. PyPI blocked) |
 
 Run order: remove what pre-APM versions installed, write `~/.apm/apm.yml`
 (pointing at this clone), run `apm install -g --update --target <value>`,
@@ -85,11 +85,20 @@ APM records what it installed in `~/.apm/apm.lock.yaml`. Skills are copies,
 so re-run `install.py` after editing a skill in this clone. Skills added with
 `npx skills add` are not tracked here; `npx skills update` refreshes those.
 
-The first run removes what older versions left: copies whose `SKILL.md`
-declares our own name and links into this clone. An
-`~/.copilot/instructions/personal.instructions.md` you edited (the dotfiles
-one) is kept with a warning; move its content into
-`.apm/instructions/` and delete it to let APM own the file.
+The first run removes what older versions left, but only for skills APM
+installs again for that agent: our own skills and the active (uncommented)
+community skills in `apm.yml` for that target. It removes copies whose
+`SKILL.md` declares that name and links into a checkout of this repo (this
+clone, or another clone or worktree of it). A Claude copy that
+`~/.apm/apm.lock.yaml` lists under `.claude/skills/` is APM's and stays.
+Anything else the old installer left — an optional skill still commented
+out in `apm.yml`, or a Copilot-only skill in `~/.claude/skills` — is kept
+with a warning: uncomment it in `apm.yml` to have APM manage it, or delete
+it. An `~/.copilot/instructions/personal.instructions.md` you edited (the
+dotfiles one) is kept with a warning; move its content into
+`.apm/instructions/` and delete it to let APM own the file. If `apm install`
+then fails, the run says so: the removed entries come back once a re-run
+succeeds.
 
 ## Platforms
 
@@ -257,8 +266,7 @@ From the dotfiles repo root, `python install.py install agent-skills` does steps
 
 APM installs skills as copies on every platform, so Windows needs no symlink
 rights. Copies are snapshots: **re-run the installer after editing a skill** to
-refresh them. A re-run removes legacy `<skill>.bak` directories that older runs left; the
-agents load them as extra skills.
+refresh them. A re-run removes legacy `.bak` copies of retired prompts.
 
 Paths on Windows resolve under `%USERPROFILE%`: `~/.claude/skills` for
 Claude, `~/.agents/skills` for Copilot skills, `~/.copilot/instructions` for
@@ -307,14 +315,15 @@ Setup checklist:
    teammates (README, "In a team repository").
 
 Nothing shows up: confirm chat is in agent mode, that the plugin is current,
-and that `install.py --status` lists the skills under `~/.agents/skills`
-with no leftover-prompt warnings.
+that `install.py --status` lists the skills among APM's dependencies and
+prints no leftover warnings, and that they are under `~/.agents/skills`.
 
 ## History: the roj- rename and retired prompts
 
 Before APM (2026-10), `install.py` copied community skills from
 `skills-inventory.json` and linked our skills; the first APM run removes
-those entries.
+those entries for the skills APM installs again and warns about the rest
+(see "The APM manifest").
 
 Every custom skill and prompt carries a `roj-` prefix, so they sort together
 and never collide with a community or plugin skill. Installs made before the
@@ -322,7 +331,8 @@ rename used bare names (`create-sb`, `explain-logic`, ...). Every install run
 removes those leftovers — Copilot copies whose `SKILL.md` declares the old
 name, Claude symlinks, generated Claude commands, and old `.prompt.md`
 files — and logs each as `removed (renamed to roj-...)`. A skill of the same
-bare name that the installer did not write is left alone.
+bare name that the installer did not write is left alone. `--status` warns
+about any that remain.
 
 `prompts/` used to hold nine `.prompt.md` workflows that the installer turned
 into generated Copilot skills and Claude slash commands (`/roj-create-sb`,

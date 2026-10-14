@@ -1292,8 +1292,10 @@ class TestMain(TempDirTest):
         self.assertFalse((self.tmp / "home" / ".apm" / "apm.yml").exists())
 
     def test_apm_failure_is_the_exit_code(self):
-        code, _, _, _ = self.run_main([], apm_code=2)
+        code, _, _, err = self.run_main([], apm_code=2)
         self.assertEqual(code, 2)
+        self.assertIn("apm install failed", err)
+        self.assertIn("once a re-run of install.py succeeds", err)
 
     def test_update_without_apm_stops_with_hint(self):
         code, calls, _, err = self.run_main(["--update"], apm=None)
@@ -1356,6 +1358,30 @@ class TestMain(TempDirTest):
         self.run_main(["--target", "claude"],
                       lock="  - .agents/skills/code-tour/SKILL.md\n")
         self.assertFalse((self.tmp / "home" / "claude" / "code-tour").exists())
+
+    def test_status_warns_about_older_leftovers(self):
+        home = self.tmp / "home"
+        gen = home / "claude" / "roj-create-sb"
+        gen.mkdir(parents=True)
+        (gen / "SKILL.md").write_text("<!-- Generated from prompts/x -->\n")
+        old = home / "claude" / "explain-logic"
+        old.mkdir()
+        (old / "SKILL.md").write_text("---\nname: explain-logic\n---\n")
+        _, _, _, err = self.run_main(["--status", "--target", "claude"])
+        for name in ("roj-create-sb", "explain-logic"):
+            with self.subTest(name=name):
+                self.assertIn(f"{name} left by an older install — re-run "
+                              "install.py to remove", err)
+        self.assertTrue(gen.is_dir())
+        self.assertTrue(old.is_dir())
+
+    def test_status_warns_about_dotfiles_instruction_copy(self):
+        dest = self.tmp / "home" / "instr" / "p.instructions.md"
+        dest.parent.mkdir(parents=True)
+        dest.write_bytes(install.INSTRUCTIONS_SRC.read_bytes())
+        _, _, _, err = self.run_main(["--status", "--target", "copilot"])
+        self.assertIn("p.instructions.md left by an older install", err)
+        self.assertTrue(dest.is_file())
 
     def test_removed_flags_are_rejected(self):
         for flag in (["--repo", "."], ["--skill", "x"], ["--list"],

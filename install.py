@@ -8,7 +8,7 @@ Usage:
   python3 install.py --status            # what is installed, leftovers
   python3 install.py --update            # pins with newer releases
   python3 install.py --upgrade           # newer graphify, then refresh
-  python3 install.py --skills-only       # skip graphify (offline/proxy)
+  python3 install.py --skills-only       # skip graphify (e.g. PyPI blocked)
 
 Python >= 3.8, standard library only. On Windows run it from Git Bash as
 `python install.py`; on WSL run it inside WSL (and again from Git Bash for
@@ -340,7 +340,7 @@ def remove_installer_skills(target, dest_root, dry_run, lock_text=None):
             if ours:
                 warn(f"{entry} was installed by the old installer; APM does "
                      f"not manage {entry.name} for {target} — uncomment it in "
-                     f"apm.yml to keep it updated, or delete it")
+                     "apm.yml to keep it updated, or delete it")
             continue
         if entry.is_symlink():
             if ours:
@@ -738,8 +738,8 @@ def run_cli_install(argv, cwd, skill_dir):
     if run_cli(argv, cwd):
         return True
     warn(f"{skill_dir} is locked: close VS Code and JetBrains (they watch "
-         f"the skills folder), then re-run "
-         f"install.py --target copilot")
+         "the skills folder), then re-run "
+         "install.py --target copilot")
     return False
 
 
@@ -815,6 +815,13 @@ def show_status(targets):
             warnings.append(f"{target}: {', '.join(n for _, n, _ in left)} "
                             f"left by a pre-APM install in {root} — re-run "
                             f"install.py to remove")
+        older = (remove_legacy(target, root, dry_run=True)
+                 + retire_prompts(target, root, dry_run=True))
+        if target == "copilot":
+            older += remove_instruction_copy(dry_run=True)
+        for _, name, _ in older:
+            warnings.append(f"{target}: {name} left by an older install — "
+                            "re-run install.py to remove")
         for ext in EXTERNALS:
             dest = root / ext["name"]
             if not dest.is_dir():
@@ -875,7 +882,7 @@ def main():
                     help="upgrade external CLIs (graphify) before refreshing "
                          "their skill files")
     ap.add_argument("--skills-only", action="store_true",
-                    help="skip externals (graphify) — offline/proxy")
+                    help="skip graphify (e.g. PyPI blocked)")
     args = ap.parse_args()
     targets = (["copilot", "claude"] if args.target == "both"
                else [args.target])
@@ -921,6 +928,8 @@ def main():
         code = run_apm(argv)
         if code:
             print_summary(results, targets, args.dry_run)
+            warn("apm install failed — pre-APM entries removed above come "
+                 "back once a re-run of install.py succeeds")
             sys.exit(code)
         results.append(("apm", "install", "done"))
 

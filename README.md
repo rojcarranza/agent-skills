@@ -38,7 +38,8 @@ Copilot, from one manifest ([`apm.yml`](apm.yml)).
    On the first run APM asks for a `token` value for the GitHub MCP server
    (a GitHub token). In a non-interactive shell set `token=...` in the
    environment first. The first run also removes the entries older versions
-   of `install.py` left behind.
+   of `install.py` left for skills APM installs again, and warns about the
+   rest.
 
 To add or drop a skill or MCP server, edit `apm.yml` and re-run
 `install.py`. `install.py --update` lists pins with newer upstream
