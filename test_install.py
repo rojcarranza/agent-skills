@@ -2530,6 +2530,93 @@ dependencies:
                          [("github-mcp-server", True)])
 
 
+class TestApm(TempDirTest):
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch("install.apm_home",
+                             return_value=self.tmp / "home" / ".apm")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.dest = self.tmp / "home" / ".apm" / "apm.yml"
+
+    def test_render_points_at_the_clone(self):
+        text = install.render_user_manifest(self.tmp / "clone")
+        self.assertTrue(text.startswith(install.USER_MANIFEST_MARKER))
+        self.assertIn(f'    - "{(self.tmp / "clone").resolve().as_posix()}"\n',
+                      text)
+        parsed = install.parse_manifest(text)
+        self.assertEqual(len(parsed["apm"]), 1)
+
+    def test_windows_path_is_forward_slashed(self):
+        fake = mock.Mock()
+        fake.resolve.return_value.as_posix.return_value = "C:/Users/me/agent-skills"
+        with mock.patch("install.Path", return_value=fake):
+            text = install.render_user_manifest("C:\\Users\\me\\agent-skills")
+        self.assertIn('- "C:/Users/me/agent-skills"', text)
+        self.assertNotIn("\\", text)
+
+    def test_write_new(self):
+        status = install.write_user_manifest("x\n")
+        self.assertEqual(status, "written")
+        self.assertEqual(self.dest.read_bytes(), b"x\n")
+
+    def test_write_is_idempotent(self):
+        text = install.USER_MANIFEST_MARKER + "\nname: user\n"
+        install.write_user_manifest(text)
+        self.assertEqual(install.write_user_manifest(text), "up to date")
+
+    def test_ours_is_updated(self):
+        install.write_user_manifest(install.USER_MANIFEST_MARKER + "\nold\n")
+        new = install.USER_MANIFEST_MARKER + "\nnew\n"
+        self.assertEqual(install.write_user_manifest(new), "updated")
+        self.assertEqual(self.dest.read_text(), new)
+
+    def test_foreign_manifest_refused(self):
+        self.dest.parent.mkdir(parents=True)
+        self.dest.write_text("name: mine\n")
+        with self.assertRaises(SystemExit) as cm:
+            install.write_user_manifest(install.USER_MANIFEST_MARKER + "\n")
+        self.assertIn("--force", str(cm.exception))
+        self.assertEqual(self.dest.read_text(), "name: mine\n")
+
+    def test_force_replaces_foreign(self):
+        self.dest.parent.mkdir(parents=True)
+        self.dest.write_text("name: mine\n")
+        text = install.USER_MANIFEST_MARKER + "\n"
+        self.assertEqual(install.write_user_manifest(text, force=True), "updated")
+        self.assertEqual(self.dest.read_text(), text)
+
+    def test_dry_run_writes_nothing(self):
+        install.write_user_manifest("x\n", dry_run=True)
+        self.assertFalse(self.dest.exists())
+
+    def test_install_argv_per_target(self):
+        for targets, value in ((["claude"], "claude"), (["copilot"], "copilot"),
+                               (["copilot", "claude"], "claude,copilot")):
+            with self.subTest(targets=targets):
+                self.assertEqual(install.apm_install_argv("apm", targets),
+                                 ["apm", "install", "-g", "--update", "--target", value])
+
+    def test_run_apm_returns_exit_code(self):
+        with mock.patch("install.subprocess.run",
+                        return_value=mock.Mock(returncode=3)) as run:
+            self.assertEqual(install.run_apm(["apm", "x"]), 3)
+        run.assert_called_once_with(["apm", "x"])
+
+    def test_run_apm_reports_missing_binary(self):
+        with mock.patch("install.subprocess.run", side_effect=OSError("nope")):
+            self.assertEqual(install.run_apm(["apm"]), 127)
+
+    def test_is_wsl(self):
+        for platform, text, expected in (("linux", "Linux 5.15 microsoft-standard-WSL2", True),
+                                         ("linux", "Linux 6.1 generic", False),
+                                         ("darwin", "microsoft", False)):
+            with self.subTest(platform=platform, text=text), \
+                    mock.patch("install.sys.platform", platform), \
+                    mock.patch("install.Path.read_text", return_value=text):
+                self.assertEqual(install.is_wsl(), expected)
+
+
 if __name__ == "__main__":
     unittest.main()
 
