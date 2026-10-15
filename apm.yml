@@ -15,6 +15,7 @@ dependencies:
     - ./skills/roj-explain-feature-changes
     - ./skills/roj-explain-logic
     - ./skills/roj-grill-plan
+    - ./skills/roj-idea-to-project
     - ./skills/roj-interview-prep
     - ./skills/roj-investigate-issue
     - ./skills/roj-review-pr-comment
