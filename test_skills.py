@@ -5,6 +5,7 @@ frontmatter breaks the spec, so these fail loudly instead.
   python3 -m unittest test_skills -v
 """
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -309,6 +310,24 @@ class TestGraphFirst(unittest.TestCase):
         self.assertIn("`graph-first.md` step does not apply", text)
 
 
+def git_bash():
+    """bash for the eval fixtures. On Windows, Git Bash next to git: a bare
+    `bash` there can resolve to System32's WSL launcher."""
+    if os.name != "nt":
+        return shutil.which("bash")
+    git = shutil.which("git")
+    if not git:
+        return None
+    for candidate in (Path(git).parent.parent / "bin" / "bash.exe",
+                      Path(git).parent / "bash.exe"):
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+BASH = git_bash()
+
+
 class TestEvals(unittest.TestCase):
     """evals/<skill>/ holds skill-creator eval sets, outside skills/ so no
     install carries them. triggers.json feeds scripts/run_eval.py;
@@ -343,8 +362,7 @@ class TestEvals(unittest.TestCase):
                     if "gh" in e["fixture"]:
                         self.assertIn(e["fixture"]["gh"], self.GH_MODES)
 
-    @unittest.skipUnless(shutil.which("bash") and shutil.which("git"),
-                         "needs bash and git")
+    @unittest.skipUnless(BASH and shutil.which("git"), "needs bash and git")
     def test_every_fixture_builds(self):
         used = set()
         for d in self.eval_dirs():
@@ -355,13 +373,13 @@ class TestEvals(unittest.TestCase):
                 with self.subTest(fixture=kind):
                     dest = Path(tmp) / kind
                     run = subprocess.run(
-                        ["bash", str(self.FIXTURES / "build.sh"), kind,
+                        [BASH, str(self.FIXTURES / "build.sh"), kind,
                          str(dest)], capture_output=True, text=True)
                     self.assertEqual(run.returncode, 0, run.stderr)
                     self.assertTrue((dest / "repo" / ".git").is_dir())
             gh = Path(tmp) / "pyrepo"
             run = subprocess.run(
-                ["bash", str(self.FIXTURES / "fake-gh.sh"), str(gh),
+                [BASH, str(self.FIXTURES / "fake-gh.sh"), str(gh),
                  "normal"], capture_output=True, text=True)
             self.assertEqual(run.returncode, 0, run.stderr)
             self.assertTrue((gh / "bin" / "gh").is_file())
