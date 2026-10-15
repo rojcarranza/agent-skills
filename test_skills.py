@@ -337,6 +337,9 @@ class TestEvals(unittest.TestCase):
 
     FIXTURES = ROOT / "evals" / "fixtures"
     GH_MODES = {"normal", "reviewed", "noauth"}
+    CLAUDE_MODES = {"missing", "present", "outdated"}
+    # Fixtures that are a bare folder, for skills that start a project.
+    NO_GIT = {"idea-empty"}
 
     # Skills whose descriptions overlap; each must keep an eval set.
     REQUIRED = {"roj-code-review-pr", "roj-code-review-pr-fast",
@@ -361,6 +364,9 @@ class TestEvals(unittest.TestCase):
                     self.assertIn(e["fixture"]["repo"], kinds)
                     if "gh" in e["fixture"]:
                         self.assertIn(e["fixture"]["gh"], self.GH_MODES)
+                    if "claude" in e["fixture"]:
+                        self.assertIn(e["fixture"]["claude"],
+                                      self.CLAUDE_MODES)
 
     @unittest.skipUnless(BASH and shutil.which("git"), "needs bash and git")
     def test_every_fixture_builds(self):
@@ -376,13 +382,31 @@ class TestEvals(unittest.TestCase):
                         [BASH, str(self.FIXTURES / "build.sh"), kind,
                          str(dest)], capture_output=True, text=True)
                     self.assertEqual(run.returncode, 0, run.stderr)
-                    self.assertTrue((dest / "repo" / ".git").is_dir())
+                    if kind in self.NO_GIT:
+                        self.assertTrue((dest / "repo").is_dir())
+                        self.assertFalse((dest / "repo" / ".git").exists())
+                    else:
+                        self.assertTrue((dest / "repo" / ".git").is_dir())
             gh = Path(tmp) / "pyrepo"
             run = subprocess.run(
                 [BASH, str(self.FIXTURES / "fake-gh.sh"), str(gh),
                  "normal"], capture_output=True, text=True)
             self.assertEqual(run.returncode, 0, run.stderr)
             self.assertTrue((gh / "bin" / "gh").is_file())
+            sp = Path(tmp) / "idea-empty"
+            run = subprocess.run(
+                [BASH, str(self.FIXTURES / "fake-claude.sh"), str(sp),
+                 "missing"], capture_output=True, text=True)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertTrue((sp / "bin" / "claude").is_file())
+            for kind in sorted(self.NO_GIT | {"idea-brief-2ng",
+                                              "idea-req-gap"} - used):
+                with self.subTest(fixture=kind):
+                    dest = Path(tmp) / f"direct-{kind}"
+                    run = subprocess.run(
+                        [BASH, str(self.FIXTURES / "build.sh"), kind,
+                         str(dest)], capture_output=True, text=True)
+                    self.assertEqual(run.returncode, 0, run.stderr)
 
     def test_required_eval_sets_exist(self):
         present = {d.name for d in self.eval_dirs()}
