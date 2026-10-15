@@ -74,12 +74,14 @@ Write the `Status: Approved` line under the file's title only after the
 user approves that gate.
 
 Scripts live in this skill's folder; run them with `python3` (or `python`
-where that is Python 3) and pass the project folder as ROOT:
+where that is Python 3):
 
-- `scripts/check_superpowers.py`: JSON report on Superpowers; exit 0 when
-  usable. Never installs.
-- `scripts/check_ready.py --phase <brief|requirements|architecture|agent-config|all> ROOT`:
-  prints every gap with its fix; exit 0 when the phase passes.
+- `scripts/check_superpowers.py` (no arguments; it checks this machine,
+  not the project): JSON report on Superpowers; exit 0 when usable. Never
+  installs.
+- `scripts/check_ready.py --phase <brief|requirements|architecture|agent-config|all> ROOT`,
+  with the project folder as ROOT: prints every gap with its fix; exit 0
+  when the phase passes.
 
 **Gate loop** for every phase with a check: run it, fix the file with the
 user, re-run until it exits 0, then ask for the approval. Passing the
