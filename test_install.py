@@ -1188,9 +1188,10 @@ class TestInstructionCopy(TempDirTest):
             self.addCleanup(p.stop)
 
     def test_symlink_removed(self):
-        other = self.tmp / "dotfiles" / "personal.instructions.md"
-        other.parent.mkdir()
+        other = self.tmp / "dotfiles" / "copilot" / "personal.instructions.md"
+        other.parent.mkdir(parents=True)
         other.write_text("rules\n")
+        (self.tmp / "dotfiles" / "install.py").write_text("")
         try:
             self.dest.symlink_to(other)
         except OSError:
@@ -1199,6 +1200,21 @@ class TestInstructionCopy(TempDirTest):
         self.assertFalse(self.dest.is_symlink())
         self.assertTrue(other.exists())
         self.assertEqual(results[0][2], "removed (dotfiles link — APM deploys it now)")
+
+    def test_unrelated_symlink_kept_with_warning(self):
+        mine = self.tmp / "mine" / "personal.instructions.md"
+        mine.parent.mkdir()
+        mine.write_text("my rules\n")
+        try:
+            self.dest.symlink_to(mine)
+        except OSError:
+            self.skipTest("symlinks unsupported here")
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            results = install.remove_instruction_copy(dry_run=False)
+        self.assertTrue(self.dest.is_symlink())
+        self.assertEqual(results, [])
+        self.assertIn("other than the dotfiles repo", err.getvalue())
 
     def test_identical_copy_removed(self):
         self.dest.write_text("rules\n")

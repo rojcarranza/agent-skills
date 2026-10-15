@@ -304,13 +304,12 @@ def _links_into_a_checkout(entry):
     """True for a link to <root>/skills/<name> in any checkout of this repo
     (this clone, the main checkout of a worktree, or another clone): a root
     with install.py and .claude-plugin/marketplace.json."""
+    # resolve(), not os.readlink(): on Windows readlink returns a \\?\-prefixed
+    # path that never compares equal to SKILLS_SRC.
     try:
-        target = Path(os.readlink(entry))
-    except OSError:
+        target = entry.resolve()
+    except (OSError, RuntimeError):
         return False
-    if not target.is_absolute():
-        target = entry.parent / target
-    target = target.resolve()
     if SKILLS_SRC.resolve() in target.parents:
         return True
     root = target.parent.parent
@@ -361,14 +360,30 @@ def copilot_instruction_path():
             / INSTRUCTIONS_SRC.name)
 
 
+def _links_into_dotfiles(link):
+    """True for a link to <dotfiles>/copilot/<name>, the layout the dotfiles
+    installer linked from: a copilot/ folder next to an install.py."""
+    try:
+        target = link.resolve()
+    except (OSError, RuntimeError):
+        return False
+    return (target.name == link.name and target.parent.name == "copilot"
+            and (target.parent.parent / "install.py").is_file())
+
+
 def remove_instruction_copy(dry_run):
     """The dotfiles repo linked (or, on Windows, copied) the same file APM
-    now deploys. Remove a link or an identical copy; keep an edited one."""
+    now deploys. Remove its link or an identical copy; keep an edited copy or
+    a link to anything else."""
     dest = copilot_instruction_path()
     if dest.is_symlink():
-        _remove(dest, dry_run)
-        return [("copilot", dest.name,
-                 "removed (dotfiles link — APM deploys it now)")]
+        if _links_into_dotfiles(dest):
+            _remove(dest, dry_run)
+            return [("copilot", dest.name,
+                     "removed (dotfiles link — APM deploys it now)")]
+        warn(f"{dest} links somewhere other than the dotfiles repo — left in "
+             f"place; remove it if APM should deploy {dest.name}")
+        return []
     if not dest.is_file():
         return []
     if dest.read_bytes() == INSTRUCTIONS_SRC.read_bytes():

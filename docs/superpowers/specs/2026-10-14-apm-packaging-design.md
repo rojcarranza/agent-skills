@@ -133,7 +133,7 @@ dependencies:
   mcp:
     - io.github.github/github-mcp-server
     # Optional — only for projects with a UI to drive:
-    # - io.github.microsoft/playwright-mcp   # registry name confirmed in Step 0
+    # - microsoft/playwright-mcp   # registry name confirmed in Step 0
 ```
 
 The commented optional lines are written out one per skill with full SHAs in
