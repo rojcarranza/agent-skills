@@ -1,0 +1,62 @@
+{
+  "skill_name": "roj-grill-plan",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "grill me on SB-PROJ-2001.md",
+      "fixture": {
+        "repo": "grill-sb"
+      },
+      "expected_output": "Fact settled from requirements.txt, then one round of numbered questions with recommended answers, then a stop.",
+      "expectations": [
+        "Answers the requests-version question itself from requirements.txt (2.32.3) with a file reference instead of asking it",
+        "Asks numbered questions, each followed by a recommended answer",
+        "Asks no more than 7 questions in the round and does not ask the API-team question before the retry count is settled",
+        "Stops and waits for answers without editing SB-PROJ-2001.md",
+        "Runs no git command that writes (no commit, branch or push)"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "grill SB-PROJ-2001.md. I accept every recommendation you make in every round, the API team question needs their owner, and yes, write it back when we're done",
+      "fixture": {
+        "repo": "grill-sb"
+      },
+      "expected_output": "Questions section rewritten as a checklist; every other section unchanged; nothing committed.",
+      "expectations": [
+        "In SB-PROJ-2001.md the resolved questions are ticked `- [x]` with `→` and the answer",
+        "The API team question stays unticked and carries `(needs: ...)`",
+        "Acceptance Criteria, Core tasks, Notes and Testing are unchanged unless a separate yes was given",
+        "Offers to-questionnaire (or lists the item by who must answer) for the API team question",
+        "git log shows no new commit"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "grill me on this plan: next sprint we replace requests with httpx in the uploader and make upload() async",
+      "fixture": {
+        "repo": "pyrepo-clean"
+      },
+      "expected_output": "Rounds about the plan in chat, facts looked up in the repo, no file written.",
+      "expectations": [
+        "Looks up the callers of upload() (app/cli.py) itself and states the finding with a file reference",
+        "Puts how the synchronous CLI caller handles an async upload() to the user as a decision with a recommended answer",
+        "Writes and edits no file in the repository"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "grill PROJ-2001.md, accept all your recommendations and write it back",
+      "fixture": {
+        "repo": "grill-sb"
+      },
+      "expected_output": "A Decisions section appended to the story; the rest of the story untouched.",
+      "expectations": [
+        "Asks what counts as a short outage so the acceptance criterion becomes checkable yes or no",
+        "PROJ-2001.md ends with a `## Decisions` section in checkbox form",
+        "The story text above the Decisions section is unchanged",
+        "Does not create or edit SB-PROJ-2001.md"
+      ]
+    }
+  ]
+}

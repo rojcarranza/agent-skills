@@ -74,6 +74,7 @@ JetBrains setup are in [docs/installer.md](docs/installer.md).
 | [`roj-tour-codebase`](skills/roj-tour-codebase/USAGE.md) | Onboarding into an unfamiliar repo: a discovery pass, then a chained four-tour CodeTour series in `.tours/`. |
 | [`roj-investigate-issue`](skills/roj-investigate-issue/USAGE.md) | Problem `.md` in, validated root cause and fix steps out (Bamboo, Java, Python, Bash, Go, Docker, k8s). |
 | [`roj-soundboarding`](skills/roj-soundboarding/USAGE.md) | User story → code-investigated SB document → task-by-task implementation with review stops. Never touches git. |
+| [`roj-grill-plan`](skills/roj-grill-plan/USAGE.md) | Grills a story, SB document or plan in rounds of questions with recommended answers, looks facts up itself, then writes the decisions back into the file. |
 | [`roj-interview-prep`](skills/roj-interview-prep/USAGE.md) | DevOps technical-interview document generated from a candidate's CV. |
 
 Diagrams are always Mermaid: `roj-tour-codebase` puts a layer and a

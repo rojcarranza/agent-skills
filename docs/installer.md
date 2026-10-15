@@ -170,7 +170,7 @@ keeps the CLI out of a repo-managed file.
 ### How our skills use the graph
 
 Installing graphify saves nothing by itself: a skill has to ask the graph
-before reading files. Seven skills do, through the shared
+before reading files. Eight skills do, through the shared
 `references/graph-first.md` (owned by `roj-code-review-pr`, copied by
 `tools/sync_shared.py`):
 
@@ -182,6 +182,7 @@ before reading files. Seven skills do, through the shared
 | `roj-code-review-pr`, `roj-review-pr-comment` | `graphify affected` in the system pass (callers of changed symbols) |
 | `roj-investigate-issue` | `graphify query "<error line>"` in phase 2 |
 | `roj-soundboarding` | one `graphify query` per acceptance criterion |
+| `roj-grill-plan` | `graphify query` for each fact a question needs |
 
 It applies only when `graphify-out/` has a graph and the CLI runs.
 Freshness is checked with `git`: the `Built from commit:` line in
@@ -309,7 +310,7 @@ Setup checklist:
    enable agent mode. Restart the IDE if the toggle has just appeared.
 3. `python install.py --target copilot` from a network that reaches GitHub
    (APM needs it; `--skills-only` only skips `graphify`, for a blocked PyPI).
-4. Reopen the IDE. In agent-mode chat type `/skill:roj-` — all nine custom
+4. Reopen the IDE. In agent-mode chat type `/skill:roj-` — all ten custom
    skills should list.
 5. Optional, per repo: an `apm.yml` in the team repo shares them with
    teammates (README, "In a team repository").

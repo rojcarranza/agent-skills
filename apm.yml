@@ -14,6 +14,7 @@ dependencies:
     - ./skills/roj-code-review-pr-fast
     - ./skills/roj-explain-feature-changes
     - ./skills/roj-explain-logic
+    - ./skills/roj-grill-plan
     - ./skills/roj-interview-prep
     - ./skills/roj-investigate-issue
     - ./skills/roj-review-pr-comment
@@ -49,6 +50,9 @@ dependencies:
     # - anthropics/skills/skills/docx#683bc88e56f3e09ba94f7055977f3d3aa499f202
     # - anthropics/skills/skills/pptx#683bc88e56f3e09ba94f7055977f3d3aa499f202
     # - anthropics/skills/skills/xlsx#683bc88e56f3e09ba94f7055977f3d3aa499f202
+    # - mattpocock/skills/skills/productivity/grilling#49dd158d1076134a641b33efb035946536778336
+    # - mattpocock/skills/skills/productivity/grill-me#49dd158d1076134a641b33efb035946536778336   # Claude only: add targets: [claude] (object form) when enabling
+    # - mattpocock/skills/skills/productivity/to-questionnaire#49dd158d1076134a641b33efb035946536778336
   mcp:
     - io.github.github/github-mcp-server
     # Optional — for projects with a UI to drive:

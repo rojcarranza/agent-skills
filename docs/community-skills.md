@@ -3,8 +3,8 @@
 Every skill here is listed in [`apm.yml`](../apm.yml) — live ones install by
 default, commented ones are optional: uncomment and re-run `install.py`.
 Sources: `github/awesome-copilot`, `juliusbrussee/caveman`,
-`addyosmani/agent-skills`, `warpdotdev/common-skills`, `anthropics/skills`
-and `vercel-labs/skills`. Each skill in `apm.yml` gets a section here.
+`addyosmani/agent-skills`, `warpdotdev/common-skills`, `anthropics/skills`,
+`vercel-labs/skills` and `mattpocock/skills`. Each skill in `apm.yml` gets a section here.
 
 ## code-tour
 Creates CodeTour `.tour` walkthroughs through a repo, PR, or bug.
@@ -135,3 +135,32 @@ Upstream gotcha: its last step offers `npx skills add <owner/repo@skill> -g -y`,
 a one-off global install nothing here records. Treat that as a trial; to
 keep a skill, add it to `apm.yml` pinned to a commit, re-run `install.py` and
 commit the entry. The community copy is deliberately not patched.
+
+## grilling
+Interviews you about a plan, decision or idea in rounds: every question that
+can be answered now, numbered, each with a recommended answer that "yes"
+accepts. Looks facts up itself and leaves the decisions to you. From
+`mattpocock/skills` (MIT), fetched from its `skills/productivity/` folder.
+Cherry-pick: optional, uncomment it in `apm.yml`.
+- `Grill me on this migration plan`
+- `Stress-test my idea for splitting the build agents`
+
+`roj-grill-plan` uses the same round format for user stories and SB
+documents and writes the answers back into the file; it works without this
+skill installed.
+
+## grill-me
+Slash-only wrapper (`/grill-me`) that calls `grilling`. Claude only: its body
+tells the agent to call the Skill tool, which Copilot does not have. Install
+it together with `grilling`. Optional, from `mattpocock/skills`: uncomment it
+in `apm.yml` and add `targets: [claude]` (object form).
+- `/grill-me` followed by the plan
+
+## to-questionnaire
+Turns a decision you cannot answer alone into a Markdown questionnaire for
+one person to fill in, written to `to-questionnaire-<slug>.md`. Optional, from
+`mattpocock/skills`: uncomment it in `apm.yml`.
+- `Turn the open questions on the cache design into a questionnaire for the platform team`
+
+`roj-grill-plan` offers it at the end of a run for questions only someone
+else can answer, and lists them in chat when it is absent.
