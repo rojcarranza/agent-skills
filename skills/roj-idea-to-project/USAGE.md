@@ -63,3 +63,8 @@ yet: Superpowers has no install there.
 Approved files carry `Status: Approved YYYY-MM-DD`. Reviewed files end with
 a `## Review log`. At the end, start a new session in a worktree and run
 `superpowers:subagent-driven-development` on the plan.
+
+See [examples/walkthrough.md](examples/walkthrough.md) for one app taken
+through every phase: what you type, what the skill asks back, the script
+output at each gate, a review finding accepted and one rejected, and
+resuming after `/clear`.
