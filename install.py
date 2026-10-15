@@ -1,48 +1,29 @@
 #!/usr/bin/env python3
-"""Install agent skills for GitHub Copilot and/or Claude Code.
+"""Install Roj's AI setup for Claude Code and GitHub Copilot through APM.
 
 Usage:
-  python3 install.py --target claude
-  python3 install.py --target copilot
-  python3 install.py --target both --dry-run
-  python3 install.py                # interactive: pick target + items
-  python3 install.py --target claude --skills-only   # skip community fetch
-  python3 install.py --repo .       # seed .github/skills
-  python3 install.py --target both --upgrade   # newer graphify, then refresh
-  python3 install.py --target claude --skill roj-code-review-pr  # cherry-pick
-  python3 install.py --list         # what can be installed
-  python3 install.py --add-inventory https://skills.sh/<owner>/<repo>/<skill>
-  python3 install.py --check-inventory-updates
-  python3 install.py --update       # latest pins + refresh what is installed
+  python3 install.py                     # both agents
+  python3 install.py --target claude     # or copilot
+  python3 install.py --dry-run           # what would happen
+  python3 install.py --status            # what is installed, leftovers
+  python3 install.py --update            # pins with newer releases
+  python3 install.py --upgrade           # newer graphify, then refresh
+  python3 install.py --skills-only       # skip graphify (e.g. PyPI blocked)
 
-Python >= 3.8, standard library only.
-Copilot gets copies; Claude gets per-skill symlinks (edit the repo, changes
-are live). On filesystems without symlink support the installer falls back
-to copying.
+Python >= 3.8, standard library only. On Windows run it from Git Bash as
+`python install.py`; on WSL run it inside WSL (and again from Git Bash for
+Windows-side IDEs).
 
-Two scopes. Personal scope (--target) writes to ~/.copilot/skills and
-~/.claude/skills. Repo scope (--repo) writes copies into <repo>/.github/skills
-for the whole team.
+apm.yml lists every skill, instruction and MCP server. This script writes
+~/.apm/apm.yml pointing at this clone and runs `apm install -g`; APM does
+the rest. What APM cannot do stays here: removing what pre-APM versions of
+this script installed, and graphify (EXTERNALS), whose own CLI installs its
+skill.
 
 Any single skill also installs without this script, in any agent the
-`skills` CLI supports: npx skills add r0jjames/agent-skills -s <name>. Every
-skill directory is self-contained (tools/sync_shared.py keeps shared files
-copied in), so nothing here is needed at runtime.
-
-Earlier versions generated skills and Claude slash commands from prompts/.
-That directory is gone; every install run removes what those versions
-generated (see retire_prompts).
-
-Skills come from three kinds of source: this repo (skills/), a community git
-repo (SOURCES plus skills-inventory.json, sparse-cloned into
-~/.agent-skills-cache; inventory repos at a pinned commit), and an external CLI
-that installs its own skill (EXTERNALS — the installer bootstraps the CLI and
-delegates). Externals need a package index, so --skills-only skips them, and
-nothing about them auto-updates: --upgrade upgrades the CLI, and the same run
-then re-copies the skill files the new version ships.
+`skills` CLI supports: npx skills add rojcarranza/agent-skills -s <name>.
 """
 import argparse
-import filecmp
 import json
 import os
 import re
@@ -58,16 +39,7 @@ REPO_ROOT = Path(__file__).resolve().parent
 SKILLS_SRC = REPO_ROOT / "skills"
 
 BOTH = ("copilot", "claude")
-# Also safe to vendor into a repo's .github/ for the whole team.
-ANY = BOTH + ("repo",)
 
-REPO_SKILLS_SUBDIR = Path(".github") / "skills"
-REPO_PROMPTS_SUBDIR = Path(".github") / "prompts"
-
-# Community sources, built from skills-inventory.json below. Per skill:
-# targets it may install to, whether it is pre-selected (default) or an
-# explicit cherry-pick, and an optional note shown when a target is skipped.
-SOURCES = []
 
 # External skills: shipped and installed by their own CLI, never vendored
 # here. We bootstrap the CLI, then delegate each target's install to it, so an
@@ -77,7 +49,7 @@ EXTERNALS = [
         "name": "graphify",
         "package": "graphifyy",
         "cli": "graphify",
-        "targets": ANY,
+        "targets": BOTH,
         "default": True,
         "doc": "knowledge graph over code/docs/PDFs — /graphify",
         # Per target: argv for the CLI. Claude's own install auto-picks the
@@ -91,14 +63,8 @@ EXTERNALS = [
         "install": {"claude": ["install"], "copilot": ["vscode", "install"]},
         "uninstall": {"claude": ["claude", "uninstall"],
                       "copilot": ["vscode", "uninstall"]},
-        # `vscode install` also writes <cwd>/.github/copilot-instructions.md.
-        # Personal scope runs in a scratch cwd to keep that out of whatever
-        # directory the installer was launched from; repo scope runs in the
-        # repo, where the file belongs.
-        "repo_cwd": True,
-        # Written into the repo by `vscode install` alongside the skill;
-        # repo scope is only current while it is there.
-        "repo_files": (".github/copilot-instructions.md",),
+        # `vscode install` also writes <cwd>/.github/copilot-instructions.md,
+        # so the CLI runs in a scratch cwd (install_external_for_target).
         "version_file": ".graphify_version",
     },
 ]
@@ -118,141 +84,320 @@ REQUIRES = {
 }
 
 
-# Skills inventory: community skills picked from skills.sh, kept as data in
-# skills-inventory.json rather than code. Each entry pins a commit, so an
-# install is reproducible and a version bump is a reviewable diff. Entries
-# from one GitHub repo become one source (one sparse clone) and must pin the
-# same ref.
-INVENTORY_PATH = REPO_ROOT / "skills-inventory.json"
-INVENTORY_REQUIRED = ("source", "skill", "ref", "targets", "default")
-INVENTORY_KEYS = set(INVENTORY_REQUIRED) | {"subdir", "folder", "note"}
-_PART_RE = re.compile(r"[A-Za-z0-9_.-]+")
-_SKILL_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
-_SHA_RE = re.compile(r"[0-9a-f]{40}")
+# apm.yml: the manifest APM installs from (https://microsoft.github.io/apm/).
+# Read here only for names — status, legacy cleanup and tests — with a line
+# parser for the shapes this repo's apm.yml uses, so no YAML dependency.
+MANIFEST_PATH = REPO_ROOT / "apm.yml"
+_DEP_ITEM_RE = re.compile(r"^\s*(#\s*)?-\s+(.*)$")
+_OBJECT_KEY_RE = re.compile(r"^[\w-]+:\s")
 
 
-class InventoryError(ValueError):
-    """skills-inventory.json is malformed or clashes with a known name."""
+def _strip_comment(value):
+    return re.sub(r"\s+#.*$", "", value).strip()
 
 
-def _safe_path(value, parts):
-    """`value` is `parts` '/'-separated names (None = any number), none of
-    them '.' or '..' — inventory values become URLs and cache paths."""
-    if not isinstance(value, str):
-        return False
-    split = value.split("/")
-    return ((parts is None or len(split) == parts)
-            and all(_PART_RE.fullmatch(s) and s not in (".", "..")
-                    for s in split))
+def _unquote(value):
+    """A YAML scalar in double quotes (JSON escapes) or single quotes."""
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value[1:-1]
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        return value[1:-1]
+    return value
 
 
-def load_inventory(path=None):
-    """Validated entries of the inventory file; [] when there is none."""
-    path = INVENTORY_PATH if path is None else Path(path)
-    if not path.is_file():
-        return []
+def _scalar(raw):
+    return _unquote(_strip_comment(raw))
+
+
+def _normalise_dep(dep):
+    """Fill path/ref/targets/name for the shorthand and the object form."""
+    spec = dep.get("spec")
+    if spec is not None:
+        path, _, ref = spec.partition("#")
+        dep["path"], dep["ref"] = path, ref or None
+    else:
+        dep["path"] = dep.get("path") or dep.get("git") or dep.get("name", "")
+        dep["ref"] = dep.get("ref")
+    targets = dep.get("targets")
+    dep["targets"] = (tuple(t.strip() for t in targets.strip("[]").split(",")
+                            if t.strip())
+                      if isinstance(targets, str) else None)
+    name = dep["path"].rstrip("/").rsplit("/", 1)[-1]
+    dep["name"] = name[:-len(".git")] if name.endswith(".git") else name
+    return dep
+
+
+def parse_manifest(text):
+    """apm.yml text -> {'apm': [dep, ...], 'mcp': [dep, ...]}. A commented
+    list item (`# - x`) is a dependency with active False — how apm.yml marks
+    optional skills."""
+    out = {"apm": [], "mcp": []}
+    section, current = None, None
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        stripped = line.strip()
+        if not stripped:
+            continue
+        indent = len(line) - len(line.lstrip())
+        if indent <= 2 and not stripped.startswith(("-", "#")):
+            key = stripped.split(":", 1)[0]
+            section = key if indent == 2 and key in out else None
+            current = None
+            continue
+        if section is None:
+            continue
+        item = _DEP_ITEM_RE.match(line)
+        if item:
+            body = _strip_comment(item.group(2))
+            current = {"active": not item.group(1)}
+            if _OBJECT_KEY_RE.match(body):
+                key, _, value = body.partition(":")
+                current[key.strip()] = _unquote(value.strip())
+            else:
+                current["spec"] = _unquote(body)
+            out[section].append(current)
+        elif not stripped.startswith("#") and current is not None:
+            key, _, value = stripped.partition(":")
+            current[key.strip()] = _scalar(value)
+    return {name: [_normalise_dep(d) for d in deps]
+            for name, deps in out.items()}
+
+
+def manifest_deps(path=None, section="apm"):
+    text = Path(path or MANIFEST_PATH).read_text(encoding="utf-8")
+    return parse_manifest(text)[section]
+
+
+def manifest_skill_names(active_only=True):
+    """Skill folder names apm.yml installs (or lists, with active_only off)."""
+    return {d["name"] for d in manifest_deps()
+            if d["active"] or not active_only}
+
+
+# User scope. `apm install -g` reads ~/.apm/apm.yml and resolves relative
+# paths against ~/.apm, so the manifest there is generated, not linked: one
+# dependency, this clone's absolute path, whose own apm.yml lists the rest.
+# A plain file on every OS — no symlink support needed on Windows.
+USER_MANIFEST_MARKER = ("# Generated by agent-skills install.py. Edit apm.yml "
+                        "in the clone, not this file.")
+# install.py installs apm-cli itself, the way it installs graphify (uv, then
+# pipx, then pip --user), so Git Bash and WSL need no brew or winget. This is
+# what to do by hand when none of those worked.
+APM_TOOL = {"package": "apm-cli", "cli": "apm"}
+APM_INSTALL_HINT = """\
+apm (Agent Package Manager) is not installed and install.py could not install
+it with uv, pipx or pip (apm-cli needs Python 3.10+). Install it, open a new
+shell, then re-run install.py:
+  Windows Git Bash:  python -m pip install --user apm-cli
+                     (or: winget install --id Microsoft.APM --exact --source winget)
+  WSL / Ubuntu:      sudo apt install pipx && pipx install apm-cli
+  macOS:             brew install apm
+https://microsoft.github.io/apm/getting-started/installation/"""
+WSL_HINT = ("WSL: this installed into the Linux home, for Claude Code and "
+            "Copilot CLI inside WSL. VS Code and JetBrains on Windows read "
+            "%USERPROFILE% — run install.py from Git Bash too.")
+
+
+def apm_home():
+    return Path.home() / ".apm"
+
+
+def render_user_manifest(repo_root=None):
+    root = Path(repo_root or REPO_ROOT).resolve().as_posix()
+    return (f"{USER_MANIFEST_MARKER}\n"
+            "name: user\n"
+            "version: 1.0.0\n"
+            "dependencies:\n"
+            "  apm:\n"
+            f"    - {json.dumps(root)}\n")
+
+
+def write_user_manifest(text, force=False, dry_run=False):
+    """Write ~/.apm/apm.yml. Exits rather than replace one this script did
+    not write, unless force."""
+    dest = apm_home() / "apm.yml"
+    status = "written"
+    if dest.is_file():
+        current = dest.read_text(encoding="utf-8")
+        if current == text:
+            return "up to date"
+        if not current.startswith(USER_MANIFEST_MARKER) and not force:
+            sys.exit(f"{dest} exists and was not written by install.py. Move "
+                     f"it aside, or re-run with --force to replace it.")
+        status = "updated"
+    if not dry_run:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.is_symlink():
+            dest.unlink()
+        with open(dest, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+    return status
+
+
+def apm_install_argv(exe, targets):
+    value = ",".join(t for t in ("claude", "copilot") if t in targets)
+    # --update makes a dependency removed from apm.yml disappear; pins are
+    # full SHAs, so it cannot move them.
+    return [exe, "install", "-g", "--update", "--target", value]
+
+
+def run_apm(argv):
+    """Run apm with its output passed through; returns its exit code."""
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except ValueError as e:
-        raise InventoryError(f"{path.name}: not valid JSON ({e})")
-    entries = data.get("skills") if isinstance(data, dict) else None
-    if not isinstance(entries, list):
-        raise InventoryError(f'{path.name}: expected {{"skills": [...]}}')
-    seen = set()
-    for i, entry in enumerate(entries, 1):
-        where = f"{path.name} entry {i}"
-        if not isinstance(entry, dict):
-            raise InventoryError(f"{where}: expected an object")
-        missing = [k for k in INVENTORY_REQUIRED if k not in entry]
-        if missing:
-            raise InventoryError(f"{where}: missing {', '.join(missing)}")
-        unknown = sorted(set(entry) - INVENTORY_KEYS)
-        if unknown:
-            raise InventoryError(f"{where}: unknown key {', '.join(unknown)}")
-        if not _safe_path(entry["source"], 2):
-            raise InventoryError(f"{where}: source must be owner/repo")
-        if "subdir" in entry and not _safe_path(entry["subdir"], None):
-            raise InventoryError(f"{where}: subdir must be a relative path "
-                                 f"inside the repo")
-        if "folder" in entry and not _safe_path(entry["folder"], 1):
-            raise InventoryError(f"{where}: folder must be one folder name")
-        if not _SKILL_RE.fullmatch(str(entry["skill"])):
-            raise InventoryError(f"{where}: skill must be lowercase-hyphen")
-        if not _SHA_RE.fullmatch(str(entry["ref"])):
-            raise InventoryError(f"{where}: ref must be a full 40-character "
-                                 f"commit SHA")
-        targets = entry["targets"]
-        if (not isinstance(targets, list) or not targets
-                or any(t not in ANY for t in targets)):
-            raise InventoryError(f"{where}: targets must be a non-empty list "
-                                 f"of {', '.join(ANY)}")
-        if not isinstance(entry["default"], bool):
-            raise InventoryError(f"{where}: default must be true or false")
-        if entry["skill"] in seen:
-            raise InventoryError(f"{where}: {entry['skill']} is listed twice")
-        seen.add(entry["skill"])
-    return entries
+        return subprocess.run(argv).returncode
+    except OSError as exc:
+        warn(f"{' '.join(argv)} failed: {exc}")
+        return 127
 
 
-def inventory_sources(entries):
-    """Inventory entries -> SOURCES-shaped dicts, one per GitHub repo."""
-    by_repo = {}
-    for entry in entries:
-        repo = entry["source"]
-        subdir = entry.get("subdir", "skills")
-        source = by_repo.get(repo)
-        if source is None:
-            source = by_repo[repo] = {
-                "label": repo,
-                "url": f"https://github.com/{repo}.git",
-                "ref": entry["ref"],
-                "cache": repo.replace("/", "--"),
-                "subdir": subdir,
-                "fallback": (f"https://github.com/{repo}/tree/"
-                             f"{entry['ref']}/{subdir}"),
-                "inventory": True,
-                "skills": {},
-            }
-        elif source["ref"] != entry["ref"] or source["subdir"] != subdir:
-            raise InventoryError(f"{entry['skill']}: every {repo} entry must "
-                                 f"pin the same ref and subdir")
-        meta = {"targets": tuple(t for t in ANY if t in entry["targets"]),
-                "default": entry["default"]}
-        # skills.sh lists a skill by its frontmatter name; the folder it
-        # lives in upstream may differ. Installs always use the name.
-        if "folder" in entry:
-            meta["folder"] = entry["folder"]
-        if "note" in entry:
-            meta["note"] = entry["note"]
-        source["skills"][entry["skill"]] = meta
-    return list(by_repo.values())
+def is_wsl():
+    if sys.platform != "linux":
+        return False
+    try:
+        return "microsoft" in Path("/proc/version").read_text(
+            encoding="utf-8").lower()
+    except OSError:
+        return False
 
 
-def check_inventory_names(sources, taken):
-    """An inventory skill must not shadow a custom skill or an external:
-    two sources for one directory name would overwrite each other."""
-    for source in sources:
-        for name in source["skills"]:
-            if name in taken:
-                raise InventoryError(
-                    f"{name}: already a custom skill or external — "
-                    f"remove it from {INVENTORY_PATH.name}")
+# Before APM, this script copied or linked every skill itself. Those entries
+# would collide with APM's: it rejects a symlinked skill destination, and on
+# Copilot it deploys to ~/.agents/skills, so an old ~/.copilot/skills copy
+# would load as a duplicate.
+INSTRUCTIONS_SRC = REPO_ROOT / ".apm" / "instructions" / "personal.instructions.md"
 
 
-def _inventory_sources():
-    sources = inventory_sources(load_inventory())
-    taken = ({p.name for p in SKILLS_SRC.iterdir() if p.is_dir()}
-             | {e["name"] for e in EXTERNALS})
-    check_inventory_names(sources, taken)
-    return sources
+def legacy_skill_names():
+    """Every skill an earlier install.py put in a skills dir itself: ours,
+    and every community skill apm.yml lists (all were in the old inventory).
+    Externals are left to their own CLI."""
+    return custom_skill_names() | {d["name"] for d in manifest_deps()
+                                   if not d["path"].startswith("./")}
 
 
-try:
-    SOURCES.extend(_inventory_sources())
-except InventoryError as e:
-    if __name__ != "__main__":
-        raise
-    sys.exit(f"install.py: {e}")
+def managed_skill_names(target):
+    """Skills APM installs for target: ours, and every active apm.yml
+    dependency not limited to other targets. Only these are safe to remove —
+    APM puts them straight back."""
+    return custom_skill_names() | {
+        d["name"] for d in manifest_deps()
+        if d["active"] and (d["targets"] is None or target in d["targets"])}
+
+
+def read_lockfile():
+    """~/.apm/apm.lock.yaml text, or None before APM's first install."""
+    try:
+        return (apm_home() / "apm.lock.yaml").read_text(
+            encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+
+def apm_deployed_claude_skill(name, lock_text):
+    """True if the lockfile records APM deploying ~/.claude/skills/<name>.
+    The name must end there: code-tour is not code-tour-x."""
+    if lock_text is None:
+        return False
+    pattern = r"\.claude/skills/" + re.escape(name) + r"(?![\w.-])"
+    return re.search(pattern, lock_text.replace("\\", "/")) is not None
+
+
+def _links_into_a_checkout(entry):
+    """True for a link to <root>/skills/<name> in any checkout of this repo
+    (this clone, the main checkout of a worktree, or another clone): a root
+    with install.py and .claude-plugin/marketplace.json."""
+    # resolve(), not os.readlink(): on Windows readlink returns a \\?\-prefixed
+    # path that never compares equal to SKILLS_SRC.
+    try:
+        target = entry.resolve()
+    except (OSError, RuntimeError):
+        return False
+    if SKILLS_SRC.resolve() in target.parents:
+        return True
+    root = target.parent.parent
+    return (target.parent.name == "skills" and target.name == entry.name
+            and target.is_dir() and (root / "install.py").is_file()
+            and (root / ".claude-plugin" / "marketplace.json").is_file())
+
+
+def remove_installer_skills(target, dest_root, dry_run, lock_text=None):
+    """Remove what pre-APM installs left in dest_root, for skills APM now
+    installs for target. lock_text is ~/.apm/apm.lock.yaml: a Claude copy it
+    lists is APM's, not ours. APM never writes ~/.copilot/skills, so a copy
+    there is always ours. A leftover APM will not reinstall is kept."""
+    results = []
+    if not dest_root.is_dir():
+        return results
+    names = legacy_skill_names()
+    managed = managed_skill_names(target)
+    for entry in sorted(dest_root.iterdir()):
+        if entry.name not in names:
+            continue
+        if entry.is_symlink():
+            ours = _links_into_a_checkout(entry) or not entry.exists()
+        else:
+            ours = entry.is_dir() and is_ours(entry, entry.name)
+        if entry.name not in managed:
+            if ours:
+                warn(f"{entry} was installed by the old installer; APM does "
+                     f"not manage {entry.name} for {target} — uncomment it in "
+                     "apm.yml to keep it updated, or delete it")
+            continue
+        if entry.is_symlink():
+            if ours:
+                _remove(entry, dry_run)
+                results.append((target, entry.name, "removed (pre-APM link)"))
+            else:
+                warn(f"{entry} is a link outside this clone — APM cannot "
+                     f"install {entry.name} over it; remove it if it is stale")
+        elif ours and (target == "copilot" or not apm_deployed_claude_skill(
+                entry.name, lock_text)):
+            _remove(entry, dry_run)
+            results.append((target, entry.name, "removed (pre-APM copy)"))
+    return results
+
+
+def copilot_instruction_path():
+    return (Path.home() / ".copilot" / "instructions"
+            / INSTRUCTIONS_SRC.name)
+
+
+def _links_into_dotfiles(link):
+    """True for a link to <dotfiles>/copilot/<name>, the layout the dotfiles
+    installer linked from: a copilot/ folder next to an install.py."""
+    try:
+        target = link.resolve()
+    except (OSError, RuntimeError):
+        return False
+    return (target.name == link.name and target.parent.name == "copilot"
+            and (target.parent.parent / "install.py").is_file())
+
+
+def remove_instruction_copy(dry_run):
+    """The dotfiles repo linked (or, on Windows, copied) the same file APM
+    now deploys. Remove its link or an identical copy; keep an edited copy or
+    a link to anything else."""
+    dest = copilot_instruction_path()
+    if dest.is_symlink():
+        if _links_into_dotfiles(dest):
+            _remove(dest, dry_run)
+            return [("copilot", dest.name,
+                     "removed (dotfiles link — APM deploys it now)")]
+        warn(f"{dest} links somewhere other than the dotfiles repo — left in "
+             f"place; remove it if APM should deploy {dest.name}")
+        return []
+    if not dest.is_file():
+        return []
+    if dest.read_bytes() == INSTRUCTIONS_SRC.read_bytes():
+        _remove(dest, dry_run)
+        return [("copilot", dest.name,
+                 "removed (dotfiles copy — APM deploys it now)")]
+    warn(f"{dest} differs from {INSTRUCTIONS_SRC} — left in place; merge "
+         f"your edits into the repo copy, delete it, and re-run")
+    return []
 
 
 # Custom skills and prompts were renamed with a "roj-" prefix. Installs made
@@ -292,106 +437,6 @@ def default_external_names():
     return {e["name"] for e in EXTERNALS if e["default"]}
 
 
-def registry():
-    """{skill_name: (source, meta)} across all sources."""
-    return {name: (source, meta)
-            for source in SOURCES
-            for name, meta in source["skills"].items()}
-
-
-def source_by_label(label):
-    return next(s for s in SOURCES if s["label"] == label)
-
-
-def source_skills_subdir(source):
-    """Directory inside a source's cache that holds its skill folders."""
-    return source.get("subdir", "skills")
-
-
-def all_community_names():
-    return set(registry())
-
-
-def default_community_names():
-    return {n for n, (_, meta) in registry().items() if meta["default"]}
-
-
-
-
-def required_by(skills, requires=None):
-    """{name: [dependents]} for everything `skills` need, following custom
-    skills that declare requirements of their own."""
-    requires = REQUIRES if requires is None else requires
-    out = {}
-    queue = sorted(skills)
-    seen = set(queue)
-    while queue:
-        skill = queue.pop(0)
-        for dep in requires.get(skill, ()):
-            out.setdefault(dep, []).append(skill)
-            if dep not in seen:
-                seen.add(dep)
-                queue.append(dep)
-    return out
-
-
-def add_requirements(custom_names, sel_community, sel_externals,
-                     requires=None):
-    """Grow the three selections by what the selected custom skills need.
-    Returns new (custom_names, sel_community, sel_externals) sets and logs
-    each addition, so an item unticked in the picker coming back is
-    explained."""
-    custom_names = set(custom_names)
-    sel_community = set(sel_community)
-    sel_externals = set(sel_externals)
-    pools = ((all_community_names(), sel_community),
-             (all_external_names(), sel_externals),
-             (custom_skill_names(), custom_names))
-    for name, dependents in sorted(required_by(custom_names,
-                                               requires).items()):
-        for known, selected in pools:
-            if name in known:
-                if name not in selected:
-                    selected.add(name)
-                    log(f"{name} (required by {', '.join(dependents)})")
-                break
-    return custom_names, sel_community, sel_externals
-
-
-def _present(dest_root, name):
-    path = Path(dest_root) / name
-    return path.is_symlink() or path.exists()
-
-
-def missing_requirements(dest_root, requires=None):
-    """[(skill, requirement)] for skills installed in dest_root whose
-    requirements are not installed there."""
-    requires = REQUIRES if requires is None else requires
-    missing = []
-    for skill in sorted(requires):
-        if not _present(dest_root, skill):
-            continue
-        for dep in sorted(required_by([skill], requires)):
-            if not _present(dest_root, dep):
-                missing.append((skill, dep))
-    return missing
-
-
-def uninstall_dependents(names, dest_root, requires=None):
-    """[(requirement, dependent)] for skills about to be removed from
-    dest_root that a skill staying there still requires."""
-    requires = REQUIRES if requires is None else requires
-    removing = set(names)
-    hits = []
-    for skill in sorted(requires):
-        if skill in removing or not _present(dest_root, skill):
-            continue
-        for dep in sorted(required_by([skill], requires)):
-            if dep in removing and _present(dest_root, dep):
-                hits.append((dep, skill))
-    return hits
-
-
 def log(msg):
     print(f"[skills] {msg}")
 
@@ -404,210 +449,9 @@ def warn(msg):
     print(f"[ warn ] {msg}", file=sys.stderr)
 
 
-def dirs_equal(a, b):
-    """Recursive content comparison of two directories (like diff -rq)."""
-    cmp = filecmp.dircmp(a, b)
-    if cmp.left_only or cmp.right_only or cmp.funny_files:
-        return False
-    _, mismatch, errors = filecmp.cmpfiles(a, b, cmp.common_files, shallow=False)
-    if mismatch or errors:
-        return False
-    return all(dirs_equal(Path(a) / d, Path(b) / d) for d in cmp.common_dirs)
-
-
-def install_copy(src, dest, dry_run):
-    """Copy skill dir src -> dest. Returns 'installed'|'updated'|'up to date'."""
-    src, dest = Path(src), Path(dest)
-    if dest.is_symlink() or dest.is_file():
-        if not dry_run:
-            dest.unlink()
-            shutil.copytree(src, dest)
-        return "updated"
-    if not dest.exists():
-        if not dry_run:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(src, dest)
-        return "installed"
-    if dirs_equal(src, dest):
-        return "up to date"
-    if not dry_run:
-        shutil.rmtree(dest)
-        shutil.copytree(src, dest)
-    return "updated"
-
-
-_SYMLINK_SUPPORT = {}
-
-
-def symlinks_supported(directory):
-    """Cached probe: can we create a symlink inside `directory`? Windows
-    needs Developer Mode or admin, so this is False on most work machines.
-    Probing up front avoids the backup-then-fail-then-copy cycle, which
-    otherwise left a stale <skill>.bak dir behind on every run."""
-    directory = Path(directory)
-    key = str(directory)
-    if key not in _SYMLINK_SUPPORT:
-        directory.mkdir(parents=True, exist_ok=True)
-        probe = directory / ".symlink-probe"
-        try:
-            if probe.is_symlink() or probe.exists():
-                probe.unlink()
-            probe.symlink_to(directory, target_is_directory=True)
-            probe.unlink()
-            _SYMLINK_SUPPORT[key] = True
-        except OSError:
-            warn(f"symlinks unsupported in {directory} — installing copies "
-                 "(re-run install.py after editing a skill to refresh)")
-            _SYMLINK_SUPPORT[key] = False
-    return _SYMLINK_SUPPORT[key]
-
-
-def install_symlink(src, dest, dry_run):
-    """Symlink dest -> src. Returns 'linked'|'already linked' or a copy
-    status suffixed with ' (copy fallback)' when symlinks are unsupported."""
-    src, dest = Path(src), Path(dest)
-    if not dry_run and not symlinks_supported(dest.parent):
-        return install_copy(src, dest, dry_run) + " (copy fallback)"
-    if dest.is_symlink():
-        if dest.resolve() == src.resolve():
-            return "already linked"
-        if not dry_run:
-            dest.unlink()  # wrong or broken link: replace
-    elif dest.exists():
-        backup = dest.parent / (dest.name + ".bak")
-        if not dry_run:
-            if backup.is_symlink() or backup.is_file():
-                backup.unlink()
-            elif backup.is_dir():
-                shutil.rmtree(backup)
-            dest.rename(backup)
-            log(f"backed up existing {dest.name} to {backup.name}")
-    if dry_run:
-        return "linked"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        dest.symlink_to(src, target_is_directory=True)
-        return "linked"
-    except OSError:
-        warn(f"symlink unsupported for {dest} — copying instead "
-             "(re-run install.py after edits to refresh)")
-        return install_copy(src, dest, dry_run=False) + " (copy fallback)"
-
-
-def resolve_repo(path):
-    """Validate a --repo value. Exits when it is not a directory; warns but
-    proceeds when it has no .git (a worktree's .git is a file, not a dir)."""
-    repo = Path(path).expanduser().resolve()
-    if not repo.is_dir():
-        sys.exit(f"--repo {path}: not a directory")
-    if repo == REPO_ROOT or repo == REPO_ROOT.parent:
-        warn(f"{repo} is the dotfiles repo itself — seeding it anyway")
-    elif not (repo / ".git").exists():
-        warn(f"{repo} has no .git — seeding .github/ there anyway")
-    return repo
-
-
-def target_root(target, repo=None):
-    if target == "repo":
-        return Path(repo) / REPO_SKILLS_SUBDIR
+def target_root(target):
     return Path.home() / (".copilot" if target == "copilot"
                           else ".claude") / "skills"
-
-
-def pick_targets(arg_target, repo=None):
-    """Resolve --target value (or interactive menu) to a list of targets.
-    --repo appends the 'repo' pseudo-target and suppresses the menu."""
-    targets = []
-    if arg_target:
-        targets = (["copilot", "claude"] if arg_target == "both"
-                   else [arg_target])
-    elif not repo:
-        print("Install skills for:")
-        print("  1) GitHub Copilot   (~/.copilot/skills)")
-        print("  2) Claude Code      (~/.claude/skills, symlinked)")
-        print("  3) Both")
-        choice = input("Choice [1-3]: ").strip()
-        targets = {"1": ["copilot"], "2": ["claude"],
-                   "3": ["copilot", "claude"]}.get(choice)
-        if not targets:
-            sys.exit("Invalid choice — run again or pass --target.")
-    if repo:
-        targets = targets + ["repo"]
-    return targets
-
-
-def status_targets(arg_target, repo):
-    """Target list for --status. Never prompts."""
-    if arg_target:
-        base = ["copilot", "claude"] if arg_target == "both" else [arg_target]
-    else:
-        base = [] if repo else ["copilot", "claude"]
-    return base + (["repo"] if repo else [])
-
-
-def build_items(custom_skills):
-    """Ordered installable items as (kind, name): custom skills, community
-    skills, then CLI-installed externals."""
-    items = [("skill", n) for n in custom_skills]
-    items += [("community", n) for n in sorted(all_community_names())]
-    items += [("external", n) for n in sorted(all_external_names())]
-    return items
-
-
-def item_tag(kind, name, targets, plugin_map):
-    """Picker annotation: [installed] [update] [conflict], or ''."""
-    tags = []
-    reg = registry()
-    for target in targets:
-        dest = target_root(target) / name
-        if not (dest.is_symlink() or dest.exists()):
-            continue
-        tags.append("[installed]")
-        src = None
-        if kind == "skill":
-            src = SKILLS_SRC / name
-        elif name in reg:
-            source = reg[name][0]
-            cand = (source_cache_dir(source) / source_skills_subdir(source)
-                    / skill_folder(source, name))
-            if cand.is_dir():
-                src = cand
-        if (src and src.is_dir() and not dest.is_symlink()
-                and dest.is_dir() and not dirs_equal(src, dest)):
-            tags.append("[update]")
-        break
-    if "claude" in targets and name in plugin_map:
-        tags.append("[conflict]")
-    return " ".join(tags)
-
-
-def pick_items(items, preselected=None, tags=None):
-    """Interactive toggle menu over (kind, name) items. preselected:
-    optional bool list (default all True). tags: optional
-    {(kind, name): str} shown after the item."""
-    selected = (list(preselected) if preselected is not None
-                else [True] * len(items))
-    tags = tags or {}
-    while True:
-        print("\nSelect items to install:")
-        for i, ((kind, name), on) in enumerate(zip(items, selected), 1):
-            tag = tags.get((kind, name), "")
-            suffix = f"  {tag}" if tag else ""
-            print(f"  [{'x' if on else ' '}] {i:2}) {kind:9} {name}{suffix}")
-        raw = input("Toggle number, 'a' = all, enter = confirm: ").strip().lower()
-        if raw == "":
-            chosen = [item for item, on in zip(items, selected) if on]
-            if not chosen:
-                sys.exit("Nothing selected — exiting without changes.")
-            return chosen
-        if raw == "a":
-            value = not all(selected)
-            selected = [value] * len(items)
-        elif raw.isdigit() and 1 <= int(raw) <= len(items):
-            idx = int(raw) - 1
-            selected[idx] = not selected[idx]
-        else:
-            print("Invalid input.")
 
 
 def vscode_prompts_dir():
@@ -640,10 +484,8 @@ def claude_commands_dir():
     return Path.home() / ".claude" / "commands"
 
 
-def prompts_dir_for(target, repo=None):
+def prompts_dir_for(target):
     """Where earlier installs put *.prompt.md for a target, or None."""
-    if target == "repo":
-        return Path(repo) / REPO_PROMPTS_SUBDIR
     if target == "copilot":
         return vscode_prompts_dir()
     return None                      # claude never used prompt files
@@ -665,7 +507,8 @@ def is_ours(entry, old):
     skill_md = entry / "SKILL.md"
     if not skill_md.is_file():
         return False
-    for line in skill_md.read_text(encoding="utf-8").splitlines()[:5]:
+    for line in skill_md.read_text(encoding="utf-8",
+                                   errors="replace").splitlines()[:5]:
         if line.strip() == f"name: {old}":
             return True
     return False
@@ -705,11 +548,11 @@ def remove_legacy(target, dest_root, dry_run):
     return results
 
 
-def retire_prompts(target, dest_root, dry_run, repo=None):
+def retire_prompts(target, dest_root, dry_run):
     """Remove everything earlier installs generated from prompts/, under
     current and pre-rename names: generated skill dirs in dest_root, Claude
     slash commands, and .prompt.md copies, plus a <name>.bak copy of a
-    generated skill dir left by install_symlink's backup. Only regular files
+    generated skill dir left by an old backup. Only regular files
     and dirs carrying the generated marker (or, for .prompt.md, one of our
     names) are touched — never a symlink, which points at something the
     user owns."""
@@ -729,7 +572,7 @@ def retire_prompts(target, dest_root, dry_run, repo=None):
                 and is_generated(cmd)):
             _remove(cmd, dry_run)
             results.append((target, f"command:{name}", status))
-    pdir = prompts_dir_for(target, repo)
+    pdir = prompts_dir_for(target)
     if pdir is not None and pdir.is_dir():
         for name in names:
             old = pdir / f"{name}.prompt.md"
@@ -738,396 +581,6 @@ def retire_prompts(target, dest_root, dry_run, repo=None):
                 results.append((target, f"prompt:{name}", status))
         if not dry_run and not any(pdir.iterdir()):
             pdir.rmdir()
-    return results
-
-
-CACHE_ROOT = Path.home() / ".agent-skills-cache"
-# Cache dirs from before skills-inventory.json, when each source had a
-# hand-picked name. Every non-dry install run removes them once.
-LEGACY_CACHES = ("awesome-copilot", "caveman", "addy-agent-skills",
-                 "warp-common-skills", "anthropics-skills")
-
-
-def source_cache_dir(source):
-    return CACHE_ROOT / source["cache"]
-
-
-def remove_legacy_caches(dry_run):
-    for name in LEGACY_CACHES:
-        cache = CACHE_ROOT / name
-        if (cache / ".git").is_dir():
-            if dry_run:
-                log(f"dry-run: would remove old cache {cache}")
-            else:
-                shutil.rmtree(cache, ignore_errors=True)
-                log(f"Removed old cache {cache} (now pinned per repo)")
-
-
-def skill_folder(source, name):
-    """Upstream folder of a source's skill (inventory entries may differ
-    from the installed name)."""
-    return source["skills"][name].get("folder", name)
-
-
-def update_source_cache(source, dry_run, names=None):
-    names = sorted(names) if names else sorted(source["skills"])
-    subdir = source_skills_subdir(source)
-    return update_repo_cache(
-        source_cache_dir(source), source["url"], source["ref"],
-        [f"{subdir}/{skill_folder(source, n)}" for n in names], dry_run,
-        source["label"], source["fallback"], skills_subdir=subdir)
-
-
-def run_git(args):
-    subprocess.run(["git", *args], check=True)
-
-
-def git_head(cache):
-    """Commit a cache is checked out at, or None when it cannot be read."""
-    try:
-        out = subprocess.run(["git", "-C", str(cache), "rev-parse", "HEAD"],
-                             check=True, capture_output=True, text=True)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-    return out.stdout.strip()
-
-
-def fetch_pinned(cache, url, ref, sparse, label):
-    """Check out exactly `ref` in a sparse cache, whatever the branch says."""
-    if (cache / ".git").is_dir():
-        log(f"Updating {label} cache (pinned {ref[:7]})...")
-    else:
-        log(f"Cloning {label} (sparse, pinned {ref[:7]})...")
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        run_git(["clone", "--depth", "1", "--filter=blob:none", "--sparse",
-                 "--no-checkout", url, str(cache)])
-    run_git(["-C", str(cache), "sparse-checkout", "set", *sparse])
-    run_git(["-C", str(cache), "fetch", "--depth", "1", "origin", ref])
-    run_git(["-C", str(cache), "reset", "--hard", "FETCH_HEAD"])
-
-
-def update_repo_cache(cache, url, ref, sparse, dry_run, label,
-                      fallback_url, skills_subdir="skills"):
-    """Sparse-clone/refresh a skills repo at the pinned commit `ref`.
-    Returns the cache path, or None when no usable cache exists.
-    skills_subdir: where the skill folders live inside the repo."""
-    skills_dir = cache / skills_subdir
-    if dry_run:
-        log(f"dry-run: would fetch {url} at {ref[:7]} into {cache}")
-        return cache if skills_dir.is_dir() else None
-    try:
-        fetch_pinned(cache, url, ref, sparse, label)
-        ok(f"{label} cache ready")
-        return cache
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        warn(f"Could not clone/update {label} (offline? proxy?).")
-        if not skills_dir.is_dir():
-            warn(f"Fallback: download the skill folders as ZIP from "
-                 f"{fallback_url}")
-            warn(f"and unzip into {skills_dir}, then re-run this script.")
-            return None
-        if git_head(cache) != ref:
-            warn(f"Existing {label} cache is not at the pinned "
-                 f"{ref[:7]} — skipped rather than install another version.")
-            return None
-        warn("Using existing local cache instead.")
-        return cache
-
-
-def remote_head(url):
-    """Tip commit of a remote's default branch, or None when unreachable."""
-    try:
-        out = subprocess.run(["git", "ls-remote", url, "HEAD"], check=True,
-                             capture_output=True, text=True)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-    fields = out.stdout.split()
-    return fields[0] if fields else None
-
-
-def check_inventory_updates(sources=None):
-    """Report inventory sources whose upstream moved past the pinned ref.
-    Never installs; returns how many are behind."""
-    sources = [s for s in (SOURCES if sources is None else sources)
-               if s.get("inventory")]
-    if not sources:
-        log(f"No skills in {INVENTORY_PATH.name}")
-        return 0
-    behind = 0
-    for source in sources:
-        label, ref = source["label"], source["ref"]
-        names = ", ".join(sorted(source["skills"]))
-        head = remote_head(source["url"])
-        if head is None:
-            warn(f"{label} ({names}): upstream unreachable (offline? proxy?)")
-        elif head == ref:
-            ok(f"{label} ({names}): up to date at {ref[:7]}")
-        else:
-            behind += 1
-            warn(f"{label} ({names}): pinned {ref[:7]}, upstream {head[:7]}")
-            warn(f"  review https://github.com/{label}/compare/{ref[:12]}..."
-                 f"{head[:12]}, then bump ref in {INVENTORY_PATH.name}")
-    return behind
-
-
-_SKILLS_SH_RE = re.compile(r"https?://(?:www\.)?skills\.sh/"
-                           r"([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/"
-                           r"([a-z0-9][a-z0-9-]*)/?")
-_CLI_SPEC_RE = re.compile(r"([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)@"
-                          r"([a-z0-9][a-z0-9-]*)")
-def parse_skill_spec(spec):
-    """skills.sh URL or owner/repo@skill -> ("owner/repo", "skill")."""
-    spec = spec.strip()
-    for pattern in (_SKILLS_SH_RE, _CLI_SPEC_RE):
-        m = pattern.fullmatch(spec)
-        if m and _safe_path(f"{m[1]}/{m[2]}", 2):
-            return f"{m[1]}/{m[2]}", m[3]
-    raise InventoryError(f"{spec}: expected https://skills.sh/owner/repo/"
-                         f"skill or owner/repo@skill")
-
-
-def frontmatter_name(text):
-    """`name` from a SKILL.md frontmatter block, or None."""
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        return None
-    for line in parts[1].splitlines():
-        key, _, value = line.partition(":")
-        if key.strip() == "name":
-            return value.strip().strip("'\"")
-    return None
-
-
-def with_remote_tree(repo, ref, fn):
-    """fn(paths, read) against repo at ref, without a checkout: paths are
-    its SKILL.md files, shallowest first; read(path) returns a file's text
-    (blobs are fetched on demand)."""
-    def git(*args):
-        return subprocess.run(["git", "-C", tmp, *args], check=True,
-                              capture_output=True, text=True).stdout
-
-    with tempfile.TemporaryDirectory() as tmp:
-        try:
-            git("init", "-q")
-            git("remote", "add", "origin", f"https://github.com/{repo}.git")
-            git("fetch", "-q", "--depth", "1", "--filter=blob:none",
-                "origin", ref)
-            paths = sorted((p for p in git("ls-tree", "-r", "--name-only",
-                                           "FETCH_HEAD").splitlines()
-                            if p.endswith("/SKILL.md")),
-                           key=lambda p: (p.count("/"), p))
-            return fn(paths, lambda p: git("show", f"FETCH_HEAD:{p}"))
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            raise InventoryError(f"{repo}: could not fetch {ref[:7]} "
-                                 f"(offline? proxy?)")
-
-
-def locate_skill(repo, ref, skill):
-    """(subdir, folder) of the skill skills.sh calls `skill` in repo at
-    ref. A folder named after the skill wins; otherwise the SKILL.md whose
-    frontmatter name matches, since skills.sh lists skills by that name."""
-    def pick(paths, read):
-        return (next((p for p in paths if Path(p).parent.name == skill), None)
-                or next((p for p in paths
-                         if frontmatter_name(read(p)) == skill), None))
-
-    found = with_remote_tree(repo, ref, pick)
-    if found is None:
-        raise InventoryError(f"{skill}: no SKILL.md named {skill} in {repo} "
-                             f"at {ref[:7]}")
-    folder = Path(found).parent
-    if str(folder.parent) == ".":
-        raise InventoryError(f"{skill}: lives at the root of {repo} — "
-                             f"top-level skill folders are not supported")
-    return folder.parent.as_posix(), folder.name
-
-
-def add_inventory(spec, path=None, dry_run=False):
-    """Append a skills.sh skill to the inventory, pinned to the upstream
-    tip (or to the ref its repo is already pinned at). Returns the entry."""
-    path = INVENTORY_PATH if path is None else Path(path)
-    repo, skill = parse_skill_spec(spec)
-    entries = load_inventory(path)
-    if any(e["skill"] == skill for e in entries):
-        raise InventoryError(f"{skill} is already in {path.name}")
-    if skill in custom_skill_names() | all_external_names():
-        raise InventoryError(f"{skill}: already a custom skill or external "
-                             f"— install it with --skill")
-    same_repo = [e for e in entries if e["source"] == repo]
-    if same_repo:
-        ref = same_repo[0]["ref"]
-        log(f"{repo} is already pinned at {ref[:7]} — reusing that ref")
-    else:
-        ref = remote_head(f"https://github.com/{repo}.git")
-        if not ref:
-            raise InventoryError(f"{repo}: upstream unreachable (offline? "
-                                 f"proxy? typo?)")
-    subdir, folder = locate_skill(repo, ref, skill)
-    if same_repo and same_repo[0].get("subdir", "skills") != subdir:
-        raise InventoryError(f"{skill}: lives in {subdir}/, but {repo} is "
-                             f"pinned with another subdir — one subdir per "
-                             f"repo")
-    # Not default: every installed description loads into every session.
-    entry = {"source": repo, "skill": skill, "ref": ref,
-             "targets": ["claude", "copilot"], "default": False}
-    if subdir != "skills":
-        entry["subdir"] = subdir
-    if folder != skill:
-        entry["folder"] = folder
-    if dry_run:
-        log(f"dry-run: would add {json.dumps(entry)} to {path.name}")
-        return entry
-    path.write_text(json.dumps({"skills": entries + [entry]}, indent=2)
-                    + "\n", encoding="utf-8")
-    ok(f"Added {skill} ({repo} @ {ref[:7]}) to {path.name}")
-    log(f"Next: review https://github.com/{repo}/blob/{ref}/{subdir}/"
-        f"{folder}/SKILL.md, add a '## {skill}' section to "
-        f"docs/community-skills.md, then commit")
-    return entry
-
-
-def relocate_skills(source, paths, read):
-    """{skill: its folder in this tree, or None when gone}, looking only
-    under the source's subdir: the recorded folder, then a folder named
-    after the skill, then a SKILL.md whose frontmatter name matches."""
-    subdir = source_skills_subdir(source)
-    here = [Path(p).parent for p in paths
-            if Path(p).parent.parent.as_posix() == subdir]
-    found = {}
-    for name in source["skills"]:
-        hit = next((f for want in (skill_folder(source, name), name)
-                    for f in here if f.name == want), None)
-        if hit is None:
-            hit = next((f for f in here if frontmatter_name(
-                read((f / "SKILL.md").as_posix())) == name), None)
-        found[name] = hit.name if hit else None
-    return found
-
-
-def bump_inventory(path=None, dry_run=False):
-    """Move every inventory repo's pin to its upstream tip, following a
-    skill whose upstream folder was renamed. A repo whose new commit lost
-    one of our skills keeps its pin. Writes the file unless dry_run;
-    returns (entries, [(repo, old, new), ...])."""
-    path = INVENTORY_PATH if path is None else Path(path)
-    entries = load_inventory(path)
-    bumped = []
-    for source in inventory_sources(entries):
-        repo, old = source["label"], source["ref"]
-        new = remote_head(source["url"])
-        if new is None:
-            warn(f"{repo}: upstream unreachable — kept at {old[:7]}")
-            continue
-        if new == old:
-            ok(f"{repo}: up to date at {old[:7]}")
-            continue
-        subdir = source_skills_subdir(source)
-        try:
-            found = with_remote_tree(
-                repo, new,
-                lambda paths, read: relocate_skills(source, paths, read))
-        except InventoryError as e:
-            warn(f"{e} — kept at {old[:7]}")
-            continue
-        gone = sorted(n for n, folder in found.items() if folder is None)
-        if gone:
-            warn(f"{repo}: {', '.join(gone)} no longer at {subdir}/ in "
-                 f"{new[:7]} — kept at {old[:7]}; check upstream")
-            continue
-        for entry in entries:
-            if entry["source"] == repo:
-                entry["ref"] = new
-                skill, folder = entry["skill"], found[entry["skill"]]
-                if folder != entry.get("folder", skill):
-                    log(f"{skill}: upstream folder is now {subdir}/{folder}")
-                if folder == skill:
-                    entry.pop("folder", None)
-                else:
-                    entry["folder"] = folder
-        bumped.append((repo, old, new))
-        log(f"{repo}: {old[:7]} -> {new[:7]}  https://github.com/{repo}/"
-            f"compare/{old[:12]}...{new[:12]}")
-    if bumped and not dry_run:
-        path.write_text(json.dumps({"skills": entries}, indent=2) + "\n",
-                        encoding="utf-8")
-        ok(f"{path.name}: {len(bumped)} repo(s) bumped — review "
-           f"`git diff {path.name}` and commit, so other machines get the "
-           f"same versions")
-    return entries, bumped
-
-
-def check_checkout_current(root=None):
-    """Warn when this agent-skills checkout is behind its upstream branch.
-    Reads only; never pulls. Returns 'current', 'ahead', 'behind' or None
-    when it cannot tell (no upstream, offline)."""
-    root = str(REPO_ROOT if root is None else root)
-
-    def git(*args):
-        return subprocess.run(["git", "-C", root, *args], check=True,
-                              capture_output=True, text=True).stdout.strip()
-
-    try:
-        upstream = git("rev-parse", "--abbrev-ref", "--symbolic-full-name",
-                       "@{u}")
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        log("agent-skills checkout tracks no branch (pinned?) — not "
-            "checking for newer custom skills")
-        return None
-    remote, _, branch = upstream.partition("/")
-    try:
-        tip = git("ls-remote", remote, f"refs/heads/{branch}").split()[0]
-        head = git("rev-parse", "HEAD")
-    except (subprocess.CalledProcessError, FileNotFoundError, IndexError):
-        warn(f"could not reach {upstream} — not checking for newer custom "
-             f"skills")
-        return None
-    if tip == head:
-        ok(f"agent-skills checkout is current with {upstream}")
-        return "current"
-    try:
-        git("merge-base", "--is-ancestor", tip, "HEAD")
-        return "ahead"
-    except subprocess.CalledProcessError:
-        warn(f"agent-skills checkout is behind {upstream}: run "
-             f"`git -C {root} pull` for the latest custom skills, then "
-             f"--update again")
-        return "behind"
-
-
-def installed_names(dest_root):
-    """Directory names in a target root (what --update refreshes)."""
-    if not dest_root.is_dir():
-        return set()
-    return {p.name for p in dest_root.iterdir()
-            if p.is_dir() or p.is_symlink()}
-
-
-def install_community_for_target(target, dest_root, sel_community, dry_run):
-    """Install selected community skills for one target, honoring each
-    skill's target policy. Sources carry their fetched cache under
-    '_cache' (None = fetch failed or skipped)."""
-    results = []
-    for source in SOURCES:
-        cache = source.get("_cache")
-        for name, meta in source["skills"].items():
-            if name not in sel_community:
-                continue
-            if target not in meta["targets"]:
-                # The per-skill note explains a personal-scope exclusion; for
-                # repo scope it would be misleading.
-                note = (meta.get("note") if target in BOTH else None)
-                results.append((target, name,
-                                f"skipped ({note or 'not for ' + target})"))
-                continue
-            if not cache:
-                continue
-            src = (cache / source_skills_subdir(source)
-                   / skill_folder(source, name))
-            if not src.is_dir():
-                results.append((target, name, "missing in cache — skipped"))
-                continue
-            results.append((target, name,
-                            install_copy(src, dest_root / name, dry_run)))
     return results
 
 
@@ -1305,8 +758,8 @@ def run_cli_install(argv, cwd, skill_dir):
     if run_cli(argv, cwd):
         return True
     warn(f"{skill_dir} is locked: close VS Code and JetBrains (they watch "
-         f"the skills folder), then re-run with --skill "
-         f"{skill_dir.name}")
+         "the skills folder), then re-run "
+         "install.py --target copilot")
     return False
 
 
@@ -1332,49 +785,29 @@ def external_current(ext, exe, dest):
                for ref in set(_SKILL_REF_RE.findall(body)))
 
 
-def install_external_for_target(target, ext, exe, repo, dry_run):
-    """Delegate one external's install for one target.
-
-    Personal scope runs the CLI in a scratch directory so the repo-scoped
-    files some installers write next to the cwd land nowhere. Repo scope runs
-    it in the repo (where those files belong), then copies the personal skill
-    into <repo>/.github/skills for JetBrains Copilot."""
+def install_external_for_target(target, ext, exe, dry_run):
+    """Delegate one external's install for one target. The CLI runs in a
+    scratch directory so the repo-scoped files some installers write next to
+    the cwd land nowhere."""
     name = ext["name"]
     if target not in ext["targets"]:
         return [(target, name, f"skipped (not for {target})")]
-    # Repo scope reuses the copilot install: same skill, seeded per project.
-    argv_key = "copilot" if target == "repo" else target
-    argv = [exe or ext["cli"], *ext["install"][argv_key]]
-    shown = " ".join([ext["cli"], *ext["install"][argv_key]])
+    argv = [exe or ext["cli"], *ext["install"][target]]
+    shown = " ".join([ext["cli"], *ext["install"][target]])
     if dry_run:
-        planned = [(target, name, f"dry-run: would run {shown}")]
-        if target == "repo":
-            planned.append((target, name, "dry-run: would copy into "
-                            f"{target_root('repo', repo) / name}"))
-        return planned
+        return [(target, name, f"dry-run: would run {shown}")]
     if not exe:
         return [(target, name, "skipped (CLI unavailable)")]
-    if (external_current(ext, exe, target_root(target, repo) / name)
-            and (target != "repo" or all(
-                (Path(repo) / f).is_file()
-                for f in ext.get("repo_files", ())))):
+    dest = target_root(target) / name
+    if external_current(ext, exe, dest):
         return [(target, name, "up to date")]
-    # The CLI writes the personal skill; repo scope copies it afterwards.
-    cli_dest = target_root(argv_key) / name
     with tempfile.TemporaryDirectory() as scratch:
-        cwd = repo if (target == "repo" and ext.get("repo_cwd")) else scratch
-        if not run_cli_install(argv, cwd, cli_dest):
+        if not run_cli_install(argv, scratch, dest):
             return [(target, name, "failed")]
-    if target != "repo":
-        return [(target, name, "installed (by CLI)")]
-    src = target_root("copilot") / name
-    if not src.is_dir():
-        return [(target, name, f"failed — {src} missing after install")]
-    return [(target, name,
-             install_copy(src, target_root("repo", repo) / name, dry_run))]
+    return [(target, name, "installed (by CLI)")]
 
 
-def install_externals_for_target(target, sel_externals, repo, dry_run):
+def install_externals_for_target(target, sel_externals, dry_run):
     """Install selected externals for one target. Each carries its resolved
     CLI path under '_exe' (None = missing and not installable)."""
     results = []
@@ -1382,235 +815,55 @@ def install_externals_for_target(target, sel_externals, repo, dry_run):
         if ext["name"] not in sel_externals:
             continue
         results.extend(install_external_for_target(
-            target, ext, ext.get("_exe"), repo, dry_run))
+            target, ext, ext.get("_exe"), dry_run))
     return results
 
 
-def uninstall_externals(names, target, dry_run):
-    """Hand personal-scope removal back to the external's own CLI. Repo scope
-    is a plain directory, so uninstall_skills handles it instead."""
-    results = []
-    if target == "repo":
-        return results
-    for ext in EXTERNALS:
-        name = ext["name"]
-        argv_tail = ext["uninstall"].get(target)
-        if name not in names or not argv_tail or target not in ext["targets"]:
-            continue
-        dest = target_root(target) / name
-        exe = find_cli(ext["cli"])
-        if not exe:
-            if not dest.exists():
-                results.append((target, name, "not installed"))
-            else:
-                if not dry_run:
-                    shutil.rmtree(dest)
-                results.append((target, name, "removed (no CLI — dir only)"))
-            continue
-        if dry_run:
-            results.append((target, name, "dry-run: would run "
-                            f"{' '.join([ext['cli'], *argv_tail])}"))
-            continue
-        with tempfile.TemporaryDirectory() as scratch:
-            done = run_cli([exe, *argv_tail], scratch)
-        results.append((target, name, "removed (by CLI)" if done else "failed"))
-    return results
-
-
-def enabled_plugins(settings_path=None):
-    settings_path = settings_path or (Path.home() / ".claude"
-                                      / "settings.json")
-    try:
-        data = json.loads(Path(settings_path).read_text())
-    except (OSError, ValueError):
-        return {}
-    plugins = data.get("enabledPlugins") or {}
-    return {k: True for k, v in plugins.items() if v}
-
-
-def plugin_skills(cache_root=None, settings_path=None):
-    """{skill_name: plugin_id} across enabled Claude plugins (any cached
-    version). Empty dict when config or cache is absent."""
-    cache_root = Path(cache_root or Path.home() / ".claude" / "plugins"
-                      / "cache")
-    out = {}
-    for plugin_id in enabled_plugins(settings_path):
-        name, _, marketplace = plugin_id.partition("@")
-        plugin_dir = cache_root / marketplace / name
-        if not plugin_dir.is_dir():
-            continue
-        for version in plugin_dir.iterdir():
-            skills_dir = version / "skills"
-            if not skills_dir.is_dir():
-                continue
-            for entry in skills_dir.iterdir():
-                if entry.is_dir():
-                    out[entry.name] = plugin_id
-    return out
-
-
-def gather_status(target, dest_root, custom_names, plugin_map):
-    """Classify installed skills in dest_root. Returns (rows, warnings);
-    row = (name, kind, mechanism)."""
-    reg = registry()
-    ext_map = externals()
-    rows, warnings = [], []
-    if not dest_root.is_dir():
-        return rows, warnings
-    for entry in sorted(dest_root.iterdir()):
-        if not (entry.is_dir() or entry.is_symlink()):
-            continue
-        name = entry.name
-        if name.endswith(".bak"):
-            warnings.append(f"{target}: {name} is a leftover backup — agents"
-                            f" load it as a skill; delete it")
-        if name not in custom_names and is_generated(entry):
-            kind = "retired prompt (stale)"
-            warnings.append(f"{target}: {name} was generated from a retired "
-                            f"prompt — re-run install.py to remove it")
-        elif name in custom_names:
-            kind = "custom"
-        elif name in reg:
-            kind = f"community ({reg[name][0]['label']})"
-        elif name in ext_map:
-            version = external_version(entry, ext_map[name])
-            kind = f"external ({ext_map[name]['package']}" + (
-                f" {version})" if version else ")")
-            cli = ext_map[name]["cli"]
-            if not find_cli(cli):
-                warnings.append(f"{target}: {name} skill is installed but its "
-                                f"{cli} CLI is missing — the skill cannot run")
-            else:
-                hint = cli_path_hint(ext_map[name])
-                if hint:
-                    warnings.append(f"{target}: {hint}")
-        else:
-            kind = "unknown"
-        mech = "symlink" if entry.is_symlink() else "copy"
-        rows.append((name, kind, mech))
-        if entry.is_symlink() and not entry.exists():
-            warnings.append(f"{target}: {name} is a broken symlink")
-        if name in reg and target not in reg[name][1]["targets"]:
-            note = reg[name][1].get("note", "wrong target")
-            warnings.append(f"{target}: {name} not meant for this target"
-                            f" — {note}")
-        if target == "claude" and name in plugin_map:
-            warnings.append(f"claude: {name} also provided by enabled"
-                            f" plugin {plugin_map[name]} — remove the"
-                            f" skills-dir copy")
-    for skill, dep in missing_requirements(dest_root):
-        warnings.append(f"{target}: {skill} requires {dep}, which is not "
-                        f"installed here — re-run install.py")
-    return rows, warnings
-
-
-def show_status(targets, repo=None):
-    custom_names = custom_skill_names()
-    plugin_map = plugin_skills()
-    all_warnings = []
-    for target in targets:
-        dest_root = target_root(target, repo)
-        print(f"\n{target}: {dest_root}")
-        rows, warnings = gather_status(target, dest_root, custom_names,
-                                       plugin_map)
-        if not rows:
-            print("  (nothing installed)")
-        for name, kind, mech in rows:
-            print(f"  {name:35} {kind:32} {mech}")
-        leftovers = [n for _, n, _ in retire_prompts(
-            target, dest_root, dry_run=True, repo=repo)
-            if n.startswith(("prompt:", "command:"))]
-        if leftovers:
-            warnings.append(f"{target}: {len(leftovers)} file(s) left by the "
-                            f"retired prompts ({', '.join(leftovers)}) — "
-                            f"re-run install.py to remove them")
-        all_warnings.extend(warnings)
-    print()
-    if all_warnings:
-        for w in all_warnings:
-            warn(w)
+def show_status(targets):
+    exe = find_cli("apm")
+    if exe:
+        run_apm([exe, "deps", "list", "-g"])
     else:
+        warn("apm is not installed — nothing APM manages can be listed")
+    warnings = []
+    lock_text = read_lockfile()
+    for target in targets:
+        root = target_root(target)
+        left = remove_installer_skills(target, root, dry_run=True,
+                                       lock_text=lock_text)
+        if left:
+            warnings.append(f"{target}: {', '.join(n for _, n, _ in left)} "
+                            f"left by a pre-APM install in {root} — re-run "
+                            f"install.py to remove")
+        older = (remove_legacy(target, root, dry_run=True)
+                 + retire_prompts(target, root, dry_run=True))
+        if target == "copilot":
+            older += remove_instruction_copy(dry_run=True)
+        for _, name, _ in older:
+            warnings.append(f"{target}: {name} left by an older install — "
+                            "re-run install.py to remove")
+        for ext in EXTERNALS:
+            dest = root / ext["name"]
+            if not dest.is_dir():
+                continue
+            version = external_version(dest, ext)
+            print(f"  {target:8} {ext['name']:30} external "
+                  f"({ext['package']}{' ' + version if version else ''})")
+            if not find_cli(ext["cli"]):
+                warnings.append(f"{target}: {ext['name']} skill is installed "
+                                f"but its {ext['cli']} CLI is missing")
+            elif cli_path_hint(ext):
+                warnings.append(f"{target}: {cli_path_hint(ext)}")
+    print()
+    for w in warnings:
+        warn(w)
+    if not warnings:
         ok("no conflicts detected")
-
-
-def skill_description(skill_dir):
-    """First sentence of a SKILL.md description, for --list."""
-    try:
-        text = (Path(skill_dir) / "SKILL.md").read_text(encoding="utf-8")
-    except OSError:
-        return ""
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        return ""
-    for line in parts[1].splitlines():
-        key, _, value = line.partition(":")
-        if key.strip() == "description":
-            value = value.strip().strip("'\"")
-            return value.split(". ")[0].rstrip(".") + "."
-    return ""
-
-
-def show_list():
-    """Everything an install can select, grouped by kind."""
-    print("Custom skills (this repo):")
-    for name in sorted(custom_skill_names()):
-        print(f"  {name:34} {skill_description(SKILLS_SRC / name)}")
-    print("\nCommunity skills (* = installed by default):")
-    for name, (source, meta) in sorted(registry().items()):
-        mark = "*" if meta["default"] else " "
-        targets = ",".join(t for t in ANY if t in meta["targets"])
-        print(f"  {mark} {name:33} {source['label']} [{targets}]")
-    print("\nExternals (installed by their own CLI):")
-    for ext in EXTERNALS:
-        mark = "*" if ext["default"] else " "
-        print(f"  {mark} {ext['name']:33} {ext['doc']}")
-    print("\nRequirements (installed alongside):")
-    for skill, deps in sorted(REQUIRES.items()):
-        print(f"  {skill:34} -> {', '.join(deps)}")
-    print("\nAny agent, without this script: "
-          "npx skills add r0jjames/agent-skills -s <name>")
-
-
-def resolve_skill_args(raw):
-    """--skill value -> (custom names, community names, external names).
-    Exits on a name no source knows, listing what exists."""
-    names = [n.strip() for n in raw.split(",") if n.strip()]
-    custom, community, ext = (custom_skill_names(), all_community_names(),
-                              all_external_names())
-    unknown = [n for n in names if n not in custom | community | ext]
-    if unknown:
-        sys.exit(f"--skill: unknown {', '.join(unknown)} — run "
-                 f"'install.py --list' to see what can be installed")
-    return ({n for n in names if n in custom},
-            {n for n in names if n in community},
-            {n for n in names if n in ext})
-
-
-def uninstall_skills(names, target, dest_root, known_names, force, dry_run):
-    results = []
-    for name in names:
-        path = dest_root / name
-        if not (path.is_symlink() or path.exists()):
-            results.append((target, name, "not installed"))
-            continue
-        if name not in known_names and not force:
-            results.append((target, name, "unknown — use --force"))
-            continue
-        if path.is_symlink():
-            if not dry_run:
-                path.unlink()
-            results.append((target, name, "removed (symlink)"))
-        else:
-            if not dry_run:
-                shutil.rmtree(path)
-            results.append((target, name, "removed"))
-    return results
 
 
 def print_summary(results, targets, dry_run):
     print()
-    title = "Planned actions (dry run)" if dry_run else "Install summary"
-    log(title + ":")
+    log(("Planned actions (dry run)" if dry_run else "Install summary") + ":")
     for target, name, status in results:
         print(f"  {target:8} {name:35} {status}")
     print()
@@ -1620,240 +873,106 @@ def print_summary(results, targets, dry_run):
     if "claude" in targets:
         log("Verify Claude:   ask 'what skills are available?' in a new "
             "claude session")
-    ext_map = externals()
-    touched = {name for _, name, status in results
-               if name in ext_map and not status.startswith("skipped")}
-    for name in sorted(touched):
-        ext = ext_map[name]
+    for name in sorted({n for _, n, s in results
+                        if n in externals() and not s.startswith("skipped")}):
+        ext = externals()[name]
         log(f"Verify {name}:  run '{ext['cli']} --version', then "
             f"'/{name} .' in the agent — {ext['doc']}")
-        # Last thing printed, so a PATH problem cannot scroll out of view.
         hint = cli_path_hint(ext)
         if hint and not dry_run:
             warn(hint)
-    if "repo" in targets:
-        log("Verify JetBrains: reopen the project, Copilot Chat -> Agent "
-            "mode, type '/skill:' — the repo's skills list there")
-        log("These files are tracked by git — PR them for the team, or keep "
-            "them local with: echo .github/ >> .git/info/exclude")
 
 
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--target", choices=["copilot", "claude", "both"],
-                    help="where to install (omit for interactive menu)")
-    ap.add_argument("--skills-only", action="store_true",
-                    help="skip community skills and CLI-installed externals "
-                         "(offline/proxy)")
-    ap.add_argument("--upgrade", action="store_true",
-                    help="upgrade external CLIs (graphify) to the latest "
-                         "release before refreshing their skill files")
+                    default="both", help="where to install (default: both)")
     ap.add_argument("--dry-run", action="store_true",
-                    help="print planned actions without writing anything")
-    ap.add_argument("--status", action="store_true",
-                    help="show installed skills per target and conflicts")
-    ap.add_argument("--uninstall", metavar="NAME[,NAME...]",
-                    help="remove skills from the target")
+                    help="print planned actions without writing or running "
+                         "anything")
     ap.add_argument("--force", action="store_true",
-                    help="allow --uninstall of names the installer does "
-                         "not know")
-    ap.add_argument("--skill", "-s", metavar="NAME[,NAME...]",
-                    help="install only these skills (custom, community or "
-                         "external) plus what they require — no picker")
-    ap.add_argument("--list", action="store_true",
-                    help="list every installable skill and exit")
-    ap.add_argument("--repo", metavar="PATH",
-                    help="also seed <PATH>/.github/skills (repo scope, "
-                         "shareable with the team)")
-    ap.add_argument("--add-inventory", metavar="URL|OWNER/REPO@SKILL",
-                    help="add a skills.sh skill to skills-inventory.json, "
-                         "pinned to its current upstream commit")
+                    help="replace a ~/.apm/apm.yml install.py did not write")
+    ap.add_argument("--status", action="store_true",
+                    help="show what APM installed, graphify, and leftovers")
     ap.add_argument("--update", action="store_true",
-                    help="bump every skills-inventory.json pin to upstream, "
-                         "then refresh only the skills already installed "
-                         "(and upgrade their external CLIs)")
-    ap.add_argument("--check-inventory-updates", action="store_true",
-                    help="list inventory skills whose upstream moved past "
-                         "the pinned commit (installs nothing)")
+                    help="list apm.yml pins with newer upstream releases "
+                         "(apm outdated -g); bump them in apm.yml, re-run")
+    ap.add_argument("--upgrade", action="store_true",
+                    help="upgrade external CLIs (graphify) before refreshing "
+                         "their skill files")
+    ap.add_argument("--skills-only", action="store_true",
+                    help="skip graphify (e.g. PyPI blocked)")
     args = ap.parse_args()
-    repo = resolve_repo(args.repo) if args.repo else None
-
-    if args.add_inventory:
-        try:
-            add_inventory(args.add_inventory, dry_run=args.dry_run)
-        except InventoryError as e:
-            sys.exit(f"--add-inventory: {e}")
-        return
-
-    if args.check_inventory_updates:
-        check_inventory_updates()
-        return
-
-    if args.list:
-        show_list()
-        return
+    targets = (["copilot", "claude"] if args.target == "both"
+               else [args.target])
 
     if args.status:
-        show_status(status_targets(args.target, repo), repo)
+        show_status(targets)
         return
 
-    if args.uninstall:
-        targets = pick_targets(args.target, repo)
-        names = [n.strip() for n in args.uninstall.split(",") if n.strip()]
-        known = (custom_skill_names() | all_community_names()
-                 | all_external_names())
-        for n in [n for n in names if n.startswith("prompt:")]:
-            warn(f"{n}: prompts were retired — every install run removes "
-                 f"what they generated")
-        names = [n for n in names if not n.startswith("prompt:")]
-        results = []
-        for target in targets:
-            for dep, skill in uninstall_dependents(
-                    names, target_root(target, repo)):
-                warn(f"{target}: removing {dep}, but {skill} still requires "
-                     f"it — {skill} will run on its fallback")
-            # Externals are removed by their own CLI in personal scope; in
-            # repo scope they are ordinary copied directories.
-            ext_names = [n for n in names if n in all_external_names()]
-            results.extend(uninstall_externals(ext_names, target,
-                                               args.dry_run))
-            skills = [n for n in names
-                      if target == "repo" or n not in ext_names]
-            results.extend(uninstall_skills(
-                skills, target, target_root(target, repo), known,
-                args.force, args.dry_run))
-        print_summary(results, targets, args.dry_run)
-        return
-
-    interactive = (args.target is None and repo is None and not args.skill
-                   and not args.update)
+    exe = find_cli("apm")
+    if not exe and args.dry_run:
+        warn("apm is not installed — a real run would install apm-cli "
+             "first (uv, pipx or pip)")
+    elif not exe:
+        exe = bootstrap_cli(APM_TOOL, False)
+        if not exe:
+            sys.exit(APM_INSTALL_HINT)
     if args.update:
-        # Refresh what is there; never prompts, never installs anything new.
-        targets = status_targets(args.target, repo)
-        args.upgrade = not args.skills_only
-        check_checkout_current()
-        if args.skills_only:
-            log("--skills-only: inventory pins left as they are")
-        else:
-            try:
-                entries, _ = bump_inventory(dry_run=args.dry_run)
-                SOURCES[:] = inventory_sources(entries)
-            except InventoryError as e:
-                sys.exit(f"--update: {e}")
-        present = {t: installed_names(target_root(t, repo)) for t in targets}
-    else:
-        targets = pick_targets(args.target, repo)
-        present = None
-    custom = sorted(p for p in SKILLS_SRC.iterdir() if p.is_dir())
-    if not custom:
-        sys.exit(f"No skills found in {SKILLS_SRC}")
+        if args.dry_run:
+            log("dry-run: would run apm outdated -g")
+            return
+        sys.exit(run_apm([exe, "outdated", "-g"]))
 
-    if interactive:
-        items = build_items([p.name for p in custom])
-        reg = registry()
-        ext_map = externals()
-        plugin_map = plugin_skills()
-        preselected = [reg[n][1]["default"] if k == "community"
-                       else ext_map[n]["default"] if k == "external"
-                       else True
-                       for k, n in items]
-        tags = {(k, n): item_tag(k, n, targets, plugin_map)
-                for k, n in items}
-        tags = {kn: t for kn, t in tags.items() if t}
-        chosen = pick_items(items, preselected=preselected, tags=tags)
-        sel_skills = {n for k, n in chosen if k == "skill"}
-        sel_community = {n for k, n in chosen if k == "community"}
-        sel_externals = {n for k, n in chosen if k == "external"}
-        custom = [p for p in custom if p.name in sel_skills]
-    elif args.skill:
-        sel_skills, sel_community, sel_externals = resolve_skill_args(
-            args.skill)
-        custom = [p for p in custom if p.name in sel_skills]
-    elif args.update:
-        everything = set().union(*present.values())
-        sel_community = all_community_names() & everything
-        sel_externals = all_external_names() & everything
-        custom = [p for p in custom if p.name in everything]
-    else:
-        sel_community = default_community_names()
-        sel_externals = default_external_names()
-
-    if not args.update:
-        names, sel_community, sel_externals = add_requirements(
-            {p.name for p in custom}, sel_community, sel_externals)
-        custom = sorted(p for p in SKILLS_SRC.iterdir()
-                        if p.is_dir() and p.name in names)
-
-    if args.skills_only:
-        # Externals fetch from a package index, same network the community
-        # sources need — --skills-only means neither is reachable.
-        log("--skills-only: skipping community skills and externals")
-        sel_externals = set()
-        for source in SOURCES:
-            source["_cache"] = None
-    else:
-        remove_legacy_caches(args.dry_run)
-        for source in SOURCES:
-            wanted = sel_community & set(source["skills"])
-            source["_cache"] = (update_source_cache(source, args.dry_run,
-                                                    names=wanted)
-                                if wanted else None)
-    if args.upgrade and args.skills_only:
-        warn("--upgrade has nothing to do with --skills-only: externals are "
-             "skipped entirely")
+    manifest = render_user_manifest()
+    # Refuse a foreign ~/.apm/apm.yml before anything is removed.
+    write_user_manifest(manifest, args.force, dry_run=True)
     results = []
+    lock_text = read_lockfile()
+    for target in targets:
+        results.extend(remove_installer_skills(
+            target, target_root(target), args.dry_run, lock_text=lock_text))
+        results.extend(remove_legacy(target, target_root(target),
+                                     args.dry_run))
+        results.extend(retire_prompts(target, target_root(target),
+                                      args.dry_run))
+    if "copilot" in targets:
+        results.extend(remove_instruction_copy(args.dry_run))
+    results.append(("apm", "~/.apm/apm.yml", write_user_manifest(
+        manifest, args.force, args.dry_run)))
+    argv = apm_install_argv(exe or "apm", targets)
+    if args.dry_run:
+        results.append(("apm", "install",
+                        "dry-run: would run " + " ".join(["apm", *argv[1:]])))
+    else:
+        code = run_apm(argv)
+        if code:
+            print_summary(results, targets, args.dry_run)
+            warn("apm install failed — pre-APM entries removed above come "
+                 "back once a re-run of install.py succeeds")
+            sys.exit(code)
+        results.append(("apm", "install", "done"))
+
+    sel_externals = set() if args.skills_only else default_external_names()
+    if args.skills_only:
+        log("--skills-only: skipping externals")
     for ext in EXTERNALS:
         ext.pop("_upgrade", None)
         if ext["name"] not in sel_externals:
             ext["_exe"] = None
             continue
         ext["_exe"] = bootstrap_cli(ext, args.dry_run)
-        # A missing CLI was just installed at its latest version; upgrading
-        # only makes sense for one that was already there.
         if args.upgrade and (ext["_exe"] or args.dry_run):
             ext["_upgrade"] = upgrade_cli(ext, ext["_exe"], args.dry_run)
             results.append(("external", ext["name"], ext["_upgrade"]))
-
     for target in targets:
-        dest_root = target_root(target, repo)
-        log(f"Target {target}: {dest_root}")
-        if not args.dry_run:
-            dest_root.mkdir(parents=True, exist_ok=True)
-        results.extend(remove_legacy(target, dest_root, args.dry_run))
-        # --update: only what this target already has.
-        only = present[target] if present is not None else None
-        for skill in custom:
-            if only is not None and skill.name not in only:
-                continue
-            if target == "claude":
-                status = install_symlink(skill, dest_root / skill.name,
-                                         args.dry_run)
-            else:
-                status = install_copy(skill, dest_root / skill.name,
-                                      args.dry_run)
-            results.append((target, skill.name, status))
-        results.extend(install_community_for_target(
-            target, dest_root,
-            sel_community if only is None else sel_community & only,
-            args.dry_run))
         results.extend(install_externals_for_target(
-            target, sel_externals if only is None else sel_externals & only,
-            repo, args.dry_run))
-        results.extend(retire_prompts(target, dest_root, args.dry_run,
-                                      repo=repo))
+            target, sel_externals, args.dry_run))
 
     print_summary(results, targets, args.dry_run)
-
-    if not args.dry_run:
-        # Last, so a missing dependency cannot scroll out of view.
-        hint = (" — re-run without --skills-only when online"
-                if args.skills_only
-                else " — re-run install.py with network access to fetch it")
-        for target in targets:
-            for skill, dep in missing_requirements(target_root(target, repo)):
-                warn(f"{target}: {skill} requires {dep}, which is not "
-                     f"installed{hint}")
+    if is_wsl():
+        log(WSL_HINT)
 
 
 if __name__ == "__main__":

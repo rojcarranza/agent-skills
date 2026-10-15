@@ -9,51 +9,57 @@ supports.
 
 ## Install
 
-**Any agent, with Node.js** — pick skills and agents interactively, or name
-them:
+**Everything, with APM (recommended)** — my skills, the community skills
+they chain to, personal instructions and MCP servers, for Claude Code and
+Copilot, from one manifest ([`apm.yml`](apm.yml)).
 
-```bash
-npx skills add r0jjames/agent-skills                     # interactive
-npx skills add r0jjames/agent-skills --list              # what is in here
-npx skills add r0jjames/agent-skills -s roj-code-review-pr -a claude-code github-copilot -g
-npx skills update                                        # pull new versions
-```
+1. Clone and install. `install.py` installs
+   [APM](https://microsoft.github.io/apm/) itself when it is missing (with
+   `uv`, `pipx` or `pip --user`, the same as `graphify`), so macOS, Windows
+   Git Bash and WSL Ubuntu need nothing else first:
 
-**Claude Code plugin** — all skills as one plugin, updated through
-`/plugin`:
+   ```bash
+   git clone https://github.com/rojcarranza/agent-skills && cd agent-skills
+   python3 install.py --target both        # or claude / copilot
+   python3 install.py --status             # what is installed where
+   python3 install.py --update             # which pins have newer releases
+   ```
 
-```text
-/plugin marketplace add r0jjames/agent-skills
-/plugin install roj-skills@roj-agent-skills
-```
+   On Windows use Git Bash and `python`; on WSL run it inside WSL, and
+   again from Git Bash for Windows-side VS Code and JetBrains. If APM cannot
+   be installed for you, `install.py` stops and prints the command for your
+   platform (`python -m pip install --user apm-cli` on Git Bash,
+   `sudo apt install pipx && pipx install apm-cli` on WSL, `brew install apm`
+   on macOS).
+   `install.py` writes `~/.apm/apm.yml` pointing at this clone, runs `apm install -g`,
+   and installs `graphify` (a CLI APM cannot package).
 
-Plugin skills are namespaced (`/roj-skills:roj-code-review-pr`). Use either
-the plugin or a skills-dir install, not both — `install.py --status` flags
-duplicates.
+   On the first run APM asks for a `token` value for the GitHub MCP server
+   (a GitHub token). In a non-interactive shell set `token=...` in the
+   environment first. The first run also removes the entries older versions
+   of `install.py` left for skills APM installs again, and warns about the
+   rest.
 
-**Full setup from a clone** — custom skills plus the community skills and
-CLI-installed tools they chain to, with the Windows copy fallback and team
-repo seeding. Python >= 3.8, no dependencies:
+To add or drop a skill or MCP server, edit `apm.yml` and re-run
+`install.py`. `install.py --update` lists pins with newer upstream
+releases; bump the SHA in `apm.yml` and re-run.
 
-```bash
-python3 install.py --target claude    # symlinks into ~/.claude/skills
-python3 install.py --target copilot   # copies into ~/.copilot/skills
-python3 install.py --target both
-python3 install.py                    # interactive picker
-python3 install.py --list             # everything installable
-python3 install.py --target claude --skill roj-code-review-pr   # just one
-python3 install.py --status           # what is installed where + conflicts
-python3 install.py --repo .           # seed .github/skills for the team
-```
+**Only some skills, with Node.js** — `npx skills add rojcarranza/agent-skills`
+(interactive), or `-s <skill> -a claude-code github-copilot -g`.
 
-Community skills live in `skills-inventory.json`, pinned to a commit. Add
-one from [skills.sh](https://skills.sh) with
-`python3 install.py --add-inventory https://skills.sh/<owner>/<repo>/<skill>`;
-get the latest of everything installed with `python3 install.py --update`.
+**Claude Code plugin** — `/plugin marketplace add rojcarranza/agent-skills`,
+then `/plugin install roj-skills@roj-agent-skills`. Plugin skills are
+namespaced (`/roj-skills:roj-code-review-pr`).
 
-Every flag, the community skill list, the skills inventory, externals
-(`graphify`), the Windows VDI and JetBrains setup are in
-[docs/installer.md](docs/installer.md).
+Use one route per machine: a plugin plus a skills-dir install lists each skill twice.
+
+**In a team repository** — add an `apm.yml` to that repo listing the skills
+it needs, e.g. `rojcarranza/agent-skills/skills/roj-code-review-pr#<commit>` (pin a commit), and
+run `apm install`. Commit `apm.yml` and `apm.lock.yaml`; teammates run
+`apm install` after cloning.
+
+Every flag, the manifest, externals (`graphify`), the Windows VDI and
+JetBrains setup are in [docs/installer.md](docs/installer.md).
 
 ## Skills
 
@@ -99,9 +105,10 @@ skills/<name>/
   assets/         templates the skill fills in
   examples/       sample inputs and outputs
 .claude-plugin/   marketplace.json — the Claude Code plugin view of skills/
-skills-inventory.json  every community skill, pinned to a commit
+apm.yml           every skill, community skill and MCP server install.py installs (APM manifest)
+.apm/instructions/  personal instructions APM deploys to Copilot and Claude
 tools/            sync_shared.py — copies shared files into every skill using them
-install.py        full installer (see docs/installer.md)
+install.py        writes ~/.apm/apm.yml, runs apm install -g, installs graphify (docs/installer.md)
 test_install.py   installer tests
 test_skills.py    spec + publishing checks for every skill
 ```

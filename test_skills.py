@@ -5,6 +5,7 @@ frontmatter breaks the spec, so these fail loudly instead.
   python3 -m unittest test_skills -v
 """
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -18,6 +19,7 @@ SKILLS = ROOT / "skills"
 sys.path.insert(0, str(ROOT / "tools"))
 
 import sync_shared  # noqa: E402
+import install  # noqa: E402
 
 SPEC_KEYS = {"name", "description", "license", "compatibility", "metadata",
              "allowed-tools"}
@@ -308,6 +310,24 @@ class TestGraphFirst(unittest.TestCase):
         self.assertIn("`graph-first.md` step does not apply", text)
 
 
+def git_bash():
+    """bash for the eval fixtures. On Windows, Git Bash next to git: a bare
+    `bash` there can resolve to System32's WSL launcher."""
+    if os.name != "nt":
+        return shutil.which("bash")
+    git = shutil.which("git")
+    if not git:
+        return None
+    for candidate in (Path(git).parent.parent / "bin" / "bash.exe",
+                      Path(git).parent / "bash.exe"):
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+BASH = git_bash()
+
+
 class TestEvals(unittest.TestCase):
     """evals/<skill>/ holds skill-creator eval sets, outside skills/ so no
     install carries them. triggers.json feeds scripts/run_eval.py;
@@ -342,8 +362,7 @@ class TestEvals(unittest.TestCase):
                     if "gh" in e["fixture"]:
                         self.assertIn(e["fixture"]["gh"], self.GH_MODES)
 
-    @unittest.skipUnless(shutil.which("bash") and shutil.which("git"),
-                         "needs bash and git")
+    @unittest.skipUnless(BASH and shutil.which("git"), "needs bash and git")
     def test_every_fixture_builds(self):
         used = set()
         for d in self.eval_dirs():
@@ -354,13 +373,13 @@ class TestEvals(unittest.TestCase):
                 with self.subTest(fixture=kind):
                     dest = Path(tmp) / kind
                     run = subprocess.run(
-                        ["bash", str(self.FIXTURES / "build.sh"), kind,
+                        [BASH, str(self.FIXTURES / "build.sh"), kind,
                          str(dest)], capture_output=True, text=True)
                     self.assertEqual(run.returncode, 0, run.stderr)
                     self.assertTrue((dest / "repo" / ".git").is_dir())
             gh = Path(tmp) / "pyrepo"
             run = subprocess.run(
-                ["bash", str(self.FIXTURES / "fake-gh.sh"), str(gh),
+                [BASH, str(self.FIXTURES / "fake-gh.sh"), str(gh),
                  "normal"], capture_output=True, text=True)
             self.assertEqual(run.returncode, 0, run.stderr)
             self.assertTrue((gh / "bin" / "gh").is_file())
@@ -414,7 +433,9 @@ class TestEvals(unittest.TestCase):
 
 class TestPublishable(unittest.TestCase):
     def test_no_private_paths_or_employer_details(self):
-        for f in sorted(SKILLS.rglob("*.md")):
+        for f in sorted([*SKILLS.rglob("*.md"),
+                         *(ROOT / ".apm").rglob("*.md"),
+                         ROOT / "apm.yml"]):
             text = f.read_text(encoding="utf-8")
             for n, line in enumerate(text.splitlines(), 1):
                 with self.subTest(file=str(f.relative_to(ROOT)), line=n):
@@ -451,6 +472,51 @@ class TestPublishable(unittest.TestCase):
                         for s in plugin["skills"])
         self.assertEqual(listed,
                          [f"./skills/{d.name}" for d in skill_dirs()])
+
+
+SHA_RE = re.compile(r"[0-9a-f]{40}")
+
+
+class TestManifest(unittest.TestCase):
+    """apm.yml is the one list of what install.py installs."""
+
+    def setUp(self):
+        self.deps = install.manifest_deps()
+
+    def test_every_skill_is_a_live_local_dependency(self):
+        live = {d["path"] for d in self.deps if d["active"]}
+        for d in skill_dirs():
+            with self.subTest(skill=d.name):
+                self.assertIn(f"./skills/{d.name}", live)
+
+    def test_every_requirement_is_live(self):
+        live = install.manifest_skill_names()
+        for skill, deps in install.REQUIRES.items():
+            for dep in deps:
+                with self.subTest(skill=skill, dep=dep):
+                    self.assertIn(dep, live)
+
+    def test_community_refs_are_full_shas(self):
+        for d in self.deps:
+            if d["path"].startswith("./"):
+                continue
+            with self.subTest(dep=d["name"]):
+                self.assertRegex(d["ref"] or "", SHA_RE)
+
+    def test_names_are_unique(self):
+        names = [d["name"] for d in self.deps]
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_github_mcp_is_live(self):
+        mcp = {d["name"]: d["active"]
+               for d in install.manifest_deps(section="mcp")}
+        self.assertTrue(mcp.get("github-mcp-server"))
+
+    def test_instructions_apply_everywhere(self):
+        text = (ROOT / ".apm" / "instructions"
+                / "personal.instructions.md").read_text(encoding="utf-8")
+        self.assertTrue(text.startswith("---\n"))
+        self.assertIn('applyTo: "**"', text.split("---", 2)[1])
 
 
 if __name__ == "__main__":

@@ -1,13 +1,10 @@
 # Community skills
 
-Every community skill is an entry in `skills-inventory.json`, pinned to a
-commit (see [installer.md](installer.md#skills-inventory-skillssh)).
-`install.py` fetches each repo into `~/.agent-skills-cache/<owner>--<repo>`
-and installs the skills alongside the custom ones. Sources:
-`github/awesome-copilot`, `juliusbrussee/caveman`, `addyosmani/agent-skills`,
-`warpdotdev/common-skills`, `anthropics/skills`, `vercel-labs/skills` and
-`mattpocock/skills`.
-Each inventory skill needs a section here; a test fails until it has one.
+Every skill here is listed in [`apm.yml`](../apm.yml) — live ones install by
+default, commented ones are optional: uncomment and re-run `install.py`.
+Sources: `github/awesome-copilot`, `juliusbrussee/caveman`,
+`addyosmani/agent-skills`, `warpdotdev/common-skills`, `anthropics/skills`,
+`vercel-labs/skills` and `mattpocock/skills`. Each skill in `apm.yml` gets a section here.
 
 ## code-tour
 Creates CodeTour `.tour` walkthroughs through a repo, PR, or bug.
@@ -20,8 +17,8 @@ chain to this skill at the end of a run and fall back to writing a minimal
 run, for a chained series.
 
 Upstream gotcha: its `SKILL.md` documents the bundled scripts at
-`~/.agents/skills/code-tour/scripts/`, a path this installer never creates —
-skills land in `~/.claude/skills/` and `~/.copilot/skills/`. Resolve
+`~/.agents/skills/code-tour/scripts/`, a path APM does not create for Claude —
+skills land in `~/.claude/skills/` (Copilot: `~/.agents/skills/`). Resolve
 `validate_tour.py` from the installed skill directory instead. The community
 copy is deliberately not patched; a re-fetch would overwrite the change.
 
@@ -124,8 +121,8 @@ PR Explanation section, skipping its `gh` steps. Without it,
 
 ## find-skills
 Searches the open skills ecosystem (`npx skills find <query>`) when a task
-might already have a skill. From `vercel-labs/skills` (MIT), via the
-inventory.
+might already have a skill. From `vercel-labs/skills` (MIT), via
+`apm.yml`.
 - `Is there a skill for Terraform plan reviews?`
 - `Find a skill for writing changelogs`
 
@@ -136,7 +133,7 @@ anything during a run.
 
 Upstream gotcha: its last step offers `npx skills add <owner/repo@skill> -g -y`,
 a one-off global install nothing here records. Treat that as a trial; to
-keep a skill, run `python3 install.py --add-inventory <owner/repo@skill>` and
+keep a skill, add it to `apm.yml` pinned to a commit, re-run `install.py` and
 commit the entry. The community copy is deliberately not patched.
 
 ## grilling
@@ -144,7 +141,7 @@ Interviews you about a plan, decision or idea in rounds: every question that
 can be answered now, numbered, each with a recommended answer that "yes"
 accepts. Looks facts up itself and leaves the decisions to you. From
 `mattpocock/skills` (MIT), fetched from its `skills/productivity/` folder.
-Cherry-pick.
+Cherry-pick: optional, uncomment it in `apm.yml`.
 - `Grill me on this migration plan`
 - `Stress-test my idea for splitting the build agents`
 
@@ -155,18 +152,15 @@ skill installed.
 ## grill-me
 Slash-only wrapper (`/grill-me`) that calls `grilling`. Claude only: its body
 tells the agent to call the Skill tool, which Copilot does not have. Install
-it together with `grilling`. Cherry-pick from `mattpocock/skills`.
+it together with `grilling`. Optional, from `mattpocock/skills`: uncomment it
+in `apm.yml` and add `targets: [claude]` (object form).
 - `/grill-me` followed by the plan
 
 ## to-questionnaire
 Turns a decision you cannot answer alone into a Markdown questionnaire for
-one person to fill in, written to `to-questionnaire-<slug>.md`. Cherry-pick
-from `mattpocock/skills`.
+one person to fill in, written to `to-questionnaire-<slug>.md`. Optional, from
+`mattpocock/skills`: uncomment it in `apm.yml`.
 - `Turn the open questions on the cache design into a questionnaire for the platform team`
 
 `roj-grill-plan` offers it at the end of a run for questions only someone
 else can answer, and lists them in chat when it is absent.
-
-Only `skills/productivity/` is pinned: the installer takes one subdir per
-source, so `mattpocock/skills` engineering skills (`grill-with-docs`,
-`domain-modeling`, ...) are not in the inventory.
