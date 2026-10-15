@@ -1,0 +1,22 @@
+[
+  {"query": "I have an app idea and want to plan it properly before Claude builds it", "should_trigger": true, "split": "train"},
+  {"query": "help me plan a new project before claude builds it, its a booking app for my yoga studio", "should_trigger": true, "split": "train"},
+  {"query": "set this repo up so an agent can build it, ~/code/plant-tracker is empty right now", "should_trigger": true, "split": "train"},
+  {"query": "i got an idea for a side project (budget tracker w/ bank csv import), where do i even start so claude can code it", "should_trigger": true, "split": "train"},
+  {"query": "Turn this idea into something buildable: a Slack bot that summarises our standups. I want requirements and architecture nailed down first", "should_trigger": true, "split": "train"},
+  {"query": "new empty folder, want to go from idea to a repo with CLAUDE.md, ADRs and a plan so an agent can run with it", "should_trigger": true, "split": "train"},
+  {"query": "can you take my startup idea from napkin to build-ready? recipe sharing app for families", "should_trigger": true, "split": "validation"},
+  {"query": "before I let claude loose on this I want a brief with non-goals, EARS requirements and ADRs for my new CLI tool", "should_trigger": true, "split": "validation"},
+  {"query": "I want to build a small SaaS for tracking invoices. what should exist before an agent starts coding?", "should_trigger": true, "split": "validation"},
+  {"query": "kick off a greenfeild project with me: home inventory app, and check the definition of ready before we build", "should_trigger": true, "split": "validation"},
+  {"query": "review my PR before I merge it, branch feat/login", "should_trigger": false, "split": "train"},
+  {"query": "grill me on this plan: we migrate the uploader to httpx next sprint", "should_trigger": false, "split": "train"},
+  {"query": "implement SB-PROJ-2001", "should_trigger": false, "split": "train"},
+  {"query": "write a spec for the export-to-csv feature in our existing billing service", "should_trigger": false, "split": "train"},
+  {"query": "explain what app/uploader.py does and who calls it", "should_trigger": false, "split": "train"},
+  {"query": "brainstorm names for my app, it's a plant watering reminder", "should_trigger": false, "split": "train"},
+  {"query": "install superpowers for me", "should_trigger": false, "split": "validation"},
+  {"query": "add an ADR to docs/adr for switching this service from Postgres to SQLite", "should_trigger": false, "split": "validation"},
+  {"query": "set up a CLAUDE.md for this existing Go service", "should_trigger": false, "split": "validation"},
+  {"query": "poke holes in the requirements in docs/requirements.md", "should_trigger": false, "split": "validation"}
+]

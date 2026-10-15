@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "roj-skills",
-      "description": "Branch and PR review, guided code explanation, repository onboarding tours, root-cause investigation, soundboarding, plan grilling and interview prep",
+      "description": "Branch and PR review, guided code explanation, repository onboarding tours, root-cause investigation, soundboarding, plan grilling, idea-to-project planning and interview prep",
       "source": "./",
       "strict": false,
       "skills": [
@@ -19,6 +19,7 @@
         "./skills/roj-explain-feature-changes",
         "./skills/roj-explain-logic",
         "./skills/roj-grill-plan",
+        "./skills/roj-idea-to-project",
         "./skills/roj-interview-prep",
         "./skills/roj-investigate-issue",
         "./skills/roj-review-pr-comment",

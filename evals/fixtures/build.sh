@@ -430,6 +430,90 @@ EOF
 | TC-1 | Server returns 503 twice, then 200 | Upload succeeds | | |
 EOF
   G add -A; G commit -qm "Add PROJ-2001 story and SB"; push_all ;;
+idea-empty)    mkdir -p repo ;;
+idea-brief-2ng) init_repo main
+  mkdir -p docs
+  cat > docs/brief.md <<'EOF'
+# Plant Pal Brief
+Status: Approved 2026-10-14
+## Problem (2 to 3 sentences)
+I forget to water my plants and they die.
+## Target user and main job-to-be-done
+Busy flat-dwellers with 5 to 20 house plants: know what to water today.
+## Pitch (3 sentences max)
+A web app that tells you which plants need water today.
+## Success metrics (measurable)
+- 80% of reminders acted on within 24 hours over the first month
+## MVP scope (3 to 5 bullets)
+- Add a plant with a watering interval
+- Daily reminder email
+- Mark a plant as watered
+## Non-goals (at least 5)
+- No native mobile app
+- No plant identification from photos
+## Constraints (budget, cloud, compliance, timeline)
+- Under 10 USD per month, one developer, 4 weeks
+## Open questions
+EOF
+  G add -A; G commit -qm "Add brief"; push_all ;;
+idea-req-gap)  init_repo main
+  mkdir -p docs/superpowers/specs
+  cat > docs/brief.md <<'EOF'
+# Plant Pal Brief
+Status: Approved 2026-10-14
+## Problem (2 to 3 sentences)
+I forget to water my plants and they die.
+## Target user and main job-to-be-done
+Busy flat-dwellers with 5 to 20 house plants: know what to water today.
+## Pitch (3 sentences max)
+A web app that tells you which plants need water today.
+## Success metrics (measurable)
+- 80% of reminders acted on within 24 hours over the first month
+## MVP scope (3 to 5 bullets)
+- Add a plant with a watering interval
+- Daily reminder email
+- Mark a plant as watered
+## Non-goals (at least 5)
+- No native mobile app
+- No plant identification from photos
+- No social or sharing features
+- No sensor or smart-pot integration
+- No payments
+## Constraints (budget, cloud, compliance, timeline)
+- Under 10 USD per month, one developer, 4 weeks
+## Open questions
+EOF
+  cat > docs/superpowers/specs/2026-10-14-plant-pal-design.md <<'EOF'
+# Plant Pal design
+Status: Approved 2026-10-14
+A small web app with a plants table and a daily reminder job.
+EOF
+  cat > docs/requirements.md <<'EOF'
+# Requirements: Plant Pal (v0.1, 2026-10-14)
+Status: Draft
+## Functional requirements
+### FR-1 Plants
+User story: As an owner, I want to add plants so that I get reminders.
+- FR-1.1 WHEN the owner adds a plant with an interval THE SYSTEM SHALL store it.
+Verification: tests/test_plants.py::test_add_plant
+### FR-2 Reminders
+User story: As an owner, I want a daily email so that I water on time.
+- FR-2.1 WHEN a plant is due THE SYSTEM SHALL email the owner by 08:00 local time.
+- FR-2.2 IF the email fails THEN THE SYSTEM SHALL retry once after 10 minutes.
+## Non-functional requirements
+- NFR-PERF: p95 < 300 ms at 5 rps
+- NFR-SEC: authn magic link; authz owner only; input validated at the API; secrets from env
+- NFR-OPS: structured logs; RPO 24 h
+- NFR-COST: < 10 USD per month
+## Out of scope
+## Traceability: requirement -> task -> test
+## Review log
+EOF
+  G add -A; G commit -qm "Add brief, design and draft requirements"; push_all ;;
 *) echo "unknown fixture $kind" >&2; exit 2 ;;
 esac
-echo "built $kind at $dest/repo on $(git -C "$dest/repo" branch --show-current)"
+if [ -d "$dest/repo/.git" ]; then
+  echo "built $kind at $dest/repo on $(git -C "$dest/repo" branch --show-current)"
+else
+  echo "built $kind at $dest/repo (no git)"
+fi

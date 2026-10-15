@@ -76,6 +76,7 @@ JetBrains setup are in [docs/installer.md](docs/installer.md).
 | [`roj-investigate-issue`](skills/roj-investigate-issue/USAGE.md) | Problem `.md` in, validated root cause and fix steps out (Bamboo, Java, Python, Bash, Go, Docker, k8s). |
 | [`roj-soundboarding`](skills/roj-soundboarding/USAGE.md) | User story → code-investigated SB document → task-by-task implementation with review stops. Never touches git. |
 | [`roj-grill-plan`](skills/roj-grill-plan/USAGE.md) | Grills a story, SB document or plan in rounds of questions with recommended answers, looks facts up itself, then writes the decisions back into the file. |
+| [`roj-idea-to-project`](skills/roj-idea-to-project/USAGE.md) | Raw app idea → brief, design, EARS requirements, architecture and ADRs, agent config and a checked Definition of Ready, one approved gate at a time with fresh-context reviews, then a hand-off to Superpowers. Installs Superpowers first when it is missing. Never touches git. |
 | [`roj-interview-prep`](skills/roj-interview-prep/USAGE.md) | DevOps technical-interview document generated from a candidate's CV. |
 
 Diagrams are always Mermaid: `roj-tour-codebase` puts a layer and a
@@ -140,7 +141,7 @@ test_skills.py    spec + publishing checks for every skill
 ## Tests
 
 ```bash
-python3 -m unittest test_install test_skills -v
+python3 -m unittest test_install test_skills test_idea_to_project -v
 python3 tools/sync_shared.py --check
 npx skills add . --list               # what skills.sh will discover
 ```
