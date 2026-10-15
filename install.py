@@ -237,17 +237,36 @@ def write_user_manifest(text, force=False, dry_run=False):
     return status
 
 
-def apm_install_argv(exe, targets):
+def apm_install_argv(exe, targets, with_mcp=True):
     value = ",".join(t for t in ("claude", "copilot") if t in targets)
     # --update makes a dependency removed from apm.yml disappear; pins are
-    # full SHAs, so it cannot move them.
-    return [exe, "install", "-g", "--update", "--target", value]
+    # full SHAs, so it cannot move them. --only apm skips MCP servers.
+    only = [] if with_mcp else ["--only", "apm"]
+    return [exe, "install", "-g", "--update", *only, "--target", value]
 
 
-def run_apm(argv):
+def github_token():
+    """Token for the GitHub MCP server, so APM never stops to prompt for it:
+    $token, else the logged-in GitHub CLI's, else None (a machine with no
+    GitHub login, e.g. one whose repos live on Bitbucket)."""
+    if os.environ.get("token"):
+        return os.environ["token"]
+    gh = shutil.which("gh")
+    if not gh:
+        return None
+    try:
+        run = subprocess.run([gh, "auth", "token"], capture_output=True,
+                             text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    token = (run.stdout or "").strip()
+    return token if run.returncode == 0 and token else None
+
+
+def run_apm(argv, env=None):
     """Run apm with its output passed through; returns its exit code."""
     try:
-        return subprocess.run(argv).returncode
+        return subprocess.run(argv, env=env).returncode
     except OSError as exc:
         warn(f"{' '.join(argv)} failed: {exc}")
         return 127
@@ -941,12 +960,17 @@ def main():
         results.extend(remove_instruction_copy(args.dry_run))
     results.append(("apm", "~/.apm/apm.yml", write_user_manifest(
         manifest, args.force, args.dry_run)))
-    argv = apm_install_argv(exe or "apm", targets)
+    token = github_token()
+    if not token:
+        log("No GitHub token ($token or 'gh auth login') — skipping MCP "
+            "servers; skills and instructions install as usual")
+    argv = apm_install_argv(exe or "apm", targets, with_mcp=bool(token))
     if args.dry_run:
         results.append(("apm", "install",
                         "dry-run: would run " + " ".join(["apm", *argv[1:]])))
     else:
-        code = run_apm(argv)
+        code = run_apm(argv, env=dict(os.environ, token=token) if token
+                       else None)
         if code:
             print_summary(results, targets, args.dry_run)
             warn("apm install failed — pre-APM entries removed above come "

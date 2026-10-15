@@ -34,9 +34,11 @@ Copilot, from one manifest ([`apm.yml`](apm.yml)).
    `install.py` writes `~/.apm/apm.yml` pointing at this clone, runs `apm install -g`,
    and installs `graphify` (a CLI APM cannot package).
 
-   On the first run APM asks for a `token` value for the GitHub MCP server
-   (a GitHub token). In a non-interactive shell set `token=...` in the
-   environment first. The first run also removes the entries older versions
+   The GitHub MCP server needs a GitHub token. `install.py` uses `$token`,
+   else `gh auth token` when the GitHub CLI is logged in; with neither (a
+   work machine on Bitbucket, say) it installs skills and instructions only
+   and skips MCP servers — no prompt, nothing to remember. The first run also
+   removes the entries older versions
    of `install.py` left for skills APM installs again, and warns about the
    rest.
 

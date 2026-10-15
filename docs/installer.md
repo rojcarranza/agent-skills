@@ -36,9 +36,12 @@ as `graphify`; a dry run only says it would), remove what pre-APM versions
 installed, write `~/.apm/apm.yml`
 (pointing at this clone), run `apm install -g --update --target <value>`,
 then install `graphify`. A `~/.apm/apm.yml` that `install.py` did not write
-stops the run unless `--force` is given. On the first run APM prompts for a
-`token` value for the GitHub MCP server (a GitHub token); in a
-non-interactive shell set `token=...` in the environment first.
+stops the run unless `--force` is given. APM never prompts for the GitHub MCP
+server's token: `install.py` hands it `$token`, else `gh auth token`; with
+neither it runs `apm install --only apm` (skills and instructions, no MCP
+servers) and says so. A machine without a GitHub login, e.g. one whose repos
+live on Bitbucket, therefore installs cleanly; an MCP server configured on an
+earlier run is left in place.
 
 In [dotfiles](https://github.com/rojcarranza/.dotfiles),
 `./install.py install agent-skills` clones this repo next to the dotfiles

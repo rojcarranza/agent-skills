@@ -951,11 +951,44 @@ class TestApm(TempDirTest):
                 self.assertEqual(install.apm_install_argv("apm", targets),
                                  ["apm", "install", "-g", "--update", "--target", value])
 
+    def test_install_argv_without_mcp(self):
+        self.assertEqual(
+            install.apm_install_argv("apm", ["claude"], with_mcp=False),
+            ["apm", "install", "-g", "--update", "--only", "apm",
+             "--target", "claude"])
+
     def test_run_apm_returns_exit_code(self):
         with mock.patch("install.subprocess.run",
                         return_value=mock.Mock(returncode=3)) as run:
             self.assertEqual(install.run_apm(["apm", "x"]), 3)
-        run.assert_called_once_with(["apm", "x"])
+        run.assert_called_once_with(["apm", "x"], env=None)
+
+    def test_github_token_prefers_env(self):
+        with mock.patch.dict(install.os.environ, {"token": "from-env"}), \
+                mock.patch("install.subprocess.run") as run:
+            self.assertEqual(install.github_token(), "from-env")
+        run.assert_not_called()
+
+    def test_github_token_from_gh_cli(self):
+        env = {k: v for k, v in install.os.environ.items() if k != "token"}
+        with mock.patch.dict(install.os.environ, env, clear=True), \
+                mock.patch("install.shutil.which", return_value="/bin/gh"), \
+                mock.patch("install.subprocess.run", return_value=mock.Mock(
+                    returncode=0, stdout="gho_abc\n")):
+            self.assertEqual(install.github_token(), "gho_abc")
+
+    def test_github_token_none_without_login(self):
+        env = {k: v for k, v in install.os.environ.items() if k != "token"}
+        for which, run in ((None, None),
+                           ("/bin/gh", mock.Mock(returncode=1, stdout="")),
+                           ("/bin/gh", OSError("boom"))):
+            with self.subTest(which=which, run=run), \
+                    mock.patch.dict(install.os.environ, env, clear=True), \
+                    mock.patch("install.shutil.which", return_value=which), \
+                    mock.patch("install.subprocess.run",
+                               side_effect=run if isinstance(run, Exception)
+                               else None, return_value=run):
+                self.assertIsNone(install.github_token())
 
     def test_run_apm_reports_missing_binary(self):
         with mock.patch("install.subprocess.run", side_effect=OSError("nope")):
@@ -1238,7 +1271,7 @@ class TestMain(TempDirTest):
     """main() end to end with apm, externals and homes faked."""
 
     def run_main(self, argv, apm="/bin/apm", apm_code=0, lock=False, wsl=False,
-                 externals=(), bootstrap=None):
+                 externals=(), bootstrap=None, token="tok"):
         home = self.tmp / "home"
         (home / ".apm").mkdir(parents=True, exist_ok=True)
         if lock:
@@ -1246,8 +1279,11 @@ class TestMain(TempDirTest):
                 lock if isinstance(lock, str) else "x")
         calls = []
 
-        def fake_run(cmd):
+        self.envs = []
+
+        def fake_run(cmd, env=None):
             calls.append(list(cmd))
+            self.envs.append(env)
             return apm_code
 
         out, err = io.StringIO(), io.StringIO()
@@ -1264,6 +1300,7 @@ class TestMain(TempDirTest):
                 mock.patch("install.find_cli",
                            side_effect=lambda n: apm if n == "apm" else None),
                 mock.patch("install.run_apm", side_effect=fake_run),
+                mock.patch("install.github_token", return_value=token),
                 mock.patch("install.EXTERNALS", list(externals)),
                 mock.patch("install.bootstrap_cli",
                            side_effect=bootstrap or (lambda ext, dry: None)),
@@ -1288,6 +1325,19 @@ class TestMain(TempDirTest):
                                   "--target", "claude,copilot"]])
         manifest = (self.tmp / "home" / ".apm" / "apm.yml").read_text()
         self.assertIn(install.REPO_ROOT.resolve().as_posix(), manifest)
+
+    def test_token_is_handed_to_apm(self):
+        self.run_main([], token="gho_abc")
+        self.assertEqual(self.envs[0]["token"], "gho_abc")
+
+    def test_no_token_installs_without_mcp(self):
+        code, calls, out, _ = self.run_main([], token=None)
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [["/bin/apm", "install", "-g", "--update",
+                                  "--only", "apm", "--target",
+                                  "claude,copilot"]])
+        self.assertIsNone(self.envs[0])
+        self.assertIn("skipping MCP servers", out)
 
     def test_single_target(self):
         _, calls, _, _ = self.run_main(["--target", "copilot"])
