@@ -164,3 +164,24 @@ one person to fill in, written to `to-questionnaire-<slug>.md`. Optional, from
 
 `roj-grill-plan` offers it at the end of a run for questions only someone
 else can answer, and lists them in chat when it is absent.
+
+## superpowers
+Brainstorming, planning, TDD, subagent-driven development and review skills
+from [obra/superpowers](https://github.com/obra/superpowers) (MIT), installed
+as a plugin rather than through `apm.yml`.
+
+`roj-idea-to-project` requires it and installs it on first run, after a yes:
+
+- Claude Code: `claude plugin install superpowers@claude-plugins-official`;
+  if that marketplace is not available, `claude plugin marketplace add
+  obra/superpowers-marketplace`, then `claude plugin install
+  superpowers@superpowers-marketplace`. Then `/reload-plugins`.
+- Copilot CLI: `copilot plugin marketplace add obra/superpowers-marketplace`,
+  then `copilot plugin install superpowers@superpowers-marketplace`, then
+  restart `copilot`.
+
+Copilot in VS Code and JetBrains is not supported yet: the skill folders
+install through `apm.yml` at a pinned commit, but Superpowers ships no
+Copilot tool map and its session-start bootstrap does not run from a
+skills-only install. Curated marketplaces can lag behind the latest release
+(v7.0.0 rebuilt brainstorming); the skill offers `claude plugin update`.
