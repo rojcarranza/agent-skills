@@ -205,5 +205,169 @@ class CheckSuperpowersTest(unittest.TestCase):
         self.assertEqual(calls.strip(), "claude plugin list --json")
 
 
+BRIEF_OK = """# Plants Brief
+Status: Approved 2026-10-15
+## Problem (2 to 3 sentences)
+Plants die.
+## Non-goals (at least 5)
+- No social feed
+- No marketplace
+- No native app
+1. No sensors
+2. No multi-language UI
+## Constraints (budget, cloud, compliance, timeline)
+"""
+
+REQ_OK = """# Requirements: Plants (v0.1, 2026-10-15)
+Status: Approved 2026-10-15
+## Functional requirements
+### FR-1 Reminders
+User story: As an owner, I want reminders so that plants live.
+- FR-1.1 WHEN a plant is due THE SYSTEM SHALL send a reminder.
+- FR-1.2 IF the reminder fails THEN THE SYSTEM SHALL retry once.
+Verification: test_reminders
+### FR-2 Plants
+- FR-2.1 WHILE a plant exists THE SYSTEM SHALL show its next due date.
+- Verification: tests/test_plants.py
+## Non-functional requirements
+- NFR-PERF: p95 < 200 ms at 10 rps
+- NFR-SEC: authn magic link; authz owner only; input validated at API; secrets from env
+## Traceability: requirement -> task -> test
+- FR-2.1 -> Task 3 -> test_plants
+"""
+
+ADRS = {
+    "0001-language.md": "# ADR-0001: Python 3.12\n",
+    "0002-database.md": "# ADR-0002: SQLite\n",
+    "0003-auth.md": "# ADR-0003: Magic links\n",
+    "0004-hosting.md": "# ADR-0004: Fly.io\n",
+    "0005-x.md": "# ADR-0005: Structured logging and metrics\n",
+}
+
+
+class CheckReadyTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.write("docs/brief.md", BRIEF_OK)
+        self.write("docs/requirements.md", REQ_OK)
+        self.write("docs/architecture.md", "# Architecture\n")
+        for name, text in ADRS.items():
+            self.write(f"docs/adr/{name}", text)
+        self.write("CLAUDE.md", "# Plants\n" + "- line\n" * 40)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def write(self, rel, text, newline="\n"):
+        p = self.root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text.replace("\n", newline), encoding="utf-8",
+                     newline="")
+
+    def run_ready(self, *args):
+        return run_script(CHECK_READY, [*args, str(self.root)],
+                          Path(self.tmp.name))
+
+    def assert_fails_with(self, line, *args):
+        p = self.run_ready(*args)
+        self.assertEqual(p.returncode, 1, p.stdout)
+        self.assertIn(line, p.stdout)
+        self.assertIn("NOT READY", p.stdout)
+
+    def test_help(self):
+        p = run_script(CHECK_READY, ["--help"], self.root)
+        self.assertEqual(p.returncode, 0)
+        self.assertIn("--phase", p.stdout)
+
+    def test_ready_project_passes(self):
+        p = self.run_ready()
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertTrue(p.stdout.strip().endswith("READY"))
+
+    def test_crlf_files_pass(self):
+        self.write("docs/requirements.md", REQ_OK, newline="\r\n")
+        self.write("docs/brief.md", BRIEF_OK, newline="\r\n")
+        self.assertEqual(self.run_ready().returncode, 0)
+
+    def test_two_non_goals(self):
+        self.write("docs/brief.md",
+                   "# B\n## Non-goals (at least 5)\n- a\n- b\n## Open questions\n")
+        self.assert_fails_with(
+            "docs/brief.md has 2 non-goals: add at least 3 more under "
+            "## Non-goals", "--phase", "brief")
+
+    def test_missing_verification(self):
+        self.write("docs/requirements.md",
+                   REQ_OK.replace("- Verification: tests/test_plants.py\n", ""))
+        self.assert_fails_with(
+            'FR-2 has no Verification line: add "Verification: '
+            '<test name or command>"', "--phase", "requirements")
+
+    def test_placeholder_verification(self):
+        self.write("docs/requirements.md", REQ_OK.replace(
+            "Verification: test_reminders",
+            "Verification: <test name or command>"))
+        self.assert_fails_with(
+            "FR-1 Verification is still the template placeholder: name the "
+            "test or command", "--phase", "requirements")
+
+    def test_not_ears(self):
+        self.write("docs/requirements.md", REQ_OK.replace(
+            "- FR-1.2 IF the reminder fails THEN THE SYSTEM SHALL retry once.",
+            "- FR-1.2 The system retries failed reminders."))
+        self.assert_fails_with(
+            "FR-1.2 is not in EARS form: use WHEN/IF/WHILE/WHERE ... "
+            "THE SYSTEM SHALL ...", "--phase", "requirements")
+
+    def test_traceability_mentions_are_not_checked(self):
+        p = self.run_ready("--phase", "requirements")
+        self.assertEqual(p.returncode, 0, p.stdout)
+
+    def test_no_nfr_sec(self):
+        self.write("docs/requirements.md", "\n".join(
+            ln for ln in REQ_OK.splitlines() if "NFR-SEC" not in ln) + "\n")
+        self.assert_fails_with("docs/requirements.md has no NFR-SEC line",
+                               "--phase", "requirements")
+
+    def test_adr_area_missing(self):
+        (self.root / "docs/adr/0005-x.md").unlink()
+        self.assert_fails_with("no ADR covers observability",
+                               "--phase", "architecture")
+
+    def test_adr_matched_by_title(self):
+        # 0005-x.md matches observability only through its title.
+        p = self.run_ready("--phase", "architecture")
+        self.assertEqual(p.returncode, 0, p.stdout)
+
+    def test_claude_md_too_long(self):
+        self.write("CLAUDE.md", "- x\n" * 120)
+        self.assert_fails_with(
+            "CLAUDE.md has 120 lines: cut it to under 100",
+            "--phase", "agent-config")
+
+    def test_missing_file_names_template(self):
+        (self.root / "CLAUDE.md").unlink()
+        self.assert_fails_with(
+            "CLAUDE.md is missing: write it from the skill's "
+            "assets/claude-md-template.md", "--phase", "agent-config")
+
+    def test_phase_limits_checks(self):
+        (self.root / "CLAUDE.md").unlink()
+        p = self.run_ready("--phase", "requirements")
+        self.assertEqual(p.returncode, 0, p.stdout)
+
+    def test_all_lists_every_issue(self):
+        (self.root / "CLAUDE.md").unlink()
+        (self.root / "docs/adr/0003-auth.md").unlink()
+        p = self.run_ready()
+        self.assertIn("NOT READY: 2 issues", p.stdout)
+
+    def test_root_not_a_directory(self):
+        p = run_script(CHECK_READY, [str(self.root / "nope")], self.root)
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("is not a directory", p.stdout + p.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
