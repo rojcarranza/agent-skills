@@ -55,12 +55,12 @@ for when the repository says nothing.
 - **Python** — standard library only unless a dependency is genuinely needed,
   and say so when proposing one. Tests are `python3 -m unittest`, not pytest.
   Target 3.9+. Type-annotate public functions.
-- **Java / Maven** — Maven is the build tool. Atlassian Bamboo Specs are Java,
-  against the `bamboo-specs-api`; treat a Specs change as a behaviour change
-  to the pipeline, not as configuration.
-- **Bamboo** — model work as plan → stage → job → task. Be explicit about
-  variable scope (plan vs global vs build) and about artifact flow between
-  plans.
+- **Java / Maven** — Maven is the build tool. CI pipelines defined in Java
+  code are code: treat a change to them as a behaviour change to the
+  pipeline, not as configuration.
+- **CI server** — model work as pipeline → stage → job → step. Be explicit
+  about variable scope (pipeline vs global vs build) and about artifact flow
+  between pipelines.
 - **Shell** — `set -euo pipefail`. Quote expansions. Say what happens when a
   mid-pipeline command fails.
 - **Kubernetes / Helm** — charts with values files per environment.
