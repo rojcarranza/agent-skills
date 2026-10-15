@@ -1,6 +1,8 @@
 # Phase 0: Superpowers setup
 
-Read before running `scripts/check_superpowers.py`.
+Read before running `scripts/check_superpowers.py`. Always pass the client
+you are running in: `--client claude` (Claude Code) or `--client copilot`
+(Copilot CLI).
 
 ## Act on `status`
 
@@ -64,7 +66,8 @@ After any install, enable or update, say exactly:
 Then STOP. You cannot run `/reload-plugins`: it only runs when the user
 types it. When the user confirms:
 
-1. Run `scripts/check_superpowers.py` again: exit 0 means it is installed.
+1. Run `scripts/check_superpowers.py --client <yours>` again: exit 0 means
+   it is installed.
 2. Look for `superpowers:brainstorming` in your own skill list: listed
    means the session reloaded. The script cannot see this; only you can.
 

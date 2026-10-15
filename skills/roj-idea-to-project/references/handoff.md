@@ -20,9 +20,13 @@ rules:
 
 - Task 1 is a walking skeleton: repo layout, CI, one request end to end,
   a dev deploy. It also runs every `CLAUDE.md` command marked "verified by
-  plan task 1", and adds the `Stop` hook to `.claude/settings.json`
-  (`"Stop": [{"hooks": [{"type": "command", "command": "<unit test
-  command> || exit 2"}]}]`) once the tests exist.
+  plan task 1", and adds the `Stop` hook to `.claude/settings.json` once
+  the tests exist. The hook exits 0 when `stop_hook_active` is true, so a
+  suite that stays red cannot keep the agent from ever stopping:
+
+  ```json
+  "Stop": [{"hooks": [{"type": "command", "command": "python3 -c \"import json,sys; sys.exit(0 if json.load(sys.stdin).get('stop_hook_active') else 1)\" || <unit test command> || exit 2"}]}]
+  ```
 - Every task names the requirement IDs it serves and uses this format:
 
   ```

@@ -23,6 +23,7 @@ ITEM_RE = re.compile(r"^\s*(?:[-*]|\d+[.)])\s+\S")
 FR_ITEM_RE = re.compile(r"^\s*[-*]\s*(FR-\d+\.\d+)\b(.*)$")
 FR_HEAD_RE = re.compile(r"^###\s+(FR-\d+)\b")
 EARS_RE = re.compile(r"\b(WHEN|IF|WHILE|WHERE)\b.*\bSHALL\b")
+FAILURE_RE = re.compile(r"\bIF\b.*\bTHEN\b.*\bSHALL\b")
 VERIFY_RE = re.compile(r"^\s*(?:[-*]\s*)?Verification:\s*(.*)$")
 NFR_SEC_RE = re.compile(r"^\s*[-*]\s*NFR-SEC\b")
 AREA_RE = re.compile(r"^\s*Area:\s*(.+)$", re.I)
@@ -33,6 +34,8 @@ ADR_AREAS = {
     "deploy target": ("deploy", "deployment", "hosting", "infrastructure"),
     "observability": ("observability", "logging", "monitoring", "telemetry"),
 }
+# Short forms accepted on an ADR's Area: line.
+AREA_ALIASES = {"deploy": "deploy target"}
 
 
 def read(path: Path) -> Optional[list[str]]:
@@ -76,6 +79,7 @@ def check_requirements(root: Path) -> list[str]:
         return [missing("docs/requirements.md", "requirements-template.md")]
     found: list[str] = []
     blocks: dict[str, Optional[str]] = {}
+    failure_path: set[str] = set()
     current: Optional[str] = None
     for ln in lines:
         head = FR_HEAD_RE.match(ln)
@@ -92,6 +96,8 @@ def check_requirements(root: Path) -> list[str]:
         if item and not EARS_RE.search(item[2]):
             found.append(f"{item[1]} is not in EARS form: use "
                          "WHEN/IF/WHILE/WHERE ... THE SYSTEM SHALL ...")
+        if item and FAILURE_RE.search(item[2]):
+            failure_path.add(current)
         verify = VERIFY_RE.match(ln)
         if verify and current and blocks[current] is None:
             blocks[current] = verify[1].strip()
@@ -99,7 +105,11 @@ def check_requirements(root: Path) -> list[str]:
         found.append("docs/requirements.md has no ### FR-<n> blocks: add one "
                      "per feature from the template")
     for fr, value in blocks.items():
-        if value is None or not value:
+        if fr not in failure_path:
+            found.append(f'{fr} has no IF ... THEN failure-path bullet: add '
+                         f'"- {fr}.<m> IF <unwanted condition> THEN THE SYSTEM '
+                         f'SHALL <response>."')
+        if not value:
             found.append(f'{fr} has no Verification line: add '
                          f'"Verification: <test name or command>"')
         elif value.startswith("<"):
@@ -125,8 +135,9 @@ def check_architecture(root: Path) -> list[str]:
         for ln in lines:
             area = AREA_RE.match(ln)
             if area:
-                declared |= {a.strip().lower() for a in area[1].split(",")}
-    declared |= {"deploy target" for a in list(declared) if a == "deploy"}
+                for a in area[1].split(","):
+                    a = a.strip().lower()
+                    declared.add(AREA_ALIASES.get(a, a))
     for area, words in ADR_AREAS.items():
         if area in declared or any(re.search(rf"\b{w}\b", t)
                                    for t in texts for w in words):

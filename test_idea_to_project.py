@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -214,6 +215,62 @@ class CheckSuperpowersTest(unittest.TestCase):
         self.assertEqual(r["status"], "undetectable")
         self.assertIn("timed out", p.stderr)
 
+    def test_copilot_other_plugin_from_the_marketplace_is_not_superpowers(self):
+        fake_cli(self.bin, "copilot", "Installed plugins:\n"
+                 "  elements-of-style@superpowers-marketplace (v1.2.0)\n"
+                 "  superpowers-chrome@superpowers-marketplace (v0.3.0)\n")
+        p, r = self.run_check("--client", "copilot")
+        self.assertEqual(r["status"], "missing")
+
+    def test_grandchild_holding_the_pipe_does_not_outlast_the_timeout(self):
+        body = ("import subprocess, sys, time\n"
+                "subprocess.Popen([sys.executable, '-c', "
+                "'import time; time.sleep(20)'])\n"
+                "time.sleep(20)\n")
+        if os.name == "nt":
+            (self.bin / "claude.py").write_text(body, encoding="utf-8")
+            (self.bin / "claude.cmd").write_text(
+                f'@"{sys.executable}" "%~dp0claude.py" %*\n', encoding="utf-8")
+        else:
+            exe = self.bin / "claude"
+            exe.write_text(f"#!{sys.executable}\n{body}", encoding="utf-8")
+            exe.chmod(0o755)
+        start = time.monotonic()
+        p, r = self.run_check("--timeout", "1")
+        self.assertLess(time.monotonic() - start, 10)
+        self.assertEqual(r["status"], "undetectable")
+
+    def test_synced_install_gets_no_cli_command(self):
+        self.claude_list([plugin("superpowers@synced", "6.4.1")])
+        p, r = self.run_check()
+        self.assertEqual(r["status"], "outdated")
+        self.assertEqual(r["next"], [])
+
+    def test_skills_dir_install_disabled_gets_no_cli_command(self):
+        self.claude_list([plugin("superpowers@skills-dir", "7.0.0",
+                                 enabled=False)])
+        p, r = self.run_check()
+        self.assertEqual(r["status"], "disabled")
+        self.assertEqual(r["next"], [])
+
+    def test_missing_version_key_is_unknown(self):
+        entry = plugin("superpowers@claude-plugins-official", "7.0.0")
+        del entry["version"]
+        self.claude_list([entry])
+        p, r = self.run_check()
+        self.assertEqual(r["version"], "unknown")
+        self.assertNotIn("None", p.stderr)
+
+    def test_check_takes_a_timeout_argument(self):
+        sys.path.insert(0, str(SCRIPTS))
+        try:
+            import check_superpowers
+        finally:
+            sys.path.pop(0)
+        import inspect
+        self.assertIn("timeout",
+                      inspect.signature(check_superpowers.check).parameters)
+
     def test_never_runs_an_install(self):
         self.claude_list([])
         self.run_check()
@@ -244,6 +301,7 @@ User story: As an owner, I want reminders so that plants live.
 Verification: test_reminders
 ### FR-2 Plants
 - FR-2.1 WHILE a plant exists THE SYSTEM SHALL show its next due date.
+- FR-2.2 IF the plant is deleted THEN THE SYSTEM SHALL stop its reminders.
 - Verification: tests/test_plants.py
 ## Non-functional requirements
 - NFR-PERF: p95 < 200 ms at 10 rps
@@ -381,6 +439,20 @@ class CheckReadyTest(unittest.TestCase):
         (self.root / "docs/adr/0003-auth.md").unlink()
         self.assert_fails_with('or add "Area: auth" to the ADR that decides '
                                "it", "--phase", "architecture")
+
+    def test_fr_without_failure_path(self):
+        self.write("docs/requirements.md", REQ_OK.replace(
+            "- FR-2.2 IF the plant is deleted THEN THE SYSTEM SHALL stop "
+            "its reminders.\n", ""))
+        self.assert_fails_with(
+            "FR-2 has no IF ... THEN failure-path bullet", "--phase",
+            "requirements")
+
+    def test_area_alias_deploy(self):
+        (self.root / "docs/adr/0004-hosting.md").unlink()
+        self.write("docs/adr/0004-x.md", "# ADR-0004: Fly.io\nArea: deploy\n")
+        p = self.run_ready("--phase", "architecture")
+        self.assertEqual(p.returncode, 0, p.stdout)
 
     def test_claude_md_too_long(self):
         self.write("CLAUDE.md", "- x\n" * 120)

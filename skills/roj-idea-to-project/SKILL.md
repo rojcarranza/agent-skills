@@ -93,7 +93,9 @@ Read `references/setup-superpowers.md` before running the check. In Copilot
 inside VS Code or JetBrains, say this skill needs Claude Code or GitHub
 Copilot CLI and stop.
 
-Run `scripts/check_superpowers.py` and act on `status`: `ok` continues;
+Run `scripts/check_superpowers.py --client claude` in Claude Code, or
+`--client copilot` in Copilot CLI (the default probes `claude` first, which
+is the wrong client in a Copilot session), and act on `status`: `ok` continues;
 `missing` or `disabled` gets an explanation and a yes before running
 `next`; `outdated` gets the update offered, and a no continues with the
 version noted in the brief; `undetectable` means checking your own skill

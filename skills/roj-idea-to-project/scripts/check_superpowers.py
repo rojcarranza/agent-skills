@@ -23,7 +23,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import signal
 import shutil
 import subprocess
 import sys
@@ -34,6 +36,12 @@ COMMUNITY = "superpowers-marketplace"
 VERSION_RE = re.compile(r"\bv?(\d+)\.(\d+)\.(\d+)\b")
 PASSING = {"ok", "outdated"}
 TIMEOUT = 30  # seconds; a CLI waiting on a login prompt must not hang phase 0
+# Copilot list lines: the plugin name is "superpowers" itself, not a plugin
+# from the superpowers-marketplace or a superpowers-* sibling.
+COPILOT_NAME_RE = re.compile(r"(?<![\w@-])superpowers(?![\w-])", re.I)
+# claude plugin list ids that are not marketplace installs: no CLI command
+# can update or enable them.
+NOT_MARKETPLACE = {"inline", "skills-dir", "synced"}
 
 
 def parse_version(text: Optional[str]) -> Optional[tuple[int, int, int]]:
@@ -42,20 +50,38 @@ def parse_version(text: Optional[str]) -> Optional[tuple[int, int, int]]:
     return (int(m[1]), int(m[2]), int(m[3])) if m else None
 
 
-def run(cmd: list[str]) -> Optional[tuple[int, str, str]]:
+def kill_tree(p: subprocess.Popen) -> None:
+    """Kill p and everything it started: a CLI shim (npm's claude.cmd, a
+    node wrapper) leaves a grandchild holding the output pipes."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)],
+                       capture_output=True)
+    else:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            p.kill()
+
+
+def run(cmd: list[str], timeout: int) -> Optional[tuple[int, str, str]]:
     """(exit code, stdout, stderr) of cmd, or None when it is not on PATH."""
     exe = shutil.which(cmd[0])
     if not exe:
         return None
     try:
-        p = subprocess.run([exe, *cmd[1:]], capture_output=True, text=True,
-                           encoding="utf-8", errors="replace",
-                           stdin=subprocess.DEVNULL, timeout=TIMEOUT)
-    except subprocess.TimeoutExpired:
-        return 124, "", f"timed out after {TIMEOUT}s (is it waiting on a prompt?)"
+        p = subprocess.Popen(
+            [exe, *cmd[1:]], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True, encoding="utf-8",
+            errors="replace", start_new_session=os.name != "nt")
     except OSError as e:
         return 126, "", f"could not run {exe}: {e}"
-    return p.returncode, p.stdout, p.stderr
+    try:
+        out, err = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        kill_tree(p)
+        p.communicate()
+        return 124, "", f"timed out after {timeout}s (is it waiting on a prompt?)"
+    return p.returncode, out, err
 
 
 def report(client: Optional[str], status: str, version: Optional[str] = None,
@@ -73,11 +99,14 @@ def grade(client: str, version: str, enabled: bool, plugin_id: str,
           minimum: tuple[int, int, int]) -> dict:
     """Status of one found install."""
     tool = "claude" if client == "claude" else "copilot"
+    managed = plugin_id.split("@", 1)[-1] not in NOT_MARKETPLACE
     if not enabled:
+        how = (f"run `{tool} plugin enable {plugin_id}`" if managed else
+               f"turn it on where {plugin_id} is loaded from")
         return report(client, "disabled", version, False,
-                      [f"{tool} plugin enable {plugin_id}"],
-                      f"Superpowers is installed but disabled: run "
-                      f"`{tool} plugin enable {plugin_id}`, then reload.")
+                      [f"{tool} plugin enable {plugin_id}"] if managed else [],
+                      f"Superpowers is installed but disabled: {how}, then "
+                      f"reload.")
     found = parse_version(version)
     if found is None:
         return report(client, "ok", version, True, [],
@@ -86,17 +115,19 @@ def grade(client: str, version: str, enabled: bool, plugin_id: str,
     if found < minimum:
         reload = ("/reload-plugins" if client == "claude"
                   else "restart copilot")
+        how = (f"offer `{tool} plugin update {plugin_id}`, then {reload}"
+               if managed else f"update it where {plugin_id} is loaded from")
         return report(client, "outdated", version, True,
-                      [f"{tool} plugin update {plugin_id}"],
+                      [f"{tool} plugin update {plugin_id}"] if managed else [],
                       f"Superpowers {version} is older than "
-                      f"{'.'.join(map(str, minimum))}: offer "
-                      f"`{tool} plugin update {plugin_id}`, then {reload}.")
+                      f"{'.'.join(map(str, minimum))}: {how}.")
     return report(client, "ok", version, True, [],
                   f"Superpowers {version} is installed and enabled.")
 
 
-def from_claude(minimum: tuple[int, int, int]) -> Optional[dict]:
-    got = run(["claude", "plugin", "list", "--json"])
+def from_claude(minimum: tuple[int, int, int],
+                timeout: int) -> Optional[dict]:
+    got = run(["claude", "plugin", "list", "--json"], timeout)
     if got is None:
         return None
     code, out, err = got
@@ -120,12 +151,14 @@ def from_claude(minimum: tuple[int, int, int]) -> Optional[dict]:
             f"plugin marketplace add obra/{COMMUNITY}`, then `claude plugin "
             f"install superpowers@{COMMUNITY}`), then /reload-plugins."))
     best = sorted(mine, key=lambda p: not p.get("enabled"))[0]
-    return grade("claude", str(best.get("version")), bool(best.get("enabled")),
+    return grade("claude", str(best.get("version") or "unknown"),
+                 bool(best.get("enabled")),
                  str(best["id"]), minimum)
 
 
-def from_copilot(minimum: tuple[int, int, int]) -> Optional[dict]:
-    got = run(["copilot", "plugin", "list"])
+def from_copilot(minimum: tuple[int, int, int],
+                 timeout: int) -> Optional[dict]:
+    got = run(["copilot", "plugin", "list"], timeout)
     if got is None:
         return None
     code, out, err = got
@@ -134,8 +167,7 @@ def from_copilot(minimum: tuple[int, int, int]) -> Optional[dict]:
         return report("copilot", "undetectable", note=(
             "`copilot plugin list` failed"
             + (f": {detail[-1]}" if detail else "") + "."))
-    lines = [ln for ln in out.splitlines()
-             if re.search(r"\bsuperpowers\b", ln, re.I)]
+    lines = [ln for ln in out.splitlines() if COPILOT_NAME_RE.search(ln)]
     if not lines:
         cmds = [f"copilot plugin marketplace add obra/{COMMUNITY}",
                 f"copilot plugin install superpowers@{COMMUNITY}"]
@@ -149,12 +181,13 @@ def from_copilot(minimum: tuple[int, int, int]) -> Optional[dict]:
                  f"superpowers@{COMMUNITY}", minimum)
 
 
-def check(client: str, minimum: tuple[int, int, int]) -> dict:
+def check(client: str, minimum: tuple[int, int, int],
+          timeout: int = TIMEOUT) -> dict:
     """Report for `client` (auto tries claude, then copilot)."""
     order = {"auto": (from_claude, from_copilot), "claude": (from_claude,),
              "copilot": (from_copilot,)}[client]
     for probe in order:
-        result = probe(minimum)
+        result = probe(minimum, timeout)
         if result is not None:
             return result
     return report(None, "undetectable", note=(
@@ -164,7 +197,6 @@ def check(client: str, minimum: tuple[int, int, int]) -> dict:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    global TIMEOUT
     ap = argparse.ArgumentParser(
         description="Report whether Superpowers is installed, enabled and "
                     "current. Never installs anything.",
@@ -178,11 +210,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--timeout", type=int, default=TIMEOUT,
                     help="seconds to wait for the CLI (default: %(default)s)")
     args = ap.parse_args(argv)
-    TIMEOUT = args.timeout
     minimum = parse_version(args.min_version)
     if minimum is None:
         ap.error("--min-version must look like 7.0.0")
-    result = check(args.client, minimum)
+    result = check(args.client, minimum, args.timeout)
     note = result.pop("_note")
     print(json.dumps(result))
     print(note, file=sys.stderr)
