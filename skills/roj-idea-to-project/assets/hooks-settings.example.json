@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "<format and lint command>"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,sys,fnmatch; p=json.load(sys.stdin).get('tool_input',{}).get('file_path',''); b=any(fnmatch.fnmatch(p,g) for g in ('*.env*','*infra/prod/*','*migrations/*')); b and print('Blocked: '+p+' is protected; ask the user first', file=sys.stderr); sys.exit(2 if b else 0)\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "<unit test command> || exit 2"
+          }
+        ]
+      }
+    ]
+  }
+}
