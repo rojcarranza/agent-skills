@@ -141,7 +141,7 @@ test_skills.py    spec + publishing checks for every skill
 ## Tests
 
 ```bash
-python3 -m unittest test_install test_skills -v
+python3 -m unittest test_install test_skills test_idea_to_project -v
 python3 tools/sync_shared.py --check
 npx skills add . --list               # what skills.sh will discover
 ```

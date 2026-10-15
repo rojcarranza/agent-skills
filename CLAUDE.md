@@ -53,6 +53,6 @@
 ## Before pushing
 
 ```bash
-python3 -m unittest test_install test_skills
+python3 -m unittest test_install test_skills test_idea_to_project
 python3 tools/sync_shared.py --check
 ```
