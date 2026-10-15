@@ -344,7 +344,7 @@ class TestEvals(unittest.TestCase):
     # Skills whose descriptions overlap; each must keep an eval set.
     REQUIRED = {"roj-code-review-pr", "roj-code-review-pr-fast",
                 "roj-review-pr-comment", "roj-explain-logic",
-                "roj-explain-feature-changes"}
+                "roj-explain-feature-changes", "roj-idea-to-project"}
 
     def eval_dirs(self):
         return sorted(p for p in (ROOT / "evals").iterdir()
