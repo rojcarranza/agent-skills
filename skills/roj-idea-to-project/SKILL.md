@@ -43,8 +43,8 @@ keeps the gates.
    before writing it. Never overwrite, rename or delete an existing file
    without a yes.
 8. **Git: hands off.** Never commit, branch or push, including when a
-   Superpowers skill says to. Offer `git init` only in an empty folder with
-   no `.git`, and run it only on a yes.
+   Superpowers skill says to. Mention `git init` only in an empty folder
+   with no `.git`, and run it only when the user asks for it.
 9. **Install nothing but Superpowers, and only after a yes.** Linters and
    scanners are suggested in phase 5, never installed.
 
@@ -64,10 +64,14 @@ it:
 - [ ] 7 Hand-off: docs/progress.md
 ```
 
-A phase is done when its files exist, carry `Status: Approved YYYY-MM-DD`
-and pass their check. An approved file that fails its check is not done:
-resume there and say why. Write the `Status: Approved` line only after
-the user approves that gate.
+A phase is done when its marker file carries `Status: Approved
+YYYY-MM-DD` and passes its check. Marker files: phase 1 `docs/brief.md`,
+2 the design spec, 3 `docs/requirements.md`, 4 `docs/architecture.md`, 5
+`CLAUDE.md` (it stands for `.claude/settings.json` and the agents, which
+cannot carry the line), 6 the plan, 7 `docs/progress.md` exists. An
+approved file that fails its check is not done: resume there and say why.
+Write the `Status: Approved` line under the file's title only after the
+user approves that gate.
 
 Scripts live in this skill's folder; run them with `python3` (or `python`
 where that is Python 3) and pass the project folder as ROOT:
@@ -94,8 +98,11 @@ version noted in the brief; `undetectable` means checking your own skill
 list for `superpowers:brainstorming`.
 
 After any install, enable or update: tell the user to run `/reload-plugins`
-(Copilot CLI: restart `copilot`) and STOP. You cannot run it. Re-run the
-check when they confirm; continue only on exit 0. A failed install: show
+(Copilot CLI: restart `copilot`) and STOP. You cannot run it. When they
+confirm, re-run the check and look for `superpowers:brainstorming` in your
+own skill list: the check reads the install on disk, the skill list shows
+the reload happened. Continue only when both pass; otherwise repeat the
+reload stop. A failed install: show
 the error verbatim and the command for their own terminal, then STOP.
 
 ## Phase 1: Brief → `docs/brief.md`
@@ -109,8 +116,8 @@ phase checks; without them agents over-build.
 
 Invoke `superpowers:brainstorming` with `@docs/brief.md`. Its flow shapes
 the design; override two of its steps: do not commit the spec, and after
-the user approves it, come back here for phase 3 instead of invoking
-`writing-plans`. Hidden decisions surface here, before they become
+the user approves it, write `Status: Approved YYYY-MM-DD` under its
+title and come back here for phase 3 instead of invoking `writing-plans`. Hidden decisions surface here, before they become
 requirements.
 
 ## Phase 3: Requirements → `docs/requirements.md`
@@ -134,8 +141,11 @@ datastore or dependency without an ADR.
 Read `references/phase-agent-config.md` before writing. List all five
 paths, write them on one yes from `assets/claude-md-template.md`,
 `assets/hooks-settings.example.json` and `assets/agents/`. Gate: the user
-runs every `CLAUDE.md` command in a fresh shell and confirms each one, then
-`check_ready.py --phase agent-config`, then the approval. Guardrails exist
+runs, in a fresh shell, every `CLAUDE.md` command that can work before
+any code exists, and confirms each one (the rest are verified by plan task
+1), then
+`check_ready.py --phase agent-config`, then the approval; on a yes, write
+`Status: Approved YYYY-MM-DD` under the title of `CLAUDE.md`. Guardrails exist
 before the first line of agent code.
 
 ## Phase 6: Ready + plan → `docs/superpowers/plans/<date>-<feature>.md`
@@ -144,7 +154,8 @@ Read `references/handoff.md` before the plan. Run
 `check_ready.py --phase all` as a loop until `READY`, then invoke
 `superpowers:writing-plans` with the plan rules from that file; override:
 no commit, stop after writing. Gate: fresh review plus
-`architecture-guardian`, then the approval. Small verified tasks let the
+`architecture-guardian`, then the approval; on a yes, write
+`Status: Approved YYYY-MM-DD` under the plan's title. Small verified tasks let the
 agent run for hours without drifting.
 
 ## Phase 7: Hand-off → `docs/progress.md`

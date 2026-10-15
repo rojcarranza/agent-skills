@@ -6,8 +6,9 @@ Read before the first brief question. Output: `docs/brief.md` from
 ## Before the first question
 
 - State the path: `docs/brief.md`.
-- Folder empty and no `.git`: offer `git init` once, as its own question
-  (recommended: yes). Run it only on a yes. Never commit.
+- Folder empty and no `.git`: add one line to your first message, not a
+  question: "This folder is not a git repo; say `git init` whenever you
+  want one." Run `git init` only when the user asks for it. Never commit.
 - Fill facts yourself: today's date, the Superpowers version note from
   phase 0 when it was outdated.
 

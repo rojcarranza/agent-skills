@@ -21,16 +21,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "<unit test command> || exit 2"
-          }
-        ]
-      }
     ]
   }
 }

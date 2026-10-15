@@ -25,6 +25,7 @@ FR_HEAD_RE = re.compile(r"^###\s+(FR-\d+)\b")
 EARS_RE = re.compile(r"\b(WHEN|IF|WHILE|WHERE)\b.*\bSHALL\b")
 VERIFY_RE = re.compile(r"^\s*(?:[-*]\s*)?Verification:\s*(.*)$")
 NFR_SEC_RE = re.compile(r"^\s*[-*]\s*NFR-SEC\b")
+AREA_RE = re.compile(r"^\s*Area:\s*(.+)$", re.I)
 ADR_AREAS = {
     "language": ("language", "stack", "runtime", "framework"),
     "persistence": ("persistence", "database", "storage", "datastore"),
@@ -116,16 +117,25 @@ def check_architecture(root: Path) -> list[str]:
     if read(root / "docs" / "architecture.md") is None:
         found.append(missing("docs/architecture.md",
                              "architecture-template.md"))
-    texts = []
+    texts, declared = [], set()
     for adr in sorted((root / "docs" / "adr").glob("*.md")):
-        title = next((ln for ln in read(adr) or [] if ln.startswith("# ")), "")
-        texts.append(f"{adr.stem} {title}".lower())
+        lines = read(adr) or []
+        title = next((ln for ln in lines if ln.startswith("# ")), "")
+        texts.append(f"{adr.stem} {title}".lower().replace("-", " "))
+        for ln in lines:
+            area = AREA_RE.match(ln)
+            if area:
+                declared |= {a.strip().lower() for a in area[1].split(",")}
+    declared |= {"deploy target" for a in list(declared) if a == "deploy"}
     for area, words in ADR_AREAS.items():
-        if not any(w in t for t in texts for w in words):
-            slug = area.replace(" ", "-")
-            found.append(f"no ADR covers {area}: add docs/adr/NNNN-{slug}.md "
-                         f"(its file name or title must mention one of: "
-                         f"{', '.join(words)})")
+        if area in declared or any(re.search(rf"\b{w}\b", t)
+                                   for t in texts for w in words):
+            continue
+        slug = area.replace(" ", "-")
+        found.append(f"no ADR covers {area}: add docs/adr/NNNN-{slug}.md, or "
+                     f'add "Area: {area}" to the ADR that decides it (a file '
+                     f"name or title mentioning one of {', '.join(words)} "
+                     f"also counts)")
     return found
 
 

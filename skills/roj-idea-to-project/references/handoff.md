@@ -19,7 +19,10 @@ the context. Then invoke `superpowers:writing-plans` with the design spec,
 rules:
 
 - Task 1 is a walking skeleton: repo layout, CI, one request end to end,
-  a dev deploy.
+  a dev deploy. It also runs every `CLAUDE.md` command marked "verified by
+  plan task 1", and adds the `Stop` hook to `.claude/settings.json`
+  (`"Stop": [{"hooks": [{"type": "command", "command": "<unit test
+  command> || exit 2"}]}]`) once the tests exist.
 - Every task names the requirement IDs it serves and uses this format:
 
   ```

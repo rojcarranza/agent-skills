@@ -198,6 +198,22 @@ class CheckSuperpowersTest(unittest.TestCase):
         p, r = self.run_check()
         self.assertEqual(r["client"], "claude")
 
+    def test_hanging_cli_is_undetectable(self):
+        body = "import time\ntime.sleep(10)\n"
+        script = self.bin / "claude.py"
+        script.write_text(body, encoding="utf-8")
+        if os.name == "nt":
+            (self.bin / "claude.cmd").write_text(
+                f'@"{sys.executable}" "%~dp0claude.py" %*\n', encoding="utf-8")
+        else:
+            exe = self.bin / "claude"
+            exe.write_text(f"#!{sys.executable}\n{body}", encoding="utf-8")
+            exe.chmod(0o755)
+        p, r = self.run_check("--timeout", "1")
+        self.assertEqual(p.returncode, 1)
+        self.assertEqual(r["status"], "undetectable")
+        self.assertIn("timed out", p.stderr)
+
     def test_never_runs_an_install(self):
         self.claude_list([])
         self.run_check()
@@ -339,6 +355,32 @@ class CheckReadyTest(unittest.TestCase):
         # 0005-x.md matches observability only through its title.
         p = self.run_ready("--phase", "architecture")
         self.assertEqual(p.returncode, 0, p.stdout)
+
+    def test_adr_area_line_counts(self):
+        for name in ADRS:
+            (self.root / "docs/adr" / name).unlink()
+        areas = ["language", "persistence", "auth", "deploy target",
+                 "observability"]
+        titles = ["Use TypeScript and Node 22", "Use PostgreSQL",
+                  "Magic link login via Clerk", "Host on Fly.io",
+                  "OpenTelemetry traces"]
+        for n, (area, title) in enumerate(zip(areas, titles), 1):
+            self.write(f"docs/adr/000{n}-x{n}.md",
+                       f"# ADR-000{n}: {title}\nStatus: Accepted\n"
+                       f"Area: {area}\n")
+        p = self.run_ready("--phase", "architecture")
+        self.assertEqual(p.returncode, 0, p.stdout)
+
+    def test_adr_keyword_must_be_a_whole_word(self):
+        (self.root / "docs/adr/0003-auth.md").unlink()
+        self.write("docs/adr/0006-commit-author-policy.md",
+                   "# ADR-0006: Commit author policy\n")
+        self.assert_fails_with("no ADR covers auth", "--phase", "architecture")
+
+    def test_adr_message_offers_the_area_line(self):
+        (self.root / "docs/adr/0003-auth.md").unlink()
+        self.assert_fails_with('or add "Area: auth" to the ADR that decides '
+                               "it", "--phase", "architecture")
 
     def test_claude_md_too_long(self):
         self.write("CLAUDE.md", "- x\n" * 120)

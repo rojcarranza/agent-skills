@@ -416,3 +416,32 @@ validation pass rate; target 0.8 or higher.
 `python3 tools/sync_shared.py --check`,
 `skills-ref validate skills/roj-idea-to-project` (or say it could not be
 installed).
+
+## Changes after the whole-branch review
+
+Each replaces the matching text above.
+
+- **Phase state markers:** one marker file per phase carries the
+  `Status: Approved` line: the brief, the design spec, requirements,
+  architecture, `CLAUDE.md` (standing for `.claude/settings.json` and the
+  agents, which cannot carry it) and the plan; phase 7 is done when
+  `docs/progress.md` exists.
+- **Reload check:** after the user confirms the reload, phase 0 passes only
+  when `check_superpowers.py` exits 0 *and* `superpowers:brainstorming` is
+  in the session's own skill list. The script reads the install on disk
+  and cannot see whether the session reloaded.
+- **Up-front yes:** a yes to installing Superpowers in the user's request
+  counts for the install (the only up-front yes the skill honours). The
+  fallback marketplace (`obra/superpowers-marketplace`) gets its own yes.
+- **`git init`:** a one-line note in the first brief message ("say
+  `git init` whenever you want one"), not a question, so the first message
+  still asks one question. Eval 3 expects the mention, not an offer.
+- **ADR coverage:** ADRs carry an `Area:` line; `check_ready.py` reads it
+  first and falls back to whole-word keywords in the file name or title.
+- **Phase 5 gate and the `Stop` hook:** phase 5 verifies only the
+  `CLAUDE.md` commands that can run before code exists and marks the rest
+  "verified by plan task 1". The `Stop` hook is not written in phase 5;
+  plan task 1 adds it once tests exist, because a failing test command
+  with exit 2 would keep the planning session from ending its turn.
+- **`check_superpowers.py`:** runs the CLI with stdin closed and a 30 s
+  timeout (`--timeout`); a timeout is `undetectable`.

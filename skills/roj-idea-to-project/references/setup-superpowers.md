@@ -26,13 +26,20 @@ Say, in four short lines:
 
 Then one question: "Install it now?" with the recommendation yes.
 
+A yes to installing Superpowers already in the user's request counts: say
+the four lines, then install without asking again. That is the only
+up-front yes this skill honours; gate approvals are never given in
+advance.
+
 ## Install commands, in order
 
 Claude Code:
 
 1. `claude plugin install superpowers@claude-plugins-official`
-2. Only if 1 fails because that marketplace is not available:
-   `claude plugin marketplace add obra/superpowers-marketplace`, then
+2. Only if 1 fails because that marketplace is not available: ask a new
+   yes that names the new source (the third-party marketplace
+   `obra/superpowers-marketplace` on GitHub), then run
+   `claude plugin marketplace add obra/superpowers-marketplace` and
    `claude plugin install superpowers@superpowers-marketplace`
 
 GitHub Copilot CLI:
@@ -55,8 +62,14 @@ After any install, enable or update, say exactly:
 > `copilot`), then tell me when it's done.
 
 Then STOP. You cannot run `/reload-plugins`: it only runs when the user
-types it. When the user confirms, run `scripts/check_superpowers.py` again
-and continue only on exit 0.
+types it. When the user confirms:
+
+1. Run `scripts/check_superpowers.py` again: exit 0 means it is installed.
+2. Look for `superpowers:brainstorming` in your own skill list: listed
+   means the session reloaded. The script cannot see this; only you can.
+
+Continue only when both pass. Installed but not listed: the reload did not
+happen; repeat the reload stop.
 
 ## Install fails
 

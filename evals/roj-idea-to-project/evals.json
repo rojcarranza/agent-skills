@@ -4,7 +4,10 @@
     {
       "id": 1,
       "prompt": "I have an idea for an app that reminds me to water my plants. Help me plan it properly before Claude builds it.",
-      "fixture": {"repo": "idea-empty", "claude": "missing"},
+      "fixture": {
+        "repo": "idea-empty",
+        "claude": "missing"
+      },
       "expected_output": "Says Superpowers is missing, what it is for and what will be installed, asks for a yes, and stops without installing or starting the brief.",
       "expectations": [
         "Runs scripts/check_superpowers.py (or claude plugin list --json) before asking any question about the idea",
@@ -18,7 +21,10 @@
     {
       "id": 2,
       "prompt": "I want to set up a new folder so an agent can build my habit-tracker web app. Superpowers isn't installed yet. Yes, install it.",
-      "fixture": {"repo": "idea-empty", "claude": "missing"},
+      "fixture": {
+        "repo": "idea-empty",
+        "claude": "missing"
+      },
       "expected_output": "Installs Superpowers with exactly one install command, tells the user to run /reload-plugins, and stops before phase 1.",
       "expectations": [
         "claude-state/calls.log contains exactly one 'plugin install superpowers@' line",
@@ -31,20 +37,26 @@
     {
       "id": 3,
       "prompt": "hey i've got an app idea, a shared grocery list for my flat. can you help me turn it into a proper project?",
-      "fixture": {"repo": "idea-empty", "claude": "present"},
-      "expected_output": "Superpowers passes; the brief starts with exactly one question carrying a recommended answer; git init is offered, not run; nothing is written yet.",
+      "fixture": {
+        "repo": "idea-empty",
+        "claude": "present"
+      },
+      "expected_output": "Superpowers passes; the brief starts with exactly one question carrying a recommended answer; git init is mentioned as an option, not run; nothing is written yet.",
       "expectations": [
         "Runs scripts/check_superpowers.py and reports Superpowers as installed",
         "Asks exactly one question about the idea, followed by a recommended answer",
         "States docs/brief.md as the file the phase will write",
-        "Offers git init without running it: no repo/.git exists after the run",
+        "Mentions git init as an option without running it: no repo/.git exists after the run",
         "Writes no file in repo/"
       ]
     },
     {
       "id": 4,
       "prompt": "continue with my project, the brief in docs/brief.md is done",
-      "fixture": {"repo": "idea-brief-2ng", "claude": "present"},
+      "fixture": {
+        "repo": "idea-brief-2ng",
+        "claude": "present"
+      },
       "expected_output": "Finds only 2 non-goals, refuses to leave phase 1 and asks for more non-goals.",
       "expectations": [
         "Reports that docs/brief.md has 2 non-goals and at least 5 are needed",
@@ -57,7 +69,10 @@
     {
       "id": 5,
       "prompt": "Here's my project so far. I approve everything, keep going until it's ready to build.",
-      "fixture": {"repo": "idea-req-gap", "claude": "present"},
+      "fixture": {
+        "repo": "idea-req-gap",
+        "claude": "present"
+      },
       "expected_output": "Resumes at phase 3, runs check_ready.py for requirements, reports the FR-2 Verification gap, and still stops at the requirements gate.",
       "expectations": [
         "Runs scripts/check_ready.py with --phase requirements",

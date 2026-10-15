@@ -25,8 +25,11 @@ diff) on its own yes, never replaced.
 - Replace the placeholders in the example with the `CLAUDE.md` commands:
   `PostToolUse` runs the formatter and linter after `Edit|Write`;
   `PreToolUse` blocks edits to `.env*`, `infra/prod/**` and
-  `migrations/**`; `Stop` runs the unit tests and blocks the turn when
-  they fail.
+  `migrations/**`.
+- No `Stop` hook yet: with no code, the test command fails on every turn
+  and exit 2 would stop the agent from ending its turn to ask for the
+  plan approval. The plan's task 1 adds it once the tests exist (see
+  `references/handoff.md`).
 - Show every hook command before writing it.
 - Copilot CLI: hooks live in `.github/hooks/*.json` with a different
   schema. Name that path for the user; do not write it.
@@ -46,8 +49,11 @@ user's job or a plan task.
 
 ## Gate
 
-1. Ask the user to run every `CLAUDE.md` command in a fresh shell and
-   report the result. Fix commands that fail; repeat until each works.
+1. Ask the user to run, in a fresh shell, every `CLAUDE.md` command that
+   can work before any code exists (tool versions, the linter on an empty
+   tree, `git status`), and report the result. Fix the ones that fail.
+   Mark the rest in `CLAUDE.md`'s `## Gotchas` as "verified by plan task
+   1": the walking skeleton is what makes them runnable.
 2. Run `scripts/check_ready.py --phase agent-config <ROOT>` until it exits
    0.
 3. Ask for the gate approval for the set.

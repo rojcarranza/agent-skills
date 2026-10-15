@@ -19,8 +19,10 @@ writing; one yes writes the set.
 
 ## ADRs
 
-One per decision. Required areas, and the words the gate script matches in
-the ADR's file name or `# ADR-` title:
+One per decision. Each ADR carries an `Area:` line naming the required
+area it decides (`Area: persistence`; several, comma-separated, are fine;
+`other` for the rest). The gate script reads that line first; failing it,
+it matches whole words in the file name or `# ADR-` title:
 
 | Area | Name or title must mention one of |
 |---|---|

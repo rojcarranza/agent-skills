@@ -33,6 +33,7 @@ OFFICIAL = "claude-plugins-official"
 COMMUNITY = "superpowers-marketplace"
 VERSION_RE = re.compile(r"\bv?(\d+)\.(\d+)\.(\d+)\b")
 PASSING = {"ok", "outdated"}
+TIMEOUT = 30  # seconds; a CLI waiting on a login prompt must not hang phase 0
 
 
 def parse_version(text: Optional[str]) -> Optional[tuple[int, int, int]]:
@@ -46,8 +47,14 @@ def run(cmd: list[str]) -> Optional[tuple[int, str, str]]:
     exe = shutil.which(cmd[0])
     if not exe:
         return None
-    p = subprocess.run([exe, *cmd[1:]], capture_output=True, text=True,
-                       encoding="utf-8", errors="replace")
+    try:
+        p = subprocess.run([exe, *cmd[1:]], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace",
+                           stdin=subprocess.DEVNULL, timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return 124, "", f"timed out after {TIMEOUT}s (is it waiting on a prompt?)"
+    except OSError as e:
+        return 126, "", f"could not run {exe}: {e}"
     return p.returncode, p.stdout, p.stderr
 
 
@@ -157,6 +164,7 @@ def check(client: str, minimum: tuple[int, int, int]) -> dict:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    global TIMEOUT
     ap = argparse.ArgumentParser(
         description="Report whether Superpowers is installed, enabled and "
                     "current. Never installs anything.",
@@ -167,7 +175,10 @@ def main(argv: Optional[list[str]] = None) -> int:
                     default="auto")
     ap.add_argument("--min-version", default="7.0.0",
                     help="oldest version that is not reported as outdated")
+    ap.add_argument("--timeout", type=int, default=TIMEOUT,
+                    help="seconds to wait for the CLI (default: %(default)s)")
     args = ap.parse_args(argv)
+    TIMEOUT = args.timeout
     minimum = parse_version(args.min_version)
     if minimum is None:
         ap.error("--min-version must look like 7.0.0")
