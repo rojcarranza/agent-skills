@@ -30,7 +30,10 @@ python3 install.py --skills-only     # skip graphify (e.g. PyPI blocked)
 | `--upgrade` | upgrade external CLIs (`graphify`) before refreshing their skill files |
 | `--skills-only` | skip `graphify` (e.g. PyPI blocked) |
 
-Run order: remove what pre-APM versions installed, write `~/.apm/apm.yml`
+Run order: install `apm` if it is missing (`apm-cli` through `uv tool
+install`, then `pipx install`, then `pip install --user` — the same bootstrap
+as `graphify`; a dry run only says it would), remove what pre-APM versions
+installed, write `~/.apm/apm.yml`
 (pointing at this clone), run `apm install -g --update --target <value>`,
 then install `graphify`. A `~/.apm/apm.yml` that `install.py` did not write
 stops the run unless `--force` is given. On the first run APM prompts for a
@@ -103,8 +106,10 @@ succeeds.
 ## Platforms
 
 Supported: macOS, Linux, Windows Git Bash, WSL Ubuntu. Python >= 3.8,
-standard library only (APM's own pip install needs 3.10; brew, winget and the
-curl installer do not).
+standard library only. `apm-cli` itself needs Python 3.10+; `uv` brings its
+own Python, so it works on an older system Python. On Ubuntu 24.04 (WSL) a
+plain `pip install --user` is refused for the system Python, so install
+`pipx` (`sudo apt install pipx`) or `uv` there.
 
 | | macOS / Linux | Windows Git Bash | WSL Ubuntu |
 | --- | --- | --- | --- |
@@ -240,8 +245,8 @@ Run everything with `python` (Git Bash has no `python3` unless you alias it).
 1. Copy this folder over (or clone the repo).
 2. `python install.py --target both --dry-run` — sanity-check paths.
 3. `python install.py --status` — check what's currently installed.
-4. `python install.py --target both` — installs through APM (install APM
-   first; see the [README](../README.md#install)), then `graphify`.
+4. `python install.py --target both` — installs APM if missing (from PyPI,
+   as `apm-cli`), installs everything through it, then `graphify`.
 5. `python install.py --status` — verify new installs.
 6. APM fetches the community skills from GitHub, so run the install from a
    network that reaches GitHub. `--skills-only` only skips `graphify`; it

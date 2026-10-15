@@ -1293,16 +1293,37 @@ class TestMain(TempDirTest):
         _, calls, _, _ = self.run_main(["--target", "copilot"])
         self.assertEqual(calls[0][-1], "copilot")
 
+    def test_missing_apm_is_installed_first(self):
+        asked = []
+
+        def bootstrap(ext, dry):
+            asked.append((ext["package"], dry))
+            return "/home/u/.local/bin/apm"
+
+        code, calls, _, _ = self.run_main(["--target", "claude"], apm=None,
+                                          bootstrap=bootstrap)
+        self.assertEqual(code, 0)
+        self.assertEqual(asked, [("apm-cli", False)])
+        self.assertEqual(calls, [["/home/u/.local/bin/apm", "install", "-g",
+                                  "--update", "--target", "claude"]])
+
     def test_missing_apm_stops_with_hint(self):
         code, calls, _, err = self.run_main(["--target", "claude"], apm=None)
         self.assertEqual(code, 1)
         self.assertEqual(calls, [])
-        self.assertIn("brew install apm", err)
+        for line in ("pipx install apm-cli", "sudo apt install pipx",
+                     "brew install apm"):
+            self.assertIn(line, err)
 
     def test_dry_run_without_apm_prints_plan(self):
-        code, calls, out, _ = self.run_main(["--dry-run"], apm=None)
+        asked = []
+        code, calls, out, err = self.run_main(
+            ["--dry-run"], apm=None,
+            bootstrap=lambda ext, dry: asked.append(ext["package"]))
         self.assertEqual(code, 0)
         self.assertEqual(calls, [])
+        self.assertEqual(asked, [])
+        self.assertIn("would install apm-cli", err)
         self.assertIn("would run apm install -g --update --target "
                       "claude,copilot", out)
         self.assertFalse((self.tmp / "home" / ".apm" / "apm.yml").exists())
@@ -1317,7 +1338,13 @@ class TestMain(TempDirTest):
         code, calls, _, err = self.run_main(["--update"], apm=None)
         self.assertEqual(code, 1)
         self.assertEqual(calls, [])
-        self.assertIn("brew install apm", err)
+        self.assertIn("pipx install apm-cli", err)
+
+    def test_update_installs_missing_apm(self):
+        code, calls, _, _ = self.run_main(
+            ["--update"], apm=None, bootstrap=lambda ext, dry: "/x/apm")
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [["/x/apm", "outdated", "-g"]])
 
     def test_update_dry_run_runs_nothing(self):
         code, calls, out, _ = self.run_main(["--update", "--dry-run"])

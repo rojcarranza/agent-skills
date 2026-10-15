@@ -13,15 +13,10 @@ supports.
 they chain to, personal instructions and MCP servers, for Claude Code and
 Copilot, from one manifest ([`apm.yml`](apm.yml)).
 
-1. Install [APM](https://microsoft.github.io/apm/getting-started/installation/):
-
-   ```bash
-   brew install apm                        # macOS / Linux
-   python3 -m pip install apm-cli          # anywhere with Python 3.10+
-   winget install --id Microsoft.APM --exact --source winget   # Windows
-   ```
-
-2. Clone and install:
+1. Clone and install. `install.py` installs
+   [APM](https://microsoft.github.io/apm/) itself when it is missing (with
+   `uv`, `pipx` or `pip --user`, the same as `graphify`), so macOS, Windows
+   Git Bash and WSL Ubuntu need nothing else first:
 
    ```bash
    git clone https://github.com/rojcarranza/agent-skills && cd agent-skills
@@ -31,7 +26,11 @@ Copilot, from one manifest ([`apm.yml`](apm.yml)).
    ```
 
    On Windows use Git Bash and `python`; on WSL run it inside WSL, and
-   again from Git Bash for Windows-side VS Code and JetBrains.
+   again from Git Bash for Windows-side VS Code and JetBrains. If APM cannot
+   be installed for you, `install.py` stops and prints the command for your
+   platform (`python -m pip install --user apm-cli` on Git Bash,
+   `sudo apt install pipx && pipx install apm-cli` on WSL, `brew install apm`
+   on macOS).
    `install.py` writes `~/.apm/apm.yml` pointing at this clone, runs `apm install -g`,
    and installs `graphify` (a CLI APM cannot package).
 
