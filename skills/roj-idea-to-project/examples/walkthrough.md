@@ -51,8 +51,8 @@ Every run starts by showing where the project stands:
 
 ## Phase 0: Superpowers
 
-The skill runs `scripts/check_superpowers.py --client claude`. On a machine
-without Superpowers it prints:
+The skill runs `scripts/check_superpowers.py`, which detects the client
+itself. In Claude Code, on a machine without Superpowers, it prints:
 
 ```
 {"client": "claude", "installed": false, "version": null, "version_comparable": false, "enabled": null, "status": "missing", "next": ["claude plugin install superpowers@claude-plugins-official"]}
@@ -239,9 +239,11 @@ The skill looks facts up (prices, free tiers, limits, with sources) and
 asks you only for the choice, one ADR at a time:
 
 > **Persistence.** Options: SQLite on a persistent volume (no extra cost,
-> one instance) or managed Postgres (a monthly fee, scales out); the skill
-> quotes the current price it looked up, with the source. Your budget is
-> under 10 USD a month. Recommendation: SQLite. OK?
+> one instance) or managed Postgres (a monthly fee, scales out). Your
+> budget is under 10 USD a month. Recommendation: SQLite. OK?
+
+In the real message, the Postgres option carries the current price the
+skill looked up, with its source.
 
 ```
 yes
@@ -329,20 +331,30 @@ First `scripts/check_ready.py --phase all` runs until it prints `READY`.
 Then `superpowers:writing-plans` writes
 `docs/superpowers/plans/2026-10-15-plant-pal.md`. Task 1 is a walking
 skeleton (repo layout, CI, one request end to end, a dev deploy); every task
-names the requirement IDs it serves, its files, the test written first and
-the command that proves it:
+names the requirement IDs it serves, its model tier, its files, its
+interface, the test written first and the command that proves it:
 
 ```
 ### Task 3: Send the daily reminder email  [FR-2.1, FR-2.2, NFR-SEC]
+Tier: integration
 Files: create app/reminders.py, test tests/test_reminders.py
+Interface: send_due_reminders(now: datetime) -> int
 Test first: test_due_plant_emailed expects one email per owner with all due plants
 Verify: pytest tests/test_reminders.py (fails before, passes after)
 Done when: tests green, lint clean, committed
 Out of scope: SMS or push
 ```
 
-The plan gets a fresh review plus the `architecture-guardian` agent, the
-same accept and reject flow, then the last approval.
+`Tier:` tells the build step which model to give each task: `design` for
+the walking skeleton and open design decisions (`opus`), `integration` for
+work across files or debugging (`sonnet`), `mechanical` only when the task
+holds the complete code. When more than one fits, the highest wins. Task 3
+is described in prose, not complete code, so it is at least `integration`;
+it has no open design decision, so it is not `design`.
+
+Before the review, the skill checks that every task has a `Tier:` line.
+Then the plan gets a fresh review plus the `architecture-guardian` agent,
+the same accept and reject flow, then the last approval.
 
 ## Phase 7: Hand-off and building
 
@@ -350,8 +362,12 @@ The skill writes `docs/progress.md`, one line per FR with its verify
 command, and stops. It builds nothing. To build:
 
 1. Start a **new** Claude Code session in the project folder (ideally in a
-   git worktree) and ask it to run `superpowers:subagent-driven-development`
-   on `docs/superpowers/plans/2026-10-15-plant-pal.md`.
+   git worktree) on `opus`, and ask it to run
+   `superpowers:subagent-driven-development` on
+   `docs/superpowers/plans/2026-10-15-plant-pal.md`. That session hands out
+   the tasks; each task runs on its `Tier:` model. On a tight usage plan,
+   start with `/model sonnet` instead (`design` tasks stay on `opus`).
+   Choose before the first message: switching later drops the prompt cache.
 2. Watch the first 2 or 3 tasks, then let it run. Keep `docs/progress.md`
    ticked as features pass.
 3. Review: `/code-review`, then the three reviewer agents, then read the
@@ -374,7 +390,7 @@ command, and stops. It builds nothing. To build:
 
 | Symptom | What to do |
 |---|---|
-| "This skill needs Claude Code or GitHub Copilot CLI" | You are in Copilot inside VS Code or JetBrains, which Superpowers does not support yet (#30). Switch to Claude Code or Copilot CLI. |
+| "This skill needs Claude Code or GitHub Copilot CLI" | You are in Copilot inside VS Code or JetBrains, which Superpowers does not support yet ([issue 30](https://github.com/rojcarranza/agent-skills/issues/30)). Switch to Claude Code or Copilot CLI. |
 | Phase 0 asks for `/reload-plugins` again after you said done | The session did not reload. Type `/reload-plugins` (Copilot CLI: restart `copilot`), then say done. |
 | The check times out | `claude` is waiting on a prompt (first run or login). Run `claude` once in your own terminal, then continue. |
 | `NOT READY` you do not understand | Run `python3 <skill dir>/scripts/check_ready.py --phase <phase>` yourself: every line says what to add. |

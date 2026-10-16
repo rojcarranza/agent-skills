@@ -23,7 +23,8 @@ lean `CLAUDE.md` and deterministic hooks.
 ## Commands per platform
 
 Claude Code and GitHub Copilot CLI: `/roj-idea-to-project <your idea>`.
-Plain English works too. Copilot in VS Code and JetBrains is not supported
+Installed as the Claude Code plugin, the skill is namespaced:
+`/roj-skills:roj-idea-to-project <your idea>`. Plain English works too. Copilot in VS Code and JetBrains is not supported
 yet: Superpowers has no install there.
 
 | Goal | Request |
