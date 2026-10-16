@@ -483,5 +483,22 @@ class CheckReadyTest(unittest.TestCase):
         self.assertIn("is not a directory", p.stdout + p.stderr)
 
 
+class PlanTemplateTest(unittest.TestCase):
+    """Superpowers picks each implementer's model from the task's Tier, so
+    the plan task template and the plan gate must keep asking for it."""
+
+    HANDOFF = (ROOT / "skills" / "roj-idea-to-project" / "references"
+               / "handoff.md").read_text(encoding="utf-8")
+
+    def test_task_template_has_tier_line(self):
+        start = self.HANDOFF.index("### Task 7:")
+        template = self.HANDOFF[start:self.HANDOFF.index("```", start)]
+        self.assertIn("Tier: mechanical | integration | design", template)
+
+    def test_plan_gate_checks_tier(self):
+        gate = self.HANDOFF[self.HANDOFF.index("Gate:"):]
+        self.assertIn("`Tier:`", gate.split("\n\n")[0])
+
+
 if __name__ == "__main__":
     unittest.main()
