@@ -172,6 +172,7 @@ FR with its verify command. Give the build, review and retro steps from
 
 | Feature | Claude Code | Copilot CLI |
 |---|---|---|
+| Models | phases 1 to 6 and reviews `opus`; build controller `opus`, implementers by task `Tier:` | `/model` |
 | Fresh reviewer | subagent, model `opus` | custom agent in `.github/agents/`; else `/new` with only the file |
 | Hooks | `.claude/settings.json` | `.github/hooks/*.json` (other schema: name it, do not write it) |
 | Plan mode | Shift+Tab | `/plan` or Shift+Tab |

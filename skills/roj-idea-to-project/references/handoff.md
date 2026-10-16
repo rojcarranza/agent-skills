@@ -31,6 +31,7 @@ rules:
 
   ```
   ### Task 7: <imperative title>  [FR-2.1, NFR-SEC]
+  Tier: mechanical | integration | design
   Files: create <path>, modify <path>, test <path>
   Interface: <signature>
   Test first: <test name> expects <result>
@@ -39,6 +40,13 @@ rules:
   Out of scope: <what waits for a later task>
   ```
 
+- `Tier:` tells `subagent-driven-development` which model to dispatch the
+  implementer on; without it the controller guesses. `design` (most
+  capable, `opus`): the walking skeleton and any task with a design
+  decision the plan leaves open. `integration` (standard, `sonnet`): several
+  files, wiring or debugging. `mechanical` (cheapest): only when the task
+  holds the complete code to write; a task described in prose is never
+  below `integration`.
 - Fill `## Traceability` in `docs/requirements.md` from the plan:
   requirement → task → test.
 - Overrides: do not commit the plan; stop after writing it and return to
@@ -57,6 +65,11 @@ approval.
      and run `superpowers:subagent-driven-development` on the plan. Watch
      the first 2 to 3 tasks, then let it run. Keep `docs/progress.md`
      current.
+   - Models: start the build session on `opus`. It is the controller that
+     dispatches tasks and judges reviews; each implementer runs on its
+     task's `Tier:`. On a tight usage plan, start it with `/model sonnet`
+     instead and keep `design` tasks on `opus`. Pick the model when the
+     session starts: switching later drops the prompt cache.
    - Review: `/code-review`, then the three reviewer agents, then read the
      diff yourself. Fix only correctness and requirement gaps. Merge with
      `superpowers:finishing-a-development-branch`.
