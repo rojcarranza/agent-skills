@@ -46,15 +46,17 @@ rules:
   decision the plan leaves open. `integration` (standard, `sonnet`): several
   files, wiring or debugging. `mechanical` (cheapest): only when the task
   holds the complete code to write; a task described in prose is never
-  below `integration`.
+  below `integration`. When more than one tier fits, pick the highest:
+  a skeleton task with full code is still `design`.
 - Fill `## Traceability` in `docs/requirements.md` from the plan:
   requirement → task → test.
 - Overrides: do not commit the plan; stop after writing it and return to
   this gate instead of starting execution.
 
-Gate: fresh-context review with `<plan>` plus `architecture-guardian` on the
-plan file, findings into a `## Review log` at the end of the plan, then the
-approval.
+Gate: every task has a `Tier:` line (list any that do not and fix them
+first), then a fresh-context review with `<plan>` plus `architecture-guardian`
+on the plan file, findings into a `## Review log` at the end of the plan,
+then the approval.
 
 ## Hand-off
 

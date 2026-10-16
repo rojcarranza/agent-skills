@@ -157,8 +157,8 @@ before the first line of agent code.
 Read `references/handoff.md` before the plan. Run
 `check_ready.py --phase all` as a loop until `READY`, then invoke
 `superpowers:writing-plans` with the plan rules from that file; override:
-no commit, stop after writing. Gate: fresh review plus
-`architecture-guardian`, then the approval; on a yes, write
+no commit, stop after writing. Gate: every task has a `Tier:` line, then
+fresh review plus `architecture-guardian`, then the approval; on a yes, write
 `Status: Approved YYYY-MM-DD` under the plan's title. Small verified tasks let the
 agent run for hours without drifting.
 
@@ -172,7 +172,7 @@ FR with its verify command. Give the build, review and retro steps from
 
 | Feature | Claude Code | Copilot CLI |
 |---|---|---|
-| Models | phases 1 to 6 and reviews `opus`; build controller `opus`, implementers by task `Tier:` | `/model` |
+| Models | phases 1 to 6: session default (`opus` on Pro/Max); reviews and build controller `opus`; implementers by task `Tier:` | `/model` |
 | Fresh reviewer | subagent, model `opus` | custom agent in `.github/agents/`; else `/new` with only the file |
 | Hooks | `.claude/settings.json` | `.github/hooks/*.json` (other schema: name it, do not write it) |
 | Plan mode | Shift+Tab | `/plan` or Shift+Tab |
