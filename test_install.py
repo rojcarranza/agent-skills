@@ -1301,6 +1301,10 @@ class TestInstructions(TempDirTest):
     def test_render_without_front_matter_is_unchanged(self):
         self.assertEqual(install.render_instructions("# x\n", "claude"), "# x\n")
 
+    def test_render_without_apply_to_drops_front_matter(self):
+        self.assertEqual(install.render_instructions(
+            "---\ndescription: d\n---\n# x\n", "claude"), "# x\n")
+
     def test_repo_file_renders_for_claude(self):
         text = install.render_instructions(
             install.INSTRUCTIONS_SRC.read_text(encoding="utf-8"), "claude")

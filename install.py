@@ -202,11 +202,15 @@ def cali_status_rows(exe: str):
         run = subprocess.run(cali_argv(exe, "status", "--offline", "--json"),
                              capture_output=True, text=True, timeout=120)
         rows = json.loads(run.stdout)["rows"] if run.returncode == 0 else None
-        return {(r["skill"], r["target"]): tuple(r["states"])
-                for r in rows} if rows is not None else None
+        if rows is not None:
+            return {(r["skill"], r["target"]): tuple(r["states"])
+                    for r in rows}
     except (OSError, subprocess.SubprocessError, ValueError, KeyError,
             TypeError):
-        return None
+        pass
+    warn("cali status --offline --json gave no usable result — no skill "
+         "copies are removed this run")
+    return None
 
 
 def github_token():
@@ -379,6 +383,8 @@ def render_instructions(text, target):
         if key.strip() == "applyTo":
             globs = [g.strip() for g in _unquote(value.strip()).split(",")
                      if g.strip()]
+    if not globs:  # no applyTo: a rule without paths loads everywhere
+        return text[end + 5:]
     paths = "".join(f"  - {json.dumps(g)}\n" for g in globs)
     return f"---\npaths:\n{paths}---\n" + text[end + 5:]
 

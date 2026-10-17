@@ -55,7 +55,7 @@ skills:
     source: https://github.com/addyosmani/agent-skills//skills/debugging-and-error-recovery
     ref: 1401c8b8030e023baeebb31781a6653fe8e93026
     targets: [copilot]
-  # Optional — uncomment the two lines and re-run install.py:
+  # Optional — uncomment the entry's lines and re-run install.py:
   # architecture-blueprint-generator:
   #   source: github:github/awesome-copilot//skills/architecture-blueprint-generator@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
   # add-educational-comments:
