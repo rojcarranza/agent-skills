@@ -459,7 +459,7 @@ class TestPublishable(unittest.TestCase):
     def test_no_private_paths_or_employer_details(self):
         for f in sorted([*SKILLS.rglob("*.md"),
                          *(ROOT / ".apm").rglob("*.md"),
-                         ROOT / "apm.yml"]):
+                         ROOT / "cali.yaml"]):
             text = f.read_text(encoding="utf-8")
             for n, line in enumerate(text.splitlines(), 1):
                 with self.subTest(file=str(f.relative_to(ROOT)), line=n):
@@ -502,16 +502,18 @@ SHA_RE = re.compile(r"[0-9a-f]{40}")
 
 
 class TestManifest(unittest.TestCase):
-    """apm.yml is the one list of what install.py installs."""
+    """cali.yaml is the one list of skills install.py installs."""
 
     def setUp(self):
         self.deps = install.manifest_deps()
 
-    def test_every_skill_is_a_live_local_dependency(self):
-        live = {d["path"] for d in self.deps if d["active"]}
+    def test_every_skill_is_live_from_this_repo(self):
+        live = {d["name"]: d["source"] for d in self.deps if d["active"]}
         for d in skill_dirs():
             with self.subTest(skill=d.name):
-                self.assertIn(f"./skills/{d.name}", live)
+                self.assertEqual(live.get(d.name),
+                                 "github:rojcarranza/agent-skills//skills/"
+                                 + d.name)
 
     def test_every_requirement_is_live(self):
         live = install.manifest_skill_names()
@@ -522,7 +524,7 @@ class TestManifest(unittest.TestCase):
 
     def test_community_refs_are_full_shas(self):
         for d in self.deps:
-            if d["path"].startswith("./"):
+            if d["source"].startswith("github:rojcarranza/agent-skills//"):
                 continue
             with self.subTest(dep=d["name"]):
                 self.assertRegex(d["ref"] or "", SHA_RE)
@@ -531,10 +533,9 @@ class TestManifest(unittest.TestCase):
         names = [d["name"] for d in self.deps]
         self.assertEqual(len(names), len(set(names)))
 
-    def test_github_mcp_is_live(self):
-        mcp = {d["name"]: d["active"]
-               for d in install.manifest_deps(section="mcp")}
-        self.assertTrue(mcp.get("github-mcp-server"))
+    def test_github_mcp_is_registered_for_both_agents(self):
+        self.assertEqual(set(install.MCP_SERVERS["github-mcp-server"]),
+                         {"claude", "copilot"})
 
     def test_instructions_apply_everywhere(self):
         text = (ROOT / ".apm" / "instructions"

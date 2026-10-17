@@ -440,8 +440,13 @@ class TestCliPathHint(ExternalTest):
         err = io.StringIO()
         with mock.patch("install.EXTERNALS", [self.fake_external()]), \
                 mock.patch("install.find_cli", return_value="/opt/bin/tool-y"), \
-                mock.patch("install.run_apm", return_value=0), \
+                mock.patch("install.run_cali", return_value=0), \
+                mock.patch("install.cali_status_rows", return_value=None), \
                 mock.patch("install.apm_home", return_value=self.tmp / ".apm"), \
+                mock.patch("install.apm_skills_root",
+                           return_value=self.tmp / "agents"), \
+                mock.patch("install.instruction_path",
+                           return_value=self.tmp / "instr.md"), \
                 mock.patch("install.target_root", return_value=dest), \
                 mock.patch("install.shutil.which", return_value=None), \
                 contextlib.redirect_stdout(io.StringIO()), \
@@ -629,7 +634,7 @@ class TestInstallExternalsForTarget(ExternalTest):
 
 
 class TestRequiresInvariants(unittest.TestCase):
-    """REQUIRES must track real names, and apm.yml must install every
+    """REQUIRES must track real names, and cali.yaml must install every
     requirement wherever its dependent goes."""
 
     def test_keys_are_custom_skills(self):
@@ -682,9 +687,9 @@ class TestExplainFeatureChangesSkill(unittest.TestCase):
 
 class TestSkillDependencies(unittest.TestCase):
     """Every outside skill a custom skill names must be installable: in
-    apm.yml, an external, another custom skill, or provided by a Claude
+    cali.yaml, an external, another custom skill, or provided by a Claude
     plugin. A new chain to an unknown skill fails here, so it gets listed in
-    apm.yml instead of silently relying on a manual install."""
+    cali.yaml instead of silently relying on a manual install."""
 
     # Claude plugins (not skills.sh skills) that our skills chain to.
     PLUGIN_PROVIDED = {"systematic-debugging"}
@@ -742,7 +747,7 @@ class TestSkillDependencies(unittest.TestCase):
                         f"no installable skill matches {name}")
                 else:
                     self.assertIn(name, installable,
-                                  "add it to apm.yml, "
+                                  "add it to cali.yaml, "
                                   "or list it in PLUGIN_PROVIDED/NOT_SKILLS")
 
     def test_scanner_still_sees_the_known_chains(self):
@@ -759,209 +764,130 @@ class TestSkillDependencies(unittest.TestCase):
 
 class TestParseManifest(unittest.TestCase):
     TEXT = """\
-name: roj-ai-setup
-version: 1.0.0
+# header comment
+version: 1
 targets: [claude, copilot]
-dependencies:
-  apm:
-    # Own skills.
-    - ./skills/roj-explain-logic
-    - github/awesome-copilot/skills/code-tour#7cce7cfb4b61196c36d7e8eb8475ae84b356b126
-    - git: https://github.com/juliusbrussee/caveman.git     # Claude: plugin
-      path: skills/caveman
-      ref: 2e08b9177c07bb7249a8a2d1a6758e5db281d002
-      targets: [copilot]
-    # Optional — uncomment and re-run install.py:
-    # - anthropics/skills/skills/pdf#683bc88e56f3e09ba94f7055977f3d3aa499f202
-  mcp:
-    - io.github.github/github-mcp-server
-    # - io.github.microsoft/playwright-mcp   # only for UI projects
+skills:
+  # Own skills, from this repo's default branch.
+  roj-explain-logic:
+    source: github:rojcarranza/agent-skills//skills/roj-explain-logic
+  code-tour:
+    source: github:github/awesome-copilot//skills/code-tour
+    ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+  # Copilot only: Claude gets the equivalent from a plugin.
+  caveman:  # Claude: caveman plugin
+    source: https://github.com/juliusbrussee/caveman//skills/caveman
+    ref: 2e08b9177c07bb7249a8a2d1a6758e5db281d002
+    targets: [copilot]
+  # Optional — uncomment the two lines and re-run install.py:
+  # pdf:
+  #   source: github:anthropics/skills//skills/pdf@683bc88e56f3e09ba94f7055977f3d3aa499f202
+  # grill-me:  # Claude only: also uncomment the targets line
+  #   source: github:mattpocock/skills//skills/productivity/grill-me@49dd158d1076134a641b33efb035946536778336
+  #   targets: [claude]
 """
 
     def setUp(self):
         self.parsed = install.parse_manifest(self.TEXT)
 
-    def test_local_dependency(self):
-        dep = self.parsed["apm"][0]
-        self.assertEqual((dep["path"], dep["ref"], dep["name"], dep["active"]),
-                         ("./skills/roj-explain-logic", None,
-                          "roj-explain-logic", True))
+    def test_own_skill_without_ref(self):
+        dep = self.parsed[0]
+        self.assertEqual(
+            (dep["name"], dep["source"], dep["ref"], dep["targets"], dep["active"]),
+            ("roj-explain-logic",
+             "github:rojcarranza/agent-skills//skills/roj-explain-logic",
+             None, None, True))
 
-    def test_shorthand_splits_ref(self):
-        dep = self.parsed["apm"][1]
-        self.assertEqual(dep["path"], "github/awesome-copilot/skills/code-tour")
-        self.assertEqual(dep["ref"], "7cce7cfb4b61196c36d7e8eb8475ae84b356b126")
-        self.assertEqual(dep["name"], "code-tour")
-        self.assertIsNone(dep["targets"])
+    def test_ref_field(self):
+        dep = self.parsed[1]
+        self.assertEqual((dep["name"], dep["ref"]),
+                         ("code-tour", "7cce7cfb4b61196c36d7e8eb8475ae84b356b126"))
 
-    def test_object_form_with_targets_and_inline_comment(self):
-        dep = self.parsed["apm"][2]
-        self.assertEqual(dep["git"], "https://github.com/juliusbrussee/caveman.git")
-        self.assertEqual((dep["path"], dep["name"], dep["targets"]),
-                         ("skills/caveman", "caveman", ("copilot",)))
-        self.assertEqual(dep["ref"], "2e08b9177c07bb7249a8a2d1a6758e5db281d002")
+    def test_targets_and_inline_comment(self):
+        dep = self.parsed[2]
+        self.assertEqual((dep["name"], dep["targets"], dep["active"]),
+                         ("caveman", ("copilot",), True))
+        self.assertEqual(dep["source"],
+                         "https://github.com/juliusbrussee/caveman//skills/caveman")
 
-    def test_commented_dependency_is_inactive(self):
-        dep = self.parsed["apm"][3]
-        self.assertEqual((dep["name"], dep["active"]), ("pdf", False))
-        self.assertEqual(len(self.parsed["apm"]), 4)
+    def test_commented_skill_is_inactive_and_ref_comes_from_the_source(self):
+        dep = self.parsed[3]
+        self.assertEqual((dep["name"], dep["active"], dep["ref"]),
+                         ("pdf", False, "683bc88e56f3e09ba94f7055977f3d3aa499f202"))
 
-    def test_mcp_section(self):
-        names = [(d["name"], d["active"]) for d in self.parsed["mcp"]]
-        self.assertEqual(names, [("github-mcp-server", True),
-                                 ("playwright-mcp", False)])
+    def test_commented_skill_keeps_its_targets(self):
+        dep = self.parsed[4]
+        self.assertEqual((dep["name"], dep["active"], dep["targets"]),
+                         ("grill-me", False, ("claude",)))
+        self.assertEqual(len(self.parsed), 5)
 
-    def test_top_level_keys_end_a_section(self):
-        parsed = install.parse_manifest(self.TEXT + "compilation:\n  exclude: [x]\n")
-        self.assertEqual(len(parsed["mcp"]), 2)
+    def test_prose_comments_are_not_skills(self):
+        names = [d["name"] for d in self.parsed]
+        self.assertEqual(names, ["roj-explain-logic", "code-tour", "caveman",
+                                 "pdf", "grill-me"])
+
+    def test_top_level_key_ends_the_section(self):
+        parsed = install.parse_manifest(self.TEXT + "sources:\n  - github:x/y\n")
+        self.assertEqual(len(parsed), 5)
 
     def test_crlf_input(self):
         parsed = install.parse_manifest(self.TEXT.replace("\n", "\r\n"))
-        self.assertEqual(parsed["apm"][1]["name"], "code-tour")
+        self.assertEqual(parsed[1]["ref"],
+                         "7cce7cfb4b61196c36d7e8eb8475ae84b356b126")
 
-    def test_quoted_shorthand_is_unquoted(self):
+    def test_quoted_values_are_unquoted(self):
         parsed = install.parse_manifest(
-            'dependencies:\n  apm:\n'
-            '    - "C:/Users/me/agent-skills"\n'
-            '    - "/Users/x/agent-skills"\n')
-        for dep, path in zip(parsed["apm"],
-                             ("C:/Users/me/agent-skills",
-                              "/Users/x/agent-skills")):
-            self.assertEqual((dep["path"], dep["name"], dep["ref"]),
-                             (path, "agent-skills", None))
-
-    def test_quoted_object_values_are_unquoted(self):
-        parsed = install.parse_manifest(
-            'dependencies:\n  apm:\n'
-            '    - git: "https://github.com/x/tool.git"\n'
-            '      path: "skills/tool"\n'
-            "      ref: '2e08b9177c07bb7249a8a2d1a6758e5db281d002'\n")
-        dep = parsed["apm"][0]
-        self.assertEqual((dep["path"], dep["name"], dep["ref"]),
-                         ("skills/tool", "tool",
+            'skills:\n  tool:\n    source: "github:x/y//skills/tool"\n'
+            "    ref: '2e08b9177c07bb7249a8a2d1a6758e5db281d002'\n")
+        self.assertEqual((parsed[0]["source"], parsed[0]["ref"]),
+                         ("github:x/y//skills/tool",
                           "2e08b9177c07bb7249a8a2d1a6758e5db281d002"))
 
-    def test_git_dependency_without_path_drops_dot_git(self):
-        parsed = install.parse_manifest(
-            "dependencies:\n  apm:\n"
-            "    - git: https://github.com/addyosmani/agent-skills.git\n")
-        dep = parsed["apm"][0]
-        self.assertEqual((dep["path"], dep["name"]),
-                         ("https://github.com/addyosmani/agent-skills.git",
-                          "agent-skills"))
-
-    def test_realistic_generated_manifest(self):
-        text = (
-            "# Generated by agent-skills install.py. Edit apm.yml in the clone, not this file.\n"
-            "name: roj-ai-setup\n"
-            "version: 1.0.0\n"
-            "description: x\n"
-            "includes: auto\n"
-            "targets: [claude, copilot]\n"
-            "dependencies:\n"
-            "  apm:\n"
-            "    - ./skills/roj-explain-logic\n"
-            "    # Copilot only: Claude gets the equivalent from a plugin.\n"
-            "    - git: https://github.com/addyosmani/agent-skills.git   # Claude: superpowers:systematic-debugging\n"
-            "      path: skills/debugging-and-error-recovery\n"
-            "      ref: 1401c8b8030e023baeebb31781a6653fe8e93026\n"
-            "      targets: [copilot]\n"
-            "    # Optional — uncomment and re-run install.py:\n"
-            "    # - anthropics/skills/skills/pdf#683bc88e56f3e09ba94f7055977f3d3aa499f202\n"
-            "  mcp:\n"
-            "    - io.github.github/github-mcp-server\n")
-        parsed = install.parse_manifest(text)
-        got = [(d["name"], d["path"], d["ref"], d["targets"], d["active"])
-               for d in parsed["apm"]]
-        self.assertEqual(got, [
-            ("roj-explain-logic", "./skills/roj-explain-logic", None, None, True),
-            ("debugging-and-error-recovery", "skills/debugging-and-error-recovery",
-             "1401c8b8030e023baeebb31781a6653fe8e93026", ("copilot",), True),
-            ("pdf", "anthropics/skills/skills/pdf",
-             "683bc88e56f3e09ba94f7055977f3d3aa499f202", None, False),
-        ])
-        self.assertEqual([(d["name"], d["active"]) for d in parsed["mcp"]],
-                         [("github-mcp-server", True)])
+    def test_repo_manifest_matches_its_lock(self):
+        # cali sync --frozen would pass: every live skill is locked, nothing else.
+        lock = json.loads((install.REPO_ROOT / "cali.lock").read_text("utf-8"))
+        self.assertEqual(set(lock["skills"]), install.manifest_skill_names())
 
 
-class TestApm(TempDirTest):
-    def setUp(self):
-        super().setUp()
-        patcher = mock.patch("install.apm_home",
-                             return_value=self.tmp / "home" / ".apm")
-        patcher.start()
-        self.addCleanup(patcher.stop)
-        self.dest = self.tmp / "home" / ".apm" / "apm.yml"
+class TestCali(TempDirTest):
+    def test_argv_points_at_the_repo_manifest(self):
+        self.assertEqual(install.cali_argv("/bin/cali", "sync"),
+                         ["/bin/cali", "sync", "-g", "--manifest",
+                          str(install.MANIFEST_PATH)])
 
-    def test_render_points_at_the_clone(self):
-        text = install.render_user_manifest(self.tmp / "clone")
-        self.assertTrue(text.startswith(install.USER_MANIFEST_MARKER))
-        self.assertIn(f'    - "{(self.tmp / "clone").resolve().as_posix()}"\n',
-                      text)
-        parsed = install.parse_manifest(text)
-        self.assertEqual(len(parsed["apm"]), 1)
-
-    def test_windows_path_is_forward_slashed(self):
-        fake = mock.Mock()
-        fake.resolve.return_value.as_posix.return_value = "C:/Users/me/agent-skills"
-        with mock.patch("install.Path", return_value=fake):
-            text = install.render_user_manifest("C:\\Users\\me\\agent-skills")
-        self.assertIn('- "C:/Users/me/agent-skills"', text)
-        self.assertNotIn("\\", text)
-
-    def test_write_new(self):
-        status = install.write_user_manifest("x\n")
-        self.assertEqual(status, "written")
-        self.assertEqual(self.dest.read_bytes(), b"x\n")
-
-    def test_write_is_idempotent(self):
-        text = install.USER_MANIFEST_MARKER + "\nname: user\n"
-        install.write_user_manifest(text)
-        self.assertEqual(install.write_user_manifest(text), "up to date")
-
-    def test_ours_is_updated(self):
-        install.write_user_manifest(install.USER_MANIFEST_MARKER + "\nold\n")
-        new = install.USER_MANIFEST_MARKER + "\nnew\n"
-        self.assertEqual(install.write_user_manifest(new), "updated")
-        self.assertEqual(self.dest.read_text(), new)
-
-    def test_foreign_manifest_refused(self):
-        self.dest.parent.mkdir(parents=True)
-        self.dest.write_text("name: mine\n")
-        with self.assertRaises(SystemExit) as cm:
-            install.write_user_manifest(install.USER_MANIFEST_MARKER + "\n")
-        self.assertIn("--force", str(cm.exception))
-        self.assertEqual(self.dest.read_text(), "name: mine\n")
-
-    def test_force_replaces_foreign(self):
-        self.dest.parent.mkdir(parents=True)
-        self.dest.write_text("name: mine\n")
-        text = install.USER_MANIFEST_MARKER + "\n"
-        self.assertEqual(install.write_user_manifest(text, force=True), "updated")
-        self.assertEqual(self.dest.read_text(), text)
-
-    def test_dry_run_writes_nothing(self):
-        install.write_user_manifest("x\n", dry_run=True)
-        self.assertFalse(self.dest.exists())
-
-    def test_install_argv_per_target(self):
-        for targets, value in ((["claude"], "claude"), (["copilot"], "copilot"),
-                               (["copilot", "claude"], "claude,copilot")):
-            with self.subTest(targets=targets):
-                self.assertEqual(install.apm_install_argv("apm", targets),
-                                 ["apm", "install", "-g", "--update", "--target", value])
-
-    def test_install_argv_without_mcp(self):
-        self.assertEqual(
-            install.apm_install_argv("apm", ["claude"], with_mcp=False),
-            ["apm", "install", "-g", "--update", "--only", "apm",
-             "--target", "claude"])
-
-    def test_run_apm_returns_exit_code(self):
+    def test_run_cali_returns_exit_code(self):
         with mock.patch("install.subprocess.run",
                         return_value=mock.Mock(returncode=3)) as run:
-            self.assertEqual(install.run_apm(["apm", "x"]), 3)
-        run.assert_called_once_with(["apm", "x"], env=None)
+            self.assertEqual(install.run_cali(["cali", "x"]), 3)
+        run.assert_called_once_with(["cali", "x"])
+
+    def test_run_cali_reports_missing_binary(self):
+        with mock.patch("install.subprocess.run", side_effect=OSError("nope")):
+            self.assertEqual(install.run_cali(["cali"]), 127)
+
+    def test_status_rows_from_json(self):
+        out = json.dumps({"schema_version": 1, "rows": [
+            {"skill": "a", "target": "claude", "states": ["ok"], "detail": ""},
+            {"skill": "a", "target": "copilot", "states": ["base-lost"],
+             "detail": "run cali sync"}], "warnings": []})
+        with mock.patch("install.subprocess.run", return_value=mock.Mock(
+                returncode=0, stdout=out)) as run:
+            rows = install.cali_status_rows("/bin/cali")
+        self.assertEqual(rows, {("a", "claude"): ("ok",),
+                                ("a", "copilot"): ("base-lost",)})
+        self.assertEqual(run.call_args[0][0],
+                         install.cali_argv("/bin/cali", "status", "--offline",
+                                           "--json"))
+
+    def test_status_rows_none_when_cali_fails(self):
+        for result in (mock.Mock(returncode=1, stdout=""),
+                       mock.Mock(returncode=0, stdout="not json"),
+                       OSError("nope")):
+            with self.subTest(result=result), mock.patch(
+                    "install.subprocess.run",
+                    side_effect=result if isinstance(result, Exception) else None,
+                    return_value=result):
+                self.assertIsNone(install.cali_status_rows("/bin/cali"))
 
     def test_github_token_prefers_env(self):
         with mock.patch.dict(install.os.environ, {"token": "from-env"}), \
@@ -990,10 +916,6 @@ class TestApm(TempDirTest):
                                else None, return_value=run):
                 self.assertIsNone(install.github_token())
 
-    def test_run_apm_reports_missing_binary(self):
-        with mock.patch("install.subprocess.run", side_effect=OSError("nope")):
-            self.assertEqual(install.run_apm(["apm"]), 127)
-
     def test_is_wsl(self):
         for platform, text, expected in (("linux", "Linux 5.15 microsoft-standard-WSL2", True),
                                          ("linux", "Linux 6.1 generic", False),
@@ -1004,35 +926,116 @@ class TestApm(TempDirTest):
                 self.assertEqual(install.is_wsl(), expected)
 
 
+class TestMcp(TempDirTest):
+    def setUp(self):
+        super().setUp()
+        self.paths = {"claude": self.tmp / ".claude.json",
+                      "copilot": self.tmp / ".copilot" / "mcp-config.json"}
+        p = mock.patch("install.mcp_config_path",
+                       side_effect=lambda t: self.paths[t])
+        p.start()
+        self.addCleanup(p.stop)
+
+    def register(self, target, dry_run=False):
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            results = install.register_mcp_servers(target, dry_run)
+        return results, err.getvalue()
+
+    def test_claude_entry_added_and_other_keys_kept(self):
+        self.paths["claude"].write_text(json.dumps(
+            {"numStartups": 3, "mcpServers": {"other": {"command": "x"}}}))
+        results, _ = self.register("claude")
+        data = json.loads(self.paths["claude"].read_text())
+        self.assertEqual(data["numStartups"], 3)
+        self.assertEqual(data["mcpServers"]["other"], {"command": "x"})
+        self.assertEqual(data["mcpServers"]["github-mcp-server"],
+                         {"type": "http",
+                          "url": "https://api.githubcopilot.com/mcp/"})
+        self.assertEqual(results, [("claude", "mcp:github-mcp-server", "added")])
+
+    def test_copilot_file_created_with_tools(self):
+        results, _ = self.register("copilot")
+        data = json.loads(self.paths["copilot"].read_text())
+        self.assertEqual(data, {"mcpServers": {"github-mcp-server": {
+            "type": "http", "url": "https://api.githubcopilot.com/mcp/",
+            "tools": ["*"]}}})
+        self.assertEqual(results, [("copilot", "mcp:github-mcp-server", "added")])
+
+    def test_existing_entry_left_alone(self):
+        mine = {"mcpServers": {"github-mcp-server": {"type": "http", "url": "u",
+                                                     "headers": {"A": "b"}}}}
+        self.paths["claude"].write_text(json.dumps(mine))
+        before = self.paths["claude"].read_text()
+        results, _ = self.register("claude")
+        self.assertEqual(self.paths["claude"].read_text(), before)
+        self.assertEqual(results, [("claude", "mcp:github-mcp-server",
+                                    "already configured")])
+
+    def test_invalid_json_is_never_overwritten(self):
+        self.paths["claude"].write_text("{not json")
+        results, err = self.register("claude")
+        self.assertEqual(self.paths["claude"].read_text(), "{not json")
+        self.assertEqual(results, [])
+        self.assertIn("not valid JSON", err)
+
+    def test_non_object_servers_are_never_overwritten(self):
+        self.paths["claude"].write_text('{"mcpServers": []}')
+        results, err = self.register("claude")
+        self.assertEqual(self.paths["claude"].read_text(), '{"mcpServers": []}')
+        self.assertEqual(results, [])
+        self.assertIn("mcpServers", err)
+
+    def test_dry_run_writes_nothing(self):
+        results, _ = self.register("copilot", dry_run=True)
+        self.assertFalse(self.paths["copilot"].exists())
+        self.assertEqual(results, [("copilot", "mcp:github-mcp-server", "added")])
+
+
+
+class TestMcpPaths(unittest.TestCase):
+    def test_real_paths(self):
+        with mock.patch("install.Path.home", return_value=Path("/h")):
+            self.assertEqual(install.mcp_config_path("claude"),
+                             Path("/h/.claude.json"))
+            self.assertEqual(install.mcp_config_path("copilot"),
+                             Path("/h/.copilot/mcp-config.json"))
+
+
 OWNED = "---\nname: {}\ndescription: x\n---\n"
 
 
-class TestLegacyCleanup(TempDirTest):
-    LOCK = "deployed_files:\n  - .claude/skills/{}/SKILL.md\n"
+def rows(state, *names, targets=("claude", "copilot")):
+    """cali_status_rows() output: every name in every target in one state."""
+    return {(n, t): (state,) for n in names for t in targets}
 
+
+class TestLegacyCleanup(TempDirTest):
     def setUp(self):
         super().setUp()
         self.clone_skills = self.tmp / "clone" / "skills"
         self.make_skill("clone/skills", name="roj-a")
         deps = [
-            {"name": "roj-a", "path": "./skills/roj-a", "active": True,
-             "targets": None},
-            {"name": "code-tour", "path": "github/x/skills/code-tour",
-             "active": True, "targets": None},
-            {"name": "caveman", "path": "skills/caveman", "active": True,
-             "targets": ("copilot",)},
-            {"name": "pdf", "path": "anthropics/skills/skills/pdf",
-             "active": False, "targets": None}]
+            {"name": "roj-a", "source": "github:o/r//skills/roj-a",
+             "ref": None, "active": True, "targets": None},
+            {"name": "code-tour", "source": "github:x/y//skills/code-tour",
+             "ref": "a" * 40, "active": True, "targets": None},
+            {"name": "caveman", "source": "https://x/caveman//skills/caveman",
+             "ref": "b" * 40, "active": True, "targets": ("copilot",)},
+            {"name": "pdf", "source": "github:a/s//skills/pdf@" + "c" * 40,
+             "ref": "c" * 40, "active": False, "targets": None}]
         for p in (mock.patch("install.SKILLS_SRC", self.clone_skills),
                   mock.patch("install.manifest_deps", return_value=deps)):
             p.start()
             self.addCleanup(p.stop)
 
-    def cleanup(self, target, root, lock_text=None, dry_run=False):
+    NOT_INSTALLED = rows("base-lost", "roj-a", "code-tour", "caveman")
+
+    def cleanup(self, target, root, cali_rows=NOT_INSTALLED, dry_run=False):
         err = io.StringIO()
         with mock.patch("sys.stderr", err):
             results = install.remove_installer_skills(
-                target, root, dry_run, lock_text=lock_text)
+                target, root, dry_run, cali_rows=cali_rows)
         return results, err.getvalue()
 
     def link(self, entry, to):
@@ -1042,7 +1045,7 @@ class TestLegacyCleanup(TempDirTest):
         except OSError:
             self.skipTest("symlinks unsupported here")
 
-    def test_legacy_names_are_custom_plus_community(self):
+    def test_legacy_names_are_custom_plus_manifest(self):
         self.assertEqual(install.legacy_skill_names(),
                          {"roj-a", "code-tour", "caveman", "pdf"})
 
@@ -1055,8 +1058,7 @@ class TestLegacyCleanup(TempDirTest):
     def test_symlink_into_clone_always_removed(self):
         root = self.tmp / "claude"
         self.link(root / "roj-a", self.clone_skills / "roj-a")
-        results, _ = self.cleanup("claude", root,
-                                  lock_text=self.LOCK.format("roj-a"))
+        results, _ = self.cleanup("claude", root, cali_rows=None)
         self.assertFalse((root / "roj-a").is_symlink())
         self.assertEqual(results, [("claude", "roj-a", "removed (pre-APM link)")])
 
@@ -1085,58 +1087,50 @@ class TestLegacyCleanup(TempDirTest):
         self.assertEqual(results, [])
         self.assertIn("outside this clone", err)
 
-    def test_claude_copies_removed_before_apm_owns_them(self):
-        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
-        results, _ = self.cleanup("claude", self.tmp / "claude")
-        self.assertFalse((self.tmp / "claude" / "code-tour").exists())
-        self.assertEqual(results, [("claude", "code-tour", "removed (pre-APM copy)")])
+    def test_copy_cali_did_not_install_is_removed(self):
+        for target in ("claude", "copilot"):
+            with self.subTest(target=target):
+                self.make_skill(target, name="code-tour",
+                                content=OWNED.format("code-tour"))
+                results, _ = self.cleanup(target, self.tmp / target)
+                self.assertFalse((self.tmp / target / "code-tour").exists())
+                self.assertEqual(results, [(target, "code-tour",
+                                            "removed (not installed by Cali)")])
 
-    def test_claude_copy_kept_when_the_lockfile_lists_it(self):
+    def test_unlocked_copy_is_removed(self):
+        # A skill just uncommented in cali.yaml: Cali would refuse to replace
+        # an old copy that differs, so it goes first.
         self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
         results, _ = self.cleanup("claude", self.tmp / "claude",
-                                  lock_text=self.LOCK.format("code-tour"))
-        self.assertTrue((self.tmp / "claude" / "code-tour").is_dir())
-        self.assertEqual(results, [])
-
-    def test_claude_copy_removed_when_lockfile_is_copilot_only(self):
-        # A --target copilot run wrote the lockfile; APM never deployed to
-        # ~/.claude/skills, so the copy is still ours.
-        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
-        results, _ = self.cleanup(
-            "claude", self.tmp / "claude",
-            lock_text="deployed_files:\n  - .agents/skills/code-tour/SKILL.md\n")
+                                  cali_rows=rows("unlocked", "code-tour"))
         self.assertFalse((self.tmp / "claude" / "code-tour").exists())
         self.assertEqual(len(results), 1)
 
-    def test_lockfile_prefix_match_does_not_count(self):
-        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
-        results, _ = self.cleanup("claude", self.tmp / "claude",
-                                  lock_text=self.LOCK.format("code-tour-x"))
-        self.assertFalse((self.tmp / "claude" / "code-tour").exists())
-        self.assertEqual(len(results), 1)
+    def test_copy_cali_installed_is_kept(self):
+        for state in ("ok", "modified", "outdated"):
+            with self.subTest(state=state):
+                self.make_skill(f"claude-{state}", name="code-tour",
+                                content=OWNED.format("code-tour"))
+                results, err = self.cleanup(
+                    "claude", self.tmp / f"claude-{state}",
+                    cali_rows=rows(state, "code-tour"))
+                self.assertTrue((self.tmp / f"claude-{state}" / "code-tour").is_dir())
+                self.assertEqual((results, err), ([], ""))
 
-    def test_lockfile_windows_separators(self):
-        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
-        results, _ = self.cleanup(
-            "claude", self.tmp / "claude",
-            lock_text="  - C:\\Users\\me\\.claude\\skills\\code-tour\\SKILL.md\n")
-        self.assertTrue((self.tmp / "claude" / "code-tour").is_dir())
-        self.assertEqual(results, [])
-
-    def test_copilot_copies_always_removed(self):
+    def test_copies_kept_without_cali_status(self):
         self.make_skill("copilot", name="code-tour", content=OWNED.format("code-tour"))
-        self.cleanup("copilot", self.tmp / "copilot",
-                     lock_text="  - .copilot/skills/code-tour/\n")
-        self.assertFalse((self.tmp / "copilot" / "code-tour").exists())
+        results, _ = self.cleanup("copilot", self.tmp / "copilot", cali_rows=None)
+        self.assertTrue((self.tmp / "copilot" / "code-tour").is_dir())
+        self.assertEqual(results, [])
 
     def test_optional_skill_copy_kept_with_warning(self):
-        # pdf is commented out in apm.yml: APM would not put it back.
+        # pdf is commented out in cali.yaml: Cali would not put it back.
         self.make_skill("claude", name="pdf", content=OWNED.format("pdf"))
         results, err = self.cleanup("claude", self.tmp / "claude")
         self.assertTrue((self.tmp / "claude" / "pdf").is_dir())
         self.assertEqual(results, [])
-        self.assertIn("APM does not manage pdf for claude", err)
-        self.assertIn("uncomment it in apm.yml", err)
+        self.assertIn("Cali does not manage pdf for claude", err)
+        self.assertIn("uncomment it in cali.yaml", err)
         self.assertEqual(err.count("[ warn ]"), 1)
 
     def test_copilot_only_skill_copy_kept_for_claude(self):
@@ -1144,13 +1138,14 @@ class TestLegacyCleanup(TempDirTest):
         results, err = self.cleanup("claude", self.tmp / "claude")
         self.assertTrue((self.tmp / "claude" / "caveman").is_dir())
         self.assertEqual(results, [])
-        self.assertIn("APM does not manage caveman for claude", err)
+        self.assertIn("Cali does not manage caveman for claude", err)
 
     def test_copilot_only_skill_copy_removed_for_copilot(self):
         self.make_skill("copilot", name="caveman", content=OWNED.format("caveman"))
         results, _ = self.cleanup("copilot", self.tmp / "copilot")
         self.assertFalse((self.tmp / "copilot" / "caveman").exists())
-        self.assertEqual(results, [("copilot", "caveman", "removed (pre-APM copy)")])
+        self.assertEqual(results, [("copilot", "caveman",
+                                    "removed (not installed by Cali)")])
 
     def test_unmanaged_foreign_copy_kept_silently(self):
         self.make_skill("claude", name="pdf", content=OWNED.format("my-pdf"))
@@ -1184,8 +1179,7 @@ class TestLegacyCleanup(TempDirTest):
     def test_dangling_link_removed(self):
         root = self.tmp / "claude"
         self.link(root / "roj-a", self.tmp / "gone" / "roj-a")
-        results, _ = self.cleanup("claude", root,
-                                  lock_text=self.LOCK.format("roj-a"))
+        results, _ = self.cleanup("claude", root, cali_rows=None)
         self.assertFalse((root / "roj-a").is_symlink())
         self.assertEqual(results, [("claude", "roj-a", "removed (pre-APM link)")])
 
@@ -1206,72 +1200,197 @@ class TestLegacyCleanup(TempDirTest):
         self.assertEqual(self.cleanup("claude", self.tmp / "nope")[0], [])
 
 
-class TestInstructionCopy(TempDirTest):
+class TestApmLeftovers(TempDirTest):
+    """APM deployed Copilot skills to ~/.agents/skills; Cali deploys them to
+    ~/.copilot/skills, so APM's copies would load twice."""
+
+    LOCK = "deployed_files:\n  - .agents/skills/{}/SKILL.md\n"
+
+    def setUp(self):
+        super().setUp()
+        self.root = self.tmp / "agents"
+        for p in (mock.patch("install.apm_skills_root", return_value=self.root),
+                  mock.patch("install.managed_skill_names",
+                             return_value={"code-tour", "caveman"})):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def test_copy_the_lockfile_lists_is_removed(self):
+        self.make_skill("agents", name="code-tour")
+        results = install.remove_apm_skills(False, self.LOCK.format("code-tour"))
+        self.assertFalse((self.root / "code-tour").exists())
+        self.assertEqual(results, [("copilot", "code-tour",
+                                    "removed (APM copy in ~/.agents/skills)")])
+
+    def test_copy_the_lockfile_does_not_list_is_kept(self):
+        self.make_skill("agents", name="code-tour")
+        for lock in (None, self.LOCK.format("caveman"),
+                     self.LOCK.format("code-tour-x"),
+                     "  - .claude/skills/code-tour/SKILL.md\n"):
+            with self.subTest(lock=lock):
+                self.assertEqual(install.remove_apm_skills(False, lock), [])
+                self.assertTrue((self.root / "code-tour").is_dir())
+
+    def test_windows_separators_count(self):
+        self.make_skill("agents", name="code-tour")
+        install.remove_apm_skills(
+            False, "  - C:\\Users\\me\\.agents\\skills\\code-tour\\SKILL.md\n")
+        self.assertFalse((self.root / "code-tour").exists())
+
+    def test_unmanaged_name_is_kept(self):
+        self.make_skill("agents", name="orca-cli")
+        self.assertEqual(install.remove_apm_skills(
+            False, self.LOCK.format("orca-cli")), [])
+        self.assertTrue((self.root / "orca-cli").is_dir())
+
+    def test_symlink_is_kept(self):
+        target = self.make_skill("elsewhere", name="code-tour")
+        self.root.mkdir()
+        try:
+            (self.root / "code-tour").symlink_to(target, target_is_directory=True)
+        except OSError:
+            self.skipTest("symlinks unsupported here")
+        self.assertEqual(install.remove_apm_skills(
+            False, self.LOCK.format("code-tour")), [])
+        self.assertTrue((self.root / "code-tour").is_symlink())
+
+    def test_dry_run_removes_nothing(self):
+        self.make_skill("agents", name="code-tour")
+        results = install.remove_apm_skills(True, self.LOCK.format("code-tour"))
+        self.assertTrue((self.root / "code-tour").is_dir())
+        self.assertEqual(len(results), 1)
+
+    def test_missing_root_is_fine(self):
+        self.assertEqual(install.remove_apm_skills(
+            False, self.LOCK.format("code-tour")), [])
+
+
+class TestInstructions(TempDirTest):
+    SRC = '---\napplyTo: "**"\ndescription: Mine.\n---\n\n# Rules\n'
+    CLAUDE = '---\npaths:\n  - "**"\n---\n\n# Rules\n'
+
     def setUp(self):
         super().setUp()
         self.src = self.tmp / "clone" / "personal.instructions.md"
         self.src.parent.mkdir(parents=True)
-        self.src.write_text("rules\n")
-        self.dest = self.tmp / "home" / ".copilot" / "instructions" / "personal.instructions.md"
-        self.dest.parent.mkdir(parents=True)
+        self.src.write_text(self.SRC)
+        self.dest = {
+            "copilot": self.tmp / "home" / ".copilot" / "instructions"
+                       / "personal.instructions.md",
+            "claude": self.tmp / "home" / ".claude" / "rules" / "personal.md"}
         for p in (mock.patch("install.INSTRUCTIONS_SRC", self.src),
-                  mock.patch("install.copilot_instruction_path",
-                             return_value=self.dest)):
+                  mock.patch("install.instruction_path",
+                             side_effect=lambda t: self.dest[t]),
+                  mock.patch("install.shipped_instructions",
+                             return_value={self.SRC, "old rules\n"})):
             p.start()
             self.addCleanup(p.stop)
 
-    def test_symlink_removed(self):
+    def deploy(self, target, dry_run=False):
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            results = install.install_instructions(target, dry_run)
+        return results, err.getvalue()
+
+    def test_render_for_claude_matches_what_apm_wrote(self):
+        self.assertEqual(install.render_instructions(self.SRC, "claude"),
+                         self.CLAUDE)
+        self.assertEqual(install.render_instructions(self.SRC, "copilot"),
+                         self.SRC)
+
+    def test_render_without_front_matter_is_unchanged(self):
+        self.assertEqual(install.render_instructions("# x\n", "claude"), "# x\n")
+
+    def test_repo_file_renders_for_claude(self):
+        text = install.render_instructions(
+            install.INSTRUCTIONS_SRC.read_text(encoding="utf-8"), "claude")
+        self.assertTrue(text.startswith('---\npaths:\n  - "**"\n---\n'))
+
+    def test_installed_when_absent(self):
+        for target, want in (("copilot", self.SRC), ("claude", self.CLAUDE)):
+            with self.subTest(target=target):
+                results, _ = self.deploy(target)
+                self.assertEqual(self.dest[target].read_text(), want)
+                self.assertEqual(results, [(target, self.dest[target].name,
+                                            "installed")])
+
+    def test_up_to_date_is_silent(self):
+        self.deploy("claude")
+        self.assertEqual(self.deploy("claude"), ([], ""))
+
+    def test_older_shipped_version_is_updated(self):
+        self.dest["claude"].parent.mkdir(parents=True)
+        self.dest["claude"].write_text(install.render_instructions(
+            "old rules\n", "claude"))
+        results, _ = self.deploy("claude")
+        self.assertEqual(self.dest["claude"].read_text(), self.CLAUDE)
+        self.assertEqual(results[0][2], "updated")
+
+    def test_edited_copy_kept_with_warning(self):
+        self.dest["copilot"].parent.mkdir(parents=True)
+        self.dest["copilot"].write_text("my local edits\n")
+        results, err = self.deploy("copilot")
+        self.assertEqual(self.dest["copilot"].read_text(), "my local edits\n")
+        self.assertIn("differs", err)
+        self.assertEqual(results, [])
+
+    def test_dotfiles_link_replaced(self):
         other = self.tmp / "dotfiles" / "copilot" / "personal.instructions.md"
         other.parent.mkdir(parents=True)
         other.write_text("rules\n")
         (self.tmp / "dotfiles" / "install.py").write_text("")
+        self.dest["copilot"].parent.mkdir(parents=True)
         try:
-            self.dest.symlink_to(other)
+            self.dest["copilot"].symlink_to(other)
         except OSError:
             self.skipTest("symlinks unsupported here")
-        results = install.remove_instruction_copy(dry_run=False)
-        self.assertFalse(self.dest.is_symlink())
-        self.assertTrue(other.exists())
-        self.assertEqual(results[0][2], "removed (dotfiles link — APM deploys it now)")
+        results, _ = self.deploy("copilot")
+        self.assertFalse(self.dest["copilot"].is_symlink())
+        self.assertEqual(self.dest["copilot"].read_text(), self.SRC)
+        self.assertEqual(other.read_text(), "rules\n")
+        self.assertEqual(results[0][2], "replaced dotfiles link")
 
     def test_unrelated_symlink_kept_with_warning(self):
         mine = self.tmp / "mine" / "personal.instructions.md"
         mine.parent.mkdir()
         mine.write_text("my rules\n")
+        self.dest["copilot"].parent.mkdir(parents=True)
         try:
-            self.dest.symlink_to(mine)
+            self.dest["copilot"].symlink_to(mine)
         except OSError:
             self.skipTest("symlinks unsupported here")
-        err = io.StringIO()
-        with mock.patch("sys.stderr", err):
-            results = install.remove_instruction_copy(dry_run=False)
-        self.assertTrue(self.dest.is_symlink())
+        results, err = self.deploy("copilot")
+        self.assertTrue(self.dest["copilot"].is_symlink())
         self.assertEqual(results, [])
-        self.assertIn("other than the dotfiles repo", err.getvalue())
+        self.assertIn("other than the dotfiles repo", err)
 
-    def test_identical_copy_removed(self):
-        self.dest.write_text("rules\n")
-        install.remove_instruction_copy(dry_run=False)
-        self.assertFalse(self.dest.exists())
+    def test_dry_run_writes_nothing(self):
+        results, _ = self.deploy("claude", dry_run=True)
+        self.assertFalse(self.dest["claude"].exists())
+        self.assertEqual(results[0][2], "installed")
 
-    def test_edited_instruction_copy_kept(self):
-        self.dest.write_text("my local edits\n")
-        err = io.StringIO()
-        with mock.patch("sys.stderr", err):
-            results = install.remove_instruction_copy(dry_run=False)
-        self.assertEqual(self.dest.read_text(), "my local edits\n")
-        self.assertIn("differs", err.getvalue())
-        self.assertEqual(results, [])
 
-    def test_absent_is_fine(self):
-        self.assertEqual(install.remove_instruction_copy(dry_run=False), [])
+
+class TestInstructionSources(unittest.TestCase):
+    def test_shipped_versions_include_the_current_file(self):
+        shipped = install.shipped_instructions()
+        self.assertIn(install.INSTRUCTIONS_SRC.read_text(encoding="utf-8"),
+                      shipped)
+
+    def test_real_paths(self):
+        with mock.patch("install.Path.home", return_value=Path("/h")):
+            self.assertEqual(install.instruction_path("claude"),
+                             Path("/h/.claude/rules/personal.md"))
+            self.assertEqual(install.instruction_path("copilot"),
+                             Path("/h/.copilot/instructions/personal.instructions.md"))
 
 
 class TestMain(TempDirTest):
-    """main() end to end with apm, externals and homes faked."""
+    """main() end to end with cali, externals and homes faked."""
 
-    def run_main(self, argv, apm="/bin/apm", apm_code=0, lock=False, wsl=False,
-                 externals=(), bootstrap=None, token="tok"):
+    def run_main(self, argv, cali="/bin/cali", cali_code=0, lock=False,
+                 wsl=False, externals=(), bootstrap=None, token="tok",
+                 cali_rows=None):
         home = self.tmp / "home"
         (home / ".apm").mkdir(parents=True, exist_ok=True)
         if lock:
@@ -1279,27 +1398,29 @@ class TestMain(TempDirTest):
                 lock if isinstance(lock, str) else "x")
         calls = []
 
-        self.envs = []
-
-        def fake_run(cmd, env=None):
+        def fake_run(cmd):
             calls.append(list(cmd))
-            self.envs.append(env)
-            return apm_code
+            return cali_code
 
         out, err = io.StringIO(), io.StringIO()
         code = 0
         with contextlib.ExitStack() as stack:
             for p in (
                 mock.patch("install.apm_home", return_value=home / ".apm"),
+                mock.patch("install.apm_skills_root", return_value=home / "agents"),
                 mock.patch("install.target_root",
                            side_effect=lambda t: home / t),
-                mock.patch("install.copilot_instruction_path",
-                           return_value=home / "instr" / "p.instructions.md"),
+                mock.patch("install.instruction_path",
+                           side_effect=lambda t: home / "instr" / f"{t}.md"),
+                mock.patch("install.mcp_config_path",
+                           side_effect=lambda t: home / f"mcp-{t}.json"),
                 mock.patch("install.claude_commands_dir",
                            return_value=home / "commands"),
                 mock.patch("install.find_cli",
-                           side_effect=lambda n: apm if n == "apm" else None),
-                mock.patch("install.run_apm", side_effect=fake_run),
+                           side_effect=lambda n: cali if n == "cali" else None),
+                mock.patch("install.run_cali", side_effect=fake_run),
+                mock.patch("install.cali_status_rows",
+                           return_value={} if cali_rows is None else cali_rows),
                 mock.patch("install.github_token", return_value=token),
                 mock.patch("install.EXTERNALS", list(externals)),
                 mock.patch("install.bootstrap_cli",
@@ -1318,115 +1439,91 @@ class TestMain(TempDirTest):
                 err.write(str(exc.code))
         return code, calls, out.getvalue(), err.getvalue()
 
+    def cali(self, *args):
+        return install.cali_argv("/bin/cali", *args)
+
     def test_default_installs_both(self):
-        code, calls, out, _ = self.run_main([])
+        code, calls, _, _ = self.run_main([])
+        home = self.tmp / "home"
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [["/bin/apm", "install", "-g", "--update",
-                                  "--target", "claude,copilot"]])
-        manifest = (self.tmp / "home" / ".apm" / "apm.yml").read_text()
-        self.assertIn(install.REPO_ROOT.resolve().as_posix(), manifest)
+        self.assertEqual(calls, [self.cali("sync")])
+        for t in ("claude", "copilot"):
+            with self.subTest(target=t):
+                self.assertTrue((home / "instr" / f"{t}.md").is_file())
+                servers = json.loads((home / f"mcp-{t}.json").read_text())
+                self.assertIn("github-mcp-server", servers["mcpServers"])
 
-    def test_token_is_handed_to_apm(self):
-        self.run_main([], token="gho_abc")
-        self.assertEqual(self.envs[0]["token"], "gho_abc")
-
-    def test_no_token_installs_without_mcp(self):
+    def test_no_token_skips_mcp(self):
         code, calls, out, _ = self.run_main([], token=None)
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [["/bin/apm", "install", "-g", "--update",
-                                  "--only", "apm", "--target",
-                                  "claude,copilot"]])
-        self.assertIsNone(self.envs[0])
+        self.assertEqual(calls, [self.cali("sync")])
         self.assertIn("skipping MCP servers", out)
+        self.assertFalse((self.tmp / "home" / "mcp-claude.json").exists())
 
-    def test_single_target(self):
+    def test_single_target_limits_everything_but_cali(self):
+        # cali sync has no --target: it installs every target cali.yaml names.
         _, calls, _, _ = self.run_main(["--target", "copilot"])
-        self.assertEqual(calls[0][-1], "copilot")
+        home = self.tmp / "home"
+        self.assertEqual(calls, [self.cali("sync")])
+        self.assertTrue((home / "mcp-copilot.json").exists())
+        self.assertFalse((home / "mcp-claude.json").exists())
+        self.assertFalse((home / "instr" / "claude.md").exists())
 
-    def test_missing_apm_is_installed_first(self):
-        asked = []
-
-        def bootstrap(ext, dry):
-            asked.append((ext["package"], dry))
-            return "/home/u/.local/bin/apm"
-
-        code, calls, _, _ = self.run_main(["--target", "claude"], apm=None,
-                                          bootstrap=bootstrap)
-        self.assertEqual(code, 0)
-        self.assertEqual(asked, [("apm-cli", False)])
-        self.assertEqual(calls, [["/home/u/.local/bin/apm", "install", "-g",
-                                  "--update", "--target", "claude"]])
-
-    def test_missing_apm_stops_with_hint(self):
-        code, calls, _, err = self.run_main(["--target", "claude"], apm=None)
+    def test_missing_cali_stops_with_hint_before_cleanup(self):
+        self.make_skill("home/copilot", name="code-tour",
+                        content=OWNED.format("code-tour"))
+        code, calls, _, err = self.run_main(
+            ["--target", "copilot"], cali=None,
+            cali_rows=rows("base-lost", "code-tour"))
         self.assertEqual(code, 1)
         self.assertEqual(calls, [])
-        for line in ("pipx install apm-cli", "sudo apt install pipx",
-                     "brew install apm"):
-            self.assertIn(line, err)
+        self.assertIn("https://github.com/rojcarranza/cali", err)
+        self.assertTrue((self.tmp / "home" / "copilot" / "code-tour").exists())
 
-    def test_dry_run_without_apm_prints_plan(self):
-        asked = []
-        code, calls, out, err = self.run_main(
-            ["--dry-run"], apm=None,
-            bootstrap=lambda ext, dry: asked.append(ext["package"]))
+    def test_dry_run_without_cali_prints_plan(self):
+        code, calls, out, err = self.run_main(["--dry-run"], cali=None)
         self.assertEqual(code, 0)
         self.assertEqual(calls, [])
-        self.assertEqual(asked, [])
-        self.assertIn("would install apm-cli", err)
-        self.assertIn("would run apm install -g --update --target "
-                      "claude,copilot", out)
-        self.assertFalse((self.tmp / "home" / ".apm" / "apm.yml").exists())
+        self.assertIn("cali is not installed", err)
+        self.assertIn("would run cali sync -g --manifest", out)
+        self.assertFalse((self.tmp / "home" / "instr").exists())
+        self.assertFalse((self.tmp / "home" / "mcp-claude.json").exists())
 
-    def test_apm_failure_is_the_exit_code(self):
-        code, _, _, err = self.run_main([], apm_code=2)
+    def test_cali_failure_is_the_exit_code(self):
+        code, _, _, err = self.run_main([], cali_code=2)
         self.assertEqual(code, 2)
-        self.assertIn("apm install failed", err)
+        self.assertIn("cali sync failed", err)
         self.assertIn("once a re-run of install.py succeeds", err)
 
-    def test_update_without_apm_stops_with_hint(self):
-        code, calls, _, err = self.run_main(["--update"], apm=None)
+    def test_update_reports_through_cali_status(self):
+        for cali_code in (0, 1):
+            with self.subTest(cali_code=cali_code):
+                code, calls, _, _ = self.run_main(["--update"],
+                                                  cali_code=cali_code)
+                self.assertEqual(calls, [self.cali("status")])
+                self.assertEqual(code, cali_code)
+
+    def test_update_without_cali_stops_with_hint(self):
+        code, calls, _, err = self.run_main(["--update"], cali=None)
         self.assertEqual(code, 1)
         self.assertEqual(calls, [])
-        self.assertIn("pipx install apm-cli", err)
-
-    def test_update_installs_missing_apm(self):
-        code, calls, _, _ = self.run_main(
-            ["--update"], apm=None, bootstrap=lambda ext, dry: "/x/apm")
-        self.assertEqual(code, 0)
-        self.assertEqual(calls, [["/x/apm", "outdated", "-g"]])
+        self.assertIn("https://github.com/rojcarranza/cali", err)
 
     def test_update_dry_run_runs_nothing(self):
         code, calls, out, _ = self.run_main(["--update", "--dry-run"])
         self.assertEqual(code, 0)
         self.assertEqual(calls, [])
-        self.assertIn("would run apm outdated -g", out)
+        self.assertIn("would run cali status -g --manifest", out)
 
-    def test_foreign_manifest_stops_before_cleanup(self):
-        apm_dir = self.tmp / "home" / ".apm"
-        apm_dir.mkdir(parents=True)
-        (apm_dir / "apm.yml").write_text("name: mine\n")
-        self.make_skill("home/copilot", name="code-tour",
-                        content="---\nname: code-tour\ndescription: x\n---\n")
-        code, calls, _, _ = self.run_main(["--target", "copilot"], lock=True)
-        self.assertNotEqual(code, 0)
-        self.assertEqual(calls, [])
-        self.assertTrue((self.tmp / "home" / "copilot" / "code-tour").exists())
-
-    def test_update_reports_outdated(self):
-        code, calls, _, _ = self.run_main(["--update"])
-        self.assertEqual(calls, [["/bin/apm", "outdated", "-g"]])
-        self.assertEqual(code, 0)
-
-    def test_status_lists_apm_deps(self):
+    def test_status_lists_cali_skills(self):
         _, calls, _, _ = self.run_main(["--status"])
-        self.assertEqual(calls, [["/bin/apm", "deps", "list", "-g"]])
+        self.assertEqual(calls, [self.cali("list")])
 
-    def test_status_without_apm_warns_and_succeeds(self):
-        code, calls, _, err = self.run_main(["--status"], apm=None)
+    def test_status_without_cali_warns_and_succeeds(self):
+        code, calls, _, err = self.run_main(["--status"], cali=None)
         self.assertEqual(code, 0)
         self.assertEqual(calls, [])
-        self.assertIn("apm is not installed", err)
+        self.assertIn("cali is not installed", err)
 
     def test_skills_only_never_bootstraps_externals(self):
         ext = ExternalTest.fake_external(None)
@@ -1438,19 +1535,34 @@ class TestMain(TempDirTest):
         self.assertEqual(boots, [])
         self.assertIn("--skills-only", out)
 
-    def test_claude_copy_listed_in_lockfile_survives_install(self):
+    def test_copy_cali_installed_survives_install(self):
         self.make_skill("home/claude", name="code-tour",
                         content=OWNED.format("code-tour"))
-        self.run_main(["--target", "claude"],
-                      lock="  - .claude/skills/code-tour/SKILL.md\n")
+        self.run_main(["--target", "claude"], cali_rows=rows("ok", "code-tour"))
         self.assertTrue((self.tmp / "home" / "claude" / "code-tour").is_dir())
 
-    def test_claude_copy_removed_when_lockfile_is_copilot_only(self):
-        self.make_skill("home/claude", name="code-tour",
+    def test_copy_cali_did_not_install_is_cleared_before_sync(self):
+        self.make_skill("home/copilot", name="code-tour",
                         content=OWNED.format("code-tour"))
-        self.run_main(["--target", "claude"],
-                      lock="  - .agents/skills/code-tour/SKILL.md\n")
-        self.assertFalse((self.tmp / "home" / "claude" / "code-tour").exists())
+        self.run_main(["--target", "copilot"],
+                      cali_rows=rows("base-lost", "code-tour"))
+        self.assertFalse((self.tmp / "home" / "copilot" / "code-tour").exists())
+
+    def test_apm_copilot_copies_removed_for_copilot_only(self):
+        lock = "  - .agents/skills/code-tour/SKILL.md\n"
+        self.make_skill("home/agents", name="code-tour")
+        self.run_main(["--target", "claude"], lock=lock)
+        self.assertTrue((self.tmp / "home" / "agents" / "code-tour").is_dir())
+        self.run_main(["--target", "copilot"], lock=lock)
+        self.assertFalse((self.tmp / "home" / "agents" / "code-tour").exists())
+
+    def test_status_warns_about_apm_copies(self):
+        self.make_skill("home/agents", name="code-tour")
+        _, _, _, err = self.run_main(
+            ["--status", "--target", "copilot"],
+            lock="  - .agents/skills/code-tour/SKILL.md\n")
+        self.assertIn("code-tour left by an older install", err)
+        self.assertTrue((self.tmp / "home" / "agents" / "code-tour").is_dir())
 
     def test_status_warns_about_older_leftovers(self):
         home = self.tmp / "home"
@@ -1468,28 +1580,36 @@ class TestMain(TempDirTest):
         self.assertTrue(gen.is_dir())
         self.assertTrue(old.is_dir())
 
-    def test_status_warns_about_dotfiles_instruction_copy(self):
-        dest = self.tmp / "home" / "instr" / "p.instructions.md"
+    def test_status_warns_about_dotfiles_instruction_link(self):
+        dotfiles = self.tmp / "dotfiles"
+        (dotfiles / "copilot").mkdir(parents=True)
+        (dotfiles / "install.py").write_text("")
+        linked = dotfiles / "copilot" / "copilot.md"
+        linked.write_text("x\n")
+        dest = self.tmp / "home" / "instr" / "copilot.md"
         dest.parent.mkdir(parents=True)
-        dest.write_bytes(install.INSTRUCTIONS_SRC.read_bytes())
+        try:
+            dest.symlink_to(linked)
+        except OSError:
+            self.skipTest("symlinks unsupported here")
         _, _, _, err = self.run_main(["--status", "--target", "copilot"])
-        self.assertIn("p.instructions.md left by an older install", err)
-        self.assertTrue(dest.is_file())
+        self.assertIn("copilot.md left by an older install", err)
+        self.assertTrue(dest.is_symlink())
+
+    def test_status_warns_about_undeployed_instructions(self):
+        _, _, _, err = self.run_main(["--status", "--target", "claude"])
+        self.assertIn("claude.md is not deployed or out of date — re-run "
+                      "install.py", err)
+        self.assertFalse((self.tmp / "home" / "instr").exists())
 
     def test_removed_flags_are_rejected(self):
         for flag in (["--repo", "."], ["--skill", "x"], ["--list"],
                      ["--uninstall", "x"], ["--add-inventory", "a/b@c"],
-                     ["--check-inventory-updates"]):
+                     ["--check-inventory-updates"], ["--force"]):
             with self.subTest(flag=flag):
                 code, calls, _, _ = self.run_main(flag)
                 self.assertEqual(code, 2)
                 self.assertEqual(calls, [])
-
-    def test_legacy_copilot_copy_cleared_before_apm(self):
-        self.make_skill("home/copilot", name="code-tour",
-                        content="---\nname: code-tour\ndescription: x\n---\n")
-        self.run_main(["--target", "copilot"], lock=True)
-        self.assertFalse((self.tmp / "home" / "copilot" / "code-tour").exists())
 
     def test_wsl_hint_printed(self):
         _, _, out, _ = self.run_main([], wsl=True)
