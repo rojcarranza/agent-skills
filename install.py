@@ -199,8 +199,9 @@ def cali_status_rows(exe: str):
     """{(skill, target): (state, ...)} from `cali status --offline --json`,
     or None when cali cannot say — callers then remove no copies."""
     try:
+        # stderr passes through, so a failing cali shows its own error.
         run = subprocess.run(cali_argv(exe, "status", "--offline", "--json"),
-                             capture_output=True, text=True, timeout=120)
+                             stdout=subprocess.PIPE, text=True, timeout=120)
         rows = json.loads(run.stdout)["rows"] if run.returncode == 0 else None
         if rows is not None:
             return {(r["skill"], r["target"]): tuple(r["states"])
