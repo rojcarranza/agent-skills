@@ -1024,8 +1024,11 @@ class TestLegacyCleanup(TempDirTest):
              "ref": "b" * 40, "active": True, "targets": ("copilot",)},
             {"name": "pdf", "source": "github:a/s//skills/pdf@" + "c" * 40,
              "ref": "c" * 40, "active": False, "targets": None}]
+        # Every move lands in the temp dir, never the real ~/.agent-skills-backups.
+        self.backups = self.tmp / "backups"
         for p in (mock.patch("install.SKILLS_SRC", self.clone_skills),
-                  mock.patch("install.manifest_deps", return_value=deps)):
+                  mock.patch("install.manifest_deps", return_value=deps),
+                  mock.patch("install.backup_dir", return_value=self.backups)):
             p.start()
             self.addCleanup(p.stop)
 
@@ -1090,27 +1093,23 @@ class TestLegacyCleanup(TempDirTest):
     def test_copy_cali_did_not_install_is_moved_to_a_backup(self):
         # base-lost also means a Cali folder whose data dir was wiped, so the
         # copy may hold local edits: it is moved aside, never deleted.
-        backups = self.tmp / "backups"
         for target in ("claude", "copilot"):
-            with self.subTest(target=target), \
-                    mock.patch("install.backup_dir", return_value=backups):
+            with self.subTest(target=target):
                 self.make_skill(target, name="code-tour",
                                 content=OWNED.format("code-tour") + "my edit\n")
                 results, _ = self.cleanup(target, self.tmp / target)
                 self.assertFalse((self.tmp / target / "code-tour").exists())
-                kept = backups / target / "code-tour" / "SKILL.md"
+                kept = self.backups / target / "code-tour" / "SKILL.md"
                 self.assertEqual(kept.read_text(encoding="utf-8"),
                                  OWNED.format("code-tour") + "my edit\n")
                 self.assertEqual(results, [(target, "code-tour",
                                             f"moved to {kept.parent} (not installed by Cali)")])
 
     def test_dry_run_moves_nothing(self):
-        backups = self.tmp / "backups"
         self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
-        with mock.patch("install.backup_dir", return_value=backups):
-            self.cleanup("claude", self.tmp / "claude", dry_run=True)
+        self.cleanup("claude", self.tmp / "claude", dry_run=True)
         self.assertTrue((self.tmp / "claude" / "code-tour").is_dir())
-        self.assertFalse(backups.exists())
+        self.assertFalse(self.backups.exists())
 
     def test_unlocked_copy_is_removed(self):
         # A skill just uncommented in cali.yaml: Cali would refuse to replace
@@ -1157,8 +1156,7 @@ class TestLegacyCleanup(TempDirTest):
 
     def test_copilot_only_skill_copy_removed_for_copilot(self):
         self.make_skill("copilot", name="caveman", content=OWNED.format("caveman"))
-        with mock.patch("install.backup_dir", return_value=self.tmp / "backups"):
-            results, _ = self.cleanup("copilot", self.tmp / "copilot")
+        results, _ = self.cleanup("copilot", self.tmp / "copilot")
         self.assertFalse((self.tmp / "copilot" / "caveman").exists())
         self.assertEqual(len(results), 1)
         self.assertTrue(results[0][2].startswith("moved to "))
@@ -1436,6 +1434,7 @@ class TestMain(TempDirTest):
                            side_effect=lambda t: home / f"mcp-{t}.json"),
                 mock.patch("install.claude_commands_dir",
                            return_value=home / "commands"),
+                mock.patch("install.backup_dir", return_value=home / "backups"),
                 mock.patch("install.find_cli",
                            side_effect=lambda n: cali if n == "cali" else None),
                 mock.patch("install.run_cali", side_effect=fake_run),
@@ -1567,6 +1566,8 @@ class TestMain(TempDirTest):
         self.run_main(["--target", "copilot"],
                       cali_rows=rows("base-lost", "code-tour"))
         self.assertFalse((self.tmp / "home" / "copilot" / "code-tour").exists())
+        self.assertTrue((self.tmp / "home" / "backups" / "copilot" / "code-tour"
+                         / "SKILL.md").is_file())
 
     def test_apm_copilot_copies_removed_for_copilot_only(self):
         lock = "  - .agents/skills/code-tour/SKILL.md\n"

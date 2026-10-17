@@ -304,10 +304,10 @@ def _links_into_a_checkout(entry):
 
 def remove_installer_skills(target, dest_root, dry_run, cali_rows=None):
     """Remove what older installs left in dest_root, for skills Cali now
-    installs for target. cali_rows is cali_status_rows(): a copy is removed
-    only when Cali says it did not install it (NOT_CALIS), so a Cali-installed
-    folder, local edits included, is never touched. Without cali_rows no
-    copy is removed. A leftover Cali will not reinstall is kept."""
+    installs for target. cali_rows is cali_status_rows(): a copy is moved to
+    backup_dir() only when Cali says it did not install it (NOT_CALIS), so a
+    Cali-installed folder, local edits included, is never touched. Without
+    cali_rows no copy is moved. A leftover Cali will not reinstall is kept."""
     results = []
     if not dest_root.is_dir():
         return results
@@ -656,11 +656,14 @@ def is_generated(path):
         return False
 
 
+# Taken once, so every copy one run moves lands in the same folder.
+_RUN_STAMP = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+
+
 def backup_dir():
     """Where install.py keeps copies it moved out of a skills dir, one
     folder per run."""
-    return (Path.home() / ".agent-skills-backups"
-            / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()))
+    return Path.home() / ".agent-skills-backups" / _RUN_STAMP
 
 
 def _move_aside(path, target, dry_run):
@@ -1107,7 +1110,7 @@ def main():
         code = run_cali(argv)
         if code:
             print_summary(results, targets, args.dry_run)
-            warn("cali sync failed — skill folders removed above come back "
+            warn("cali sync failed — skill folders removed or moved above come back "
                  "once a re-run of install.py succeeds")
             sys.exit(code)
         results.append(("cali", "sync", "done"))
