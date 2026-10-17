@@ -1,10 +1,10 @@
 # Community skills
 
-Every skill here is listed in [`apm.yml`](../apm.yml) — live ones install by
+Every skill here is listed in [`cali.yaml`](../cali.yaml) — live ones install by
 default, commented ones are optional: uncomment and re-run `install.py`.
 Sources: `github/awesome-copilot`, `juliusbrussee/caveman`,
 `addyosmani/agent-skills`, `warpdotdev/common-skills`, `anthropics/skills`,
-`vercel-labs/skills` and `mattpocock/skills`. Each skill in `apm.yml` gets a section here.
+`vercel-labs/skills` and `mattpocock/skills`. Each skill in `cali.yaml` gets a section here.
 
 ## code-tour
 Creates CodeTour `.tour` walkthroughs through a repo, PR, or bug.
@@ -17,8 +17,8 @@ chain to this skill at the end of a run and fall back to writing a minimal
 run, for a chained series.
 
 Upstream gotcha: its `SKILL.md` documents the bundled scripts at
-`~/.agents/skills/code-tour/scripts/`, a path APM does not create for Claude —
-skills land in `~/.claude/skills/` (Copilot: `~/.agents/skills/`). Resolve
+`~/.agents/skills/code-tour/scripts/`, a path Cali does not create —
+skills land in `~/.claude/skills/` (Copilot: `~/.copilot/skills/`). Resolve
 `validate_tour.py` from the installed skill directory instead. The community
 copy is deliberately not patched; a re-fetch would overwrite the change.
 
@@ -122,7 +122,7 @@ PR Explanation section, skipping its `gh` steps. Without it,
 ## find-skills
 Searches the open skills ecosystem (`npx skills find <query>`) when a task
 might already have a skill. From `vercel-labs/skills` (MIT), via
-`apm.yml`.
+`cali.yaml`.
 - `Is there a skill for Terraform plan reviews?`
 - `Find a skill for writing changelogs`
 
@@ -133,15 +133,15 @@ anything during a run.
 
 Upstream gotcha: its last step offers `npx skills add <owner/repo@skill> -g -y`,
 a one-off global install nothing here records. Treat that as a trial; to
-keep a skill, add it to `apm.yml` pinned to a commit, re-run `install.py` and
-commit the entry. The community copy is deliberately not patched.
+keep a skill, add it to `cali.yaml` pinned to a commit, re-run `install.py` and
+commit the entry with its `cali.lock` change. The community copy is deliberately not patched.
 
 ## grilling
 Interviews you about a plan, decision or idea in rounds: every question that
 can be answered now, numbered, each with a recommended answer that "yes"
 accepts. Looks facts up itself and leaves the decisions to you. From
 `mattpocock/skills` (MIT), fetched from its `skills/productivity/` folder.
-Cherry-pick: optional, uncomment it in `apm.yml`.
+Cherry-pick: optional, uncomment it in `cali.yaml`.
 - `Grill me on this migration plan`
 - `Stress-test my idea for splitting the build agents`
 
@@ -153,13 +153,13 @@ skill installed.
 Slash-only wrapper (`/grill-me`) that calls `grilling`. Claude only: its body
 tells the agent to call the Skill tool, which Copilot does not have. Install
 it together with `grilling`. Optional, from `mattpocock/skills`: uncomment it
-in `apm.yml` and add `targets: [claude]` (object form).
+in `cali.yaml`, its `targets: [claude]` line included.
 - `/grill-me` followed by the plan
 
 ## to-questionnaire
 Turns a decision you cannot answer alone into a Markdown questionnaire for
 one person to fill in, written to `to-questionnaire-<slug>.md`. Optional, from
-`mattpocock/skills`: uncomment it in `apm.yml`.
+`mattpocock/skills`: uncomment it in `cali.yaml`.
 - `Turn the open questions on the cache design into a questionnaire for the platform team`
 
 `roj-grill-plan` offers it at the end of a run for questions only someone
@@ -168,7 +168,7 @@ else can answer, and lists them in chat when it is absent.
 ## superpowers
 Brainstorming, planning, TDD, subagent-driven development and review skills
 from [obra/superpowers](https://github.com/obra/superpowers) (MIT), installed
-as a plugin rather than through `apm.yml`.
+as a plugin rather than through `cali.yaml`.
 
 `roj-idea-to-project` requires it and installs it on first run, after a yes:
 
@@ -181,7 +181,7 @@ as a plugin rather than through `apm.yml`.
   restart `copilot`.
 
 Copilot in VS Code and JetBrains is not supported yet: the skill folders
-install through `apm.yml` at a pinned commit, but Superpowers ships no
+install through `cali.yaml` at a pinned commit, but Superpowers ships no
 Copilot tool map and its session-start bootstrap does not run from a
 skills-only install. Curated marketplaces can lag behind the latest release
 (v7.0.0 rebuilt brainstorming); the skill offers `claude plugin update`.

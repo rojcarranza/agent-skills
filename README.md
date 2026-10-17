@@ -9,42 +9,41 @@ supports.
 
 ## Install
 
-**Everything, with APM (recommended)** — my skills, the community skills
-they chain to, personal instructions and MCP servers, for Claude Code and
-Copilot, from one manifest ([`apm.yml`](apm.yml)).
+**Everything, with Cali (recommended)** — my skills, the community skills
+they chain to, personal instructions and the GitHub MCP server, for Claude
+Code and Copilot. The skills are listed in one manifest
+([`cali.yaml`](cali.yaml), pinned in [`cali.lock`](cali.lock)) and
+installed by [Cali](https://github.com/rojcarranza/cali).
 
-1. Clone and install. `install.py` installs
-   [APM](https://microsoft.github.io/apm/) itself when it is missing (with
-   `uv`, `pipx` or `pip --user`, the same as `graphify`), so macOS, Windows
-   Git Bash and WSL Ubuntu need nothing else first:
+1. Install `cali` from a clone of its repo (`make install`, or
+   `sh scripts/install.sh` on Git Bash). `install.py` cannot install it for
+   you: it stops and prints those commands when `cali` is missing.
+2. Clone this repo and run the installer:
 
    ```bash
    git clone https://github.com/rojcarranza/agent-skills && cd agent-skills
    python3 install.py --target both        # or claude / copilot
    python3 install.py --status             # what is installed where
-   python3 install.py --update             # which pins have newer releases
+   python3 install.py --update             # which skills have newer versions
    ```
 
    On Windows use Git Bash and `python`; on WSL run it inside WSL, and
-   again from Git Bash for Windows-side VS Code and JetBrains. If APM cannot
-   be installed for you, `install.py` stops and prints the command for your
-   platform (`python -m pip install --user apm-cli` on Git Bash,
-   `sudo apt install pipx && pipx install apm-cli` on WSL, `brew install apm`
-   on macOS).
-   `install.py` writes `~/.apm/apm.yml` pointing at this clone, runs `apm install -g`,
-   and installs `graphify` (a CLI APM cannot package).
+   again from Git Bash for Windows-side VS Code and JetBrains.
+   `install.py` runs `cali sync -g --manifest <clone>/cali.yaml`, writes the
+   personal instructions and the GitHub MCP server entry, and installs
+   `graphify` (a CLI Cali does not install).
 
-   The GitHub MCP server needs a GitHub token. `install.py` uses `$token`,
-   else `gh auth token` when the GitHub CLI is logged in; with neither (a
-   work machine on Bitbucket, say) it installs skills and instructions only
-   and skips MCP servers — no prompt, nothing to remember. The first run also
-   removes the entries older versions
-   of `install.py` left for skills APM installs again, and warns about the
-   rest.
+   The GitHub MCP server is added only when a GitHub login exists:
+   `$token`, else `gh auth token` when the GitHub CLI is logged in. With
+   neither (a work machine on Bitbucket, say) it installs skills and
+   instructions only and skips MCP servers — no prompt, nothing to
+   remember. The first run also removes the entries older versions of
+   `install.py` and APM left for skills Cali installs again, and warns
+   about the rest.
 
-To add or drop a skill or MCP server, edit `apm.yml` and re-run
-`install.py`. `install.py --update` lists pins with newer upstream
-releases; bump the SHA in `apm.yml` and re-run.
+To add or drop a skill, edit `cali.yaml` and re-run `install.py`.
+`install.py --update` lists skills with newer upstream versions; bump the
+SHA in `cali.yaml`, then `cali update -g --manifest cali.yaml --apply`.
 
 **Only some skills, with Node.js** — `npx skills add rojcarranza/agent-skills`
 (interactive), or `-s <skill> -a claude-code github-copilot -g`.
@@ -108,10 +107,11 @@ skills/<name>/
   assets/         templates the skill fills in
   examples/       sample inputs and outputs
 .claude-plugin/   marketplace.json — the Claude Code plugin view of skills/
-apm.yml           every skill, community skill and MCP server install.py installs (APM manifest)
-.apm/instructions/  personal instructions APM deploys to Copilot and Claude
+cali.yaml         every skill and community skill install.py installs (Cali manifest)
+cali.lock         the commit and tree each of them is pinned to
+.apm/instructions/  personal instructions install.py deploys to Copilot and Claude
 tools/            sync_shared.py — copies shared files into every skill using them
-install.py        writes ~/.apm/apm.yml, runs apm install -g, installs graphify (docs/installer.md)
+install.py        runs cali sync, deploys instructions and MCP servers, installs graphify (docs/installer.md)
 test_install.py   installer tests
 test_skills.py    spec + publishing checks for every skill
 ```
