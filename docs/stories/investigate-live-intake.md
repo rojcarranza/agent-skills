@@ -1,6 +1,6 @@
 # User story: Investigate a failed build from its live logs, then hand off the fix
 
-Tracked in r0jjames/agent-skills#13 (moved from r0jjames/bam-cli#68).
+Tracked in rojcarranza/agent-skills#13 (moved from rojcarranza/bam-cli#68).
 
 ## Story
 
@@ -13,16 +13,16 @@ Tracked in r0jjames/agent-skills#13 (moved from r0jjames/bam-cli#68).
 - `roj-investigate-issue` already does the hard part: classify, gather context, rank causes, validate (**Confirmed**/**Probable**), write `<problem>-investigation.md`, and apply a repo fix after approval.
 - Its intake is a **pasted problem `.md` only**. The SKILL.md says "There is no live Bamboo access".
 - It stops after the fix, with no text ready for a PR.
-- `bam` (r0jjames/bam-cli) reads Bamboo over REST: `bam build logs --failed` works today, and `bam build investigate --json` is planned in r0jjames/bam-cli#59.
+- `bam` (rojcarranza/bam-cli) reads Bamboo over REST: `bam build logs --failed` works today, and `bam build investigate --json` is planned in rojcarranza/bam-cli#59.
 - Work setup: **Copilot only**, **Bitbucket Data Center**, **Bamboo**. Bitbucket Data Center has no Pipelines, so Bamboo is the only work CI source.
 - Home setup: Claude Code and Copilot, GitHub, GitHub Actions and a personal Bamboo.
 
 ## Acceptance criteria
 
 **AC1: Live intake from Bamboo**
-- Given `bam` is installed and the user names a build (`PROJ-PLAN-44`), a plan or target, or says "my last build"
+- Given `bam` is installed and the user names a build (`PROJ-PLAN-44`), a plan or preset, or says "my last build" (bam's `--last`)
 - When the skill starts
-- Then it runs `bam build investigate <build> --json` (r0jjames/bam-cli#59)
+- Then it runs `bam build investigate <build> --json` (rojcarranza/bam-cli#59)
 - And when that command does not exist yet, it falls back to `bam build show <build>` plus `bam build logs <build> --failed --tail 200`
 - And when `bam` is missing, it says so in one line and asks for a pasted log (today's flow)
 
@@ -32,22 +32,23 @@ Tracked in r0jjames/agent-skills#13 (moved from r0jjames/bam-cli#68).
 - Then it reads the run with `gh run view <id>` and `gh run view <id> --log-failed`
 
 **AC3: Source detection**
-- An explicit argument wins: a build key, a run URL, or a `.md` path
+- An explicit argument wins: a build key, a run URL or numeric run ID, or a `.md` path
 - Otherwise detect from the repo: `.bam.yaml` or `bamboo-specs/` → Bamboo; `.github/workflows/` with a `github.com` remote → GitHub Actions
 - When both or neither match, ask one question
 
 **AC4: Intake becomes a problem `.md` in `.investigations/`, the rest is unchanged**
-- Fetched evidence is written to `.investigations/<build-key>.md` at the repo root, in the same shape the skill reads today (plan/stage/job/agent, build URL, commit, the decisive error lines, failed tests)
+- Fetched evidence is written to `.investigations/<build-key>.md` at the repo root (`<build-key>` is the Bamboo build key, or `gh-run-<id>` for a GitHub Actions run), in the same shape the skill reads today (plan/stage/job/agent, build URL, commit, the decisive error lines, failed tests)
 - Phases 2 to 5 run unchanged on it, so the report lands at `.investigations/<build-key>-investigation.md`
-- The skill checks `git check-ignore .investigations/`; when the folder is not ignored it says so in one line and suggests adding it to the global git ignore. It never edits `.gitignore` (same rule as `.tours/`)
+- The skill checks `git check-ignore .investigations/`; when the folder is not ignored it says so in one line and suggests adding it to the global git ignore or `.git/info/exclude`. It never edits `.gitignore` (same rule as `.tours/`)
 - A pasted `.md` stays the default and works exactly as today, with its report next to it
 
 **AC5: Read-only against CI**
-- Only read commands run against CI: `bam build show|logs|investigate|tree`, `gh run view|list`
+- Only read commands run against CI: `bam build show|logs|investigate|tree`, `gh run view|list` (never `bam build tree --rerun-failed`)
 - Never `bam run`, `bam build rerun|cancel`, `gh run rerun|cancel`, or anything that triggers a build or deploy, even when asked mid-run; suggest the command instead
 
 **AC6: Secrets stay masked**
 - Values that look like tokens, passwords or keys are masked in the problem `.md`, the report and the PR description
+- Masking overrides the skill's verbatim-quote rule for those values only
 - Only the decisive error lines are quoted, never the whole log
 
 **AC7: Fix handoff**
@@ -78,7 +79,7 @@ Tracked in r0jjames/agent-skills#13 (moved from r0jjames/bam-cli#68).
 | PR handoff at work (Bitbucket Data Center) | None: the skill stops at the verified fix and the PR description in the report; the user raises the PR |
 | PR handoff at home (GitHub) | Branch, commit and push after asking, then the compare link only. No `gh pr create` |
 | PR host APIs | Never called; `roj-review-pr-comment` stays the only writer |
-| AI summary inside `bam` (`--ai`) | Rejected in r0jjames/bam-cli#59: bam stays deterministic, the agent does the reasoning |
+| AI summary inside `bam` (`--ai`) | Rejected in rojcarranza/bam-cli#59: bam stays deterministic, the agent does the reasoning |
 | Primary agent | Copilot (the only agent at work); Claude Code at home |
 
 ## Out of scope
@@ -86,7 +87,7 @@ Tracked in r0jjames/agent-skills#13 (moved from r0jjames/bam-cli#68).
 - Bitbucket Pipelines, Jenkins, GitLab CI
 - Creating PRs, or branches, commits and pushes on Bitbucket remotes
 - Triggering, rerunning or cancelling builds; auto-merge
-- Bitbucket Data Center or GitHub API calls of any kind
+- PR host API calls of any kind (Bitbucket Data Center or GitHub pull requests); the `gh run view|list` reads in AC2 are the only GitHub API use
 - Bamboo admin or agent-host fixes (still numbered manual steps in the report)
 
 ## Risks and trade-offs
@@ -110,4 +111,4 @@ Tracked in r0jjames/agent-skills#13 (moved from r0jjames/bam-cli#68).
 
 ## Depends on
 
-- r0jjames/bam-cli#59 for the best Bamboo intake. The fallback in AC1 works without it.
+- rojcarranza/bam-cli#59 for the best Bamboo intake. The fallback in AC1 works without it.
