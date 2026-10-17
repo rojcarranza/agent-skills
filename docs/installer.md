@@ -127,10 +127,12 @@ skills in `cali.yaml` for that target.
 
 - Links into a checkout of this repo (this clone, or another clone or
   worktree of it), and dangling links, are removed.
-- A copy whose `SKILL.md` declares that name is removed only when
+- A copy whose `SKILL.md` declares that name is moved to
+  `~/.agent-skills-backups/<UTC time>/<target>/<name>` only when
   `cali status` says Cali did not install it (`base-lost` or `unlocked`).
-  A folder Cali installed, local edits included, is never touched. Without
-  `cali` no copy is removed.
+  It is never deleted: `base-lost` also covers a Cali folder whose data dir
+  was wiped, which may hold local edits. A folder Cali installed is never
+  touched. Without `cali` no copy is moved.
 - APM's Copilot copies in `~/.agents/skills` are removed when
   `~/.apm/apm.lock.yaml` lists them; anything else there (other tools use
   that folder) is left alone.

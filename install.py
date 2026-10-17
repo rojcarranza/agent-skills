@@ -335,9 +335,11 @@ def remove_installer_skills(target, dest_root, dry_run, cali_rows=None):
                      f"install {entry.name} over it; remove it if it is stale")
         elif ours and cali_rows is not None and NOT_CALIS & set(
                 cali_rows.get((entry.name, target), ())):
-            _remove(entry, dry_run)
+            # base-lost also covers a Cali folder whose data dir was wiped, so
+            # the copy may hold local edits: move it aside, never delete it.
+            dest = _move_aside(entry, target, dry_run)
             results.append((target, entry.name,
-                            "removed (not installed by Cali)"))
+                            f"moved to {dest} (not installed by Cali)"))
     return results
 
 
@@ -652,6 +654,27 @@ def is_generated(path):
         return GENERATED_MARKER in path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return False
+
+
+def backup_dir():
+    """Where install.py keeps copies it moved out of a skills dir, one
+    folder per run."""
+    return (Path.home() / ".agent-skills-backups"
+            / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()))
+
+
+def _move_aside(path, target, dry_run):
+    """Move path to backup_dir()/<target>/<name> (a free name) and return
+    where it went, or would go on a dry run."""
+    dest = backup_dir() / target / path.name
+    n = 1
+    while dest.exists():
+        n += 1
+        dest = dest.with_name(f"{path.name}-{n}")
+    if not dry_run:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(path), str(dest))
+    return dest
 
 
 def _remove(path, dry_run):

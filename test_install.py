@@ -1087,15 +1087,30 @@ class TestLegacyCleanup(TempDirTest):
         self.assertEqual(results, [])
         self.assertIn("outside this clone", err)
 
-    def test_copy_cali_did_not_install_is_removed(self):
+    def test_copy_cali_did_not_install_is_moved_to_a_backup(self):
+        # base-lost also means a Cali folder whose data dir was wiped, so the
+        # copy may hold local edits: it is moved aside, never deleted.
+        backups = self.tmp / "backups"
         for target in ("claude", "copilot"):
-            with self.subTest(target=target):
+            with self.subTest(target=target), \
+                    mock.patch("install.backup_dir", return_value=backups):
                 self.make_skill(target, name="code-tour",
-                                content=OWNED.format("code-tour"))
+                                content=OWNED.format("code-tour") + "my edit\n")
                 results, _ = self.cleanup(target, self.tmp / target)
                 self.assertFalse((self.tmp / target / "code-tour").exists())
+                kept = backups / target / "code-tour" / "SKILL.md"
+                self.assertEqual(kept.read_text(encoding="utf-8"),
+                                 OWNED.format("code-tour") + "my edit\n")
                 self.assertEqual(results, [(target, "code-tour",
-                                            "removed (not installed by Cali)")])
+                                            f"moved to {kept.parent} (not installed by Cali)")])
+
+    def test_dry_run_moves_nothing(self):
+        backups = self.tmp / "backups"
+        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
+        with mock.patch("install.backup_dir", return_value=backups):
+            self.cleanup("claude", self.tmp / "claude", dry_run=True)
+        self.assertTrue((self.tmp / "claude" / "code-tour").is_dir())
+        self.assertFalse(backups.exists())
 
     def test_unlocked_copy_is_removed(self):
         # A skill just uncommented in cali.yaml: Cali would refuse to replace
@@ -1142,10 +1157,11 @@ class TestLegacyCleanup(TempDirTest):
 
     def test_copilot_only_skill_copy_removed_for_copilot(self):
         self.make_skill("copilot", name="caveman", content=OWNED.format("caveman"))
-        results, _ = self.cleanup("copilot", self.tmp / "copilot")
+        with mock.patch("install.backup_dir", return_value=self.tmp / "backups"):
+            results, _ = self.cleanup("copilot", self.tmp / "copilot")
         self.assertFalse((self.tmp / "copilot" / "caveman").exists())
-        self.assertEqual(results, [("copilot", "caveman",
-                                    "removed (not installed by Cali)")])
+        self.assertEqual(len(results), 1)
+        self.assertTrue(results[0][2].startswith("moved to "))
 
     def test_unmanaged_foreign_copy_kept_silently(self):
         self.make_skill("claude", name="pdf", content=OWNED.format("my-pdf"))
