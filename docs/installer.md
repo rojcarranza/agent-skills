@@ -1,11 +1,12 @@
 # install.py reference
 
-`install.py` installs my Claude Code and GitHub Copilot setup through
-[APM](https://microsoft.github.io/apm/): my skills, the community skills they
-chain to, personal instructions and MCP servers, all listed in the repo's
-[`apm.yml`](../apm.yml). It also removes what older versions installed and
-installs `graphify`, a CLI APM cannot package. Python >= 3.8, standard
-library only. For a single skill in any agent, `npx skills add` is enough —
+`install.py` installs my Claude Code and GitHub Copilot setup: my skills and
+the community skills they chain to, through
+[Cali](https://github.com/rojcarranza/cali) from the repo's
+[`cali.yaml`](../cali.yaml); the personal instructions; and the GitHub MCP
+server. It also removes what older versions and APM installed and installs
+`graphify`, a CLI Cali does not install. Python >= 3.8, standard library
+only. For a single skill in any agent, `npx skills add` is enough —
 see the [README](../README.md#install).
 
 ## Flags and modes
@@ -15,7 +16,7 @@ python3 install.py                   # both agents
 python3 install.py --target claude   # or copilot
 python3 install.py --dry-run         # what would happen, nothing written
 python3 install.py --status          # what is installed where, leftovers
-python3 install.py --update          # pins with newer releases (reports only)
+python3 install.py --update          # skills with newer versions (reports only)
 python3 install.py --upgrade         # newer graphify, then refresh its skill
 python3 install.py --skills-only     # skip graphify (e.g. PyPI blocked)
 ```
@@ -24,108 +25,146 @@ python3 install.py --skills-only     # skip graphify (e.g. PyPI blocked)
 | --- | --- |
 | `--target` | `claude`, `copilot` or `both` (default `both`) |
 | `--dry-run` | print the planned actions; write and run nothing |
-| `--force` | replace a `~/.apm/apm.yml` that `install.py` did not write |
-| `--status` | show what APM installed, graphify, and leftovers |
-| `--update` | run `apm outdated -g`: lists `apm.yml` pins with newer upstream releases; changes nothing |
+| `--status` | run `cali list`, then show graphify and leftovers |
+| `--update` | run `cali status`: lists skills with local edits or newer upstream versions; changes nothing |
 | `--upgrade` | upgrade external CLIs (`graphify`) before refreshing their skill files |
 | `--skills-only` | skip `graphify` (e.g. PyPI blocked) |
 
-Run order: install `apm` if it is missing (`apm-cli` through `uv tool
-install`, then `pipx install`, then `pip install --user` — the same bootstrap
-as `graphify`; a dry run only says it would), remove what pre-APM versions
-installed, write `~/.apm/apm.yml`
-(pointing at this clone), run `apm install -g --update --target <value>`,
-then install `graphify`. A `~/.apm/apm.yml` that `install.py` did not write
-stops the run unless `--force` is given. APM never prompts for the GitHub MCP
-server's token: `install.py` hands it `$token`, else `gh auth token`; with
-neither it runs `apm install --only apm` (skills and instructions, no MCP
-servers) and says so. A machine without a GitHub login, e.g. one whose repos
-live on Bitbucket, therefore installs cleanly; an MCP server configured on an
-earlier run is left in place.
+Run order: stop with install instructions if `cali` is missing (a dry run
+only says so), remove what older installs left (see "Old installs"), deploy
+the personal instructions, register the GitHub MCP server, run
+`cali sync -g --manifest <clone>/cali.yaml`, then install `graphify`. Every
+`cali` command `install.py` runs takes `-g --manifest <clone>/cali.yaml`:
+skills land in `~/.claude/skills` and `~/.copilot/skills`, and `cali.lock`
+is read and written next to `cali.yaml` in the clone.
+
+`--target` limits the cleanup, instructions, MCP servers and `graphify`.
+`cali sync` has no target option, so it always installs every target
+`cali.yaml` names.
+
+The GitHub MCP server is registered only when a GitHub login exists:
+`$token`, else `gh auth token`; with neither, `install.py` skips MCP servers
+and says so. A machine without a GitHub login, e.g. one whose repos live on
+Bitbucket, therefore installs cleanly; an MCP server configured on an
+earlier run is left in place. The token itself is never written: the server
+is remote and signs in on first use.
 
 In [dotfiles](https://github.com/rojcarranza/.dotfiles),
 `./install.py install agent-skills` clones this repo next to the dotfiles
 checkout (override with `AGENT_SKILLS_DIR`), checks out the pinned ref and
 runs `install.py` as part of normal machine setup.
 
-## The APM manifest
+## The Cali manifest
 
-[`apm.yml`](../apm.yml) is the one list of what gets installed. `install.py`
-writes `~/.apm/apm.yml` with absolute paths into this clone, so editing
-`apm.yml` here and re-running `install.py` is the whole workflow. Entries
-under `dependencies.apm` take two forms:
+[`cali.yaml`](../cali.yaml) is the one list of skills. `install.py` points
+`cali` at it in the clone, so editing `cali.yaml` here and re-running
+`install.py` is the whole workflow. Each skill is a name with a git source:
 
 ```yaml
-# Short form: owner/repo/path#<full commit SHA>
-- github/awesome-copilot/skills/code-tour#7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+# Own skill: this repo's default branch, pinned by cali.lock
+roj-explain-logic:
+  source: github:rojcarranza/agent-skills//skills/roj-explain-logic
 
-# Object form, when the skill is for one agent only
-- git: https://github.com/juliusbrussee/caveman.git
-  path: skills/caveman
+# Community skill pinned to a commit, for one agent only
+caveman:
+  source: https://github.com/juliusbrussee/caveman//skills/caveman
   ref: 2e08b9177c07bb7249a8a2d1a6758e5db281d002
   targets: [copilot]
 ```
 
 - **Pin to a commit.** Every community ref is a full commit SHA, so a new
-  upstream version is a reviewed diff.
+  upstream version is a reviewed diff. [`cali.lock`](../cali.lock) records
+  the commit and tree of every skill, ours included.
 - **One agent only.** `targets: [copilot]` (or `[claude]`) limits an entry;
   caveman and debugging-and-error-recovery are Copilot only because Claude
   gets the same from a plugin.
-- **Optional entries** are commented out in `apm.yml`. Uncomment one and
-  re-run `install.py` to install it. Comment a live entry out and re-run to
-  remove it, since `install.py` passes `--update`.
-- **Bumping a pin.** `install.py --update` lists pins with newer releases.
-  Put the new SHA in `apm.yml`, review the diff, re-run `install.py`.
-- **MCP servers** sit under `dependencies.mcp` (the GitHub server is live;
-  Playwright is an optional entry).
+- **Optional entries** are commented out in `cali.yaml`. Uncomment one and
+  re-run `install.py` to install it. Commenting a live entry out drops it
+  from `cali.lock` on the next run, but `cali sync` never deletes a folder:
+  remove it with `cali remove <name> -g`, or delete it.
+- **Bumping a pin.** `install.py --update` lists skills with newer
+  upstream versions. Put the new SHA in `cali.yaml`, then run
+  `cali update -g --manifest cali.yaml --apply` (a re-run of `install.py`
+  only reports `ref changed`), review the `cali.lock` diff and commit it.
+- **Our own skills** come from GitHub, not from the clone: an edit reaches
+  the installed copy after it is merged, with
+  `cali update -g --manifest cali.yaml --apply`, which moves `cali.lock`.
+  Commit that lock change.
+- **Local edits** to an installed skill are kept: `cali sync` never
+  overwrites a folder, and `cali update` merges upstream changes into it.
 
-Where things land (APM 0.33.0):
+Where things land:
 
 | What | Claude Code | Copilot |
 | --- | --- | --- |
-| Skills | `~/.claude/skills/<name>/` (copies) | `~/.agents/skills/<name>/` |
+| Skills (Cali) | `~/.claude/skills/<name>/` | `~/.copilot/skills/<name>/` |
 | Instructions | `~/.claude/rules/personal.md` | `~/.copilot/instructions/personal.instructions.md` |
-| MCP servers | `~/.claude.json` (`mcpServers`) | `~/.copilot/mcp-config.json` |
+| MCP servers | `~/.claude.json` (`mcpServers`) | `~/.copilot/mcp-config.json` (`mcpServers`) |
 
-APM records what it installed in `~/.apm/apm.lock.yaml`. Skills are copies,
-so re-run `install.py` after editing a skill in this clone. Skills added with
-`npx skills add` are not tracked here; `npx skills update` refreshes those.
+The instruction file is `.apm/instructions/personal.instructions.md`. Copilot
+gets it as is; Claude gets the same body with `applyTo:` turned into
+`paths:` (the conversion APM made). A deployed file is replaced when it is
+missing, a version this repo shipped (any commit of that file), or the
+dotfiles repo's link; one you edited, or a link to anything else, is kept
+with a warning — move the edits into the repo copy and delete it.
 
-The first run removes what older versions left, but only for skills APM
+MCP servers are listed in `MCP_SERVERS` in `install.py`, in the shape each
+config takes ([Claude Code](https://code.claude.com/docs/en/mcp),
+[Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)).
+A server already present under that name is left as it is, and a config
+file that is not valid JSON is never rewritten. Playwright is an optional
+entry to add there.
+
+Skills added with `npx skills add` are not tracked here; `npx skills update`
+refreshes those.
+
+## Old installs
+
+Before Cali, `install.py` copied or linked every skill itself, and then APM
+copied them. Every run removes what those left, but only for skills Cali
 installs again for that agent: our own skills and the active (uncommented)
-community skills in `apm.yml` for that target. It removes copies whose
-`SKILL.md` declares that name and links into a checkout of this repo (this
-clone, or another clone or worktree of it). A Claude copy that
-`~/.apm/apm.lock.yaml` lists under `.claude/skills/` is APM's and stays.
-Anything else the old installer left — an optional skill still commented
-out in `apm.yml`, or a Copilot-only skill in `~/.claude/skills` — is kept
-with a warning: uncomment it in `apm.yml` to have APM manage it, or delete
-it. An `~/.copilot/instructions/personal.instructions.md` you edited (the
-dotfiles one) is kept with a warning; move its content into
-`.apm/instructions/` and delete it to let APM own the file. If `apm install`
-then fails, the run says so: the removed entries come back once a re-run
-succeeds.
+skills in `cali.yaml` for that target.
+
+- Links into a checkout of this repo (this clone, or another clone or
+  worktree of it), and dangling links, are removed.
+- A copy whose `SKILL.md` declares that name is moved to
+  `~/.agent-skills-backups/<UTC time>/<target>/<name>` only when
+  `cali status` says Cali did not install it (`base-lost` or `unlocked`).
+  It is never deleted: `base-lost` also covers a Cali folder whose data dir
+  was wiped, which may hold local edits. A folder Cali installed is never
+  touched. Without `cali` no copy is moved.
+- APM's Copilot copies in `~/.agents/skills` are removed when
+  `~/.apm/apm.lock.yaml` lists them; anything else there (other tools use
+  that folder) is left alone.
+
+Anything else the old installers left — an optional skill still commented
+out in `cali.yaml`, or a Copilot-only skill in `~/.claude/skills` — is kept
+with a warning: uncomment it in `cali.yaml` to have Cali manage it, or
+delete it. If `cali sync` then fails, the run says so: the removed entries
+come back once a re-run succeeds. `install.py` never uninstalls `apm` or
+deletes `~/.apm`.
 
 ## Platforms
 
 Supported: macOS, Linux, Windows Git Bash, WSL Ubuntu. Python >= 3.8,
-standard library only. `apm-cli` itself needs Python 3.10+; `uv` brings its
-own Python, so it works on an older system Python. On Ubuntu 24.04 (WSL) a
-plain `pip install --user` is refused for the system Python, so install
-`pipx` (`sudo apt install pipx`) or `uv` there.
+standard library only. `cali` is a Go binary with its own installer (see
+its README); it needs `git` on PATH. On Ubuntu 24.04 (WSL) a plain
+`pip install --user` is refused for the system Python, so install `pipx`
+(`sudo apt install pipx`) or `uv` there for `graphify`.
 
 | | macOS / Linux | Windows Git Bash | WSL Ubuntu |
 | --- | --- | --- | --- |
 | Run as | `python3 install.py` | `python install.py` (Windows Python) | `python3 install.py` |
 | Home | `$HOME` | `%USERPROFILE%` | Linux `$HOME` |
-| `apm` lookup | `PATH`, `~/.local/bin` | `PATH` plus `.exe`/`.cmd` suffixes and the pip user Scripts dir | as Linux |
-| Repo path in manifest | `/Users/...`, `/home/...` | `C:/Users/...` | `/home/...` or `/mnt/c/...` |
+| `cali` lookup | `PATH`, `~/.local/bin` | `PATH` plus `.exe`/`.cmd` suffixes and the pip user Scripts dir | as Linux |
 | Serves | Claude Code, Copilot CLI/VS Code/JetBrains | the same, Windows side | Claude Code and Copilot CLI inside WSL; Windows-side IDEs need a Git Bash run too |
 
 Legacy cleanup on Windows handles copies, never assumes symlinks. Every file
 the installer writes is UTF-8 with `\n` line endings. CI runs the unit tests
 on `ubuntu-latest`, `macos-latest` and `windows-latest` (Git Bash shell),
-plus a real `apm install` smoke test against a scratch home.
+plus a real `install.py` smoke test against a scratch home, which builds
+`cali` and runs only when the `CALI_REPO_TOKEN` secret can read the Cali
+repository.
 
 ## External skills (installed by their own CLI)
 
@@ -248,12 +287,13 @@ Run everything with `python` (Git Bash has no `python3` unless you alias it).
 1. Copy this folder over (or clone the repo).
 2. `python install.py --target both --dry-run` — sanity-check paths.
 3. `python install.py --status` — check what's currently installed.
-4. `python install.py --target both` — installs APM if missing (from PyPI,
-   as `apm-cli`), installs everything through it, then `graphify`.
-5. `python install.py --status` — verify new installs.
-6. APM fetches the community skills from GitHub, so run the install from a
-   network that reaches GitHub. `--skills-only` only skips `graphify`; it
-   helps when PyPI is the blocked part.
+4. Install `cali` (its README: `sh scripts/install.sh` from Git Bash).
+5. `python install.py --target both` — skills through `cali`, the
+   instructions, the MCP server, then `graphify`.
+6. `python install.py --status` — verify new installs.
+7. Cali fetches every skill from GitHub, so run the install from a network
+   that reaches GitHub. `--skills-only` only skips `graphify`; it helps when
+   PyPI is the blocked part.
 
 Step 4 also installs `graphifyy` from PyPI so the `graphify` skill has its
 CLI — with `uv` or `pipx` if either is on the box, otherwise plain
@@ -271,14 +311,17 @@ close the IDEs, delete `~/.copilot/skills/graphify/references.tmp` and
 `references`, and run `python install.py --target copilot`.
 Every other skill in the run is unaffected.
 
-From the dotfiles repo root, `python install.py install agent-skills` does steps 1–4.
+From the dotfiles repo root, `python install.py install agent-skills` does
+steps 1–3 and 5.
 
-APM installs skills as copies on every platform, so Windows needs no symlink
-rights. Copies are snapshots: **re-run the installer after editing a skill** to
-refresh them. A re-run removes legacy `.bak` copies of retired prompts.
+Cali installs skills as copies on every platform, so Windows needs no symlink
+rights. Copies are snapshots of the commit in `cali.lock`: an edit to one of
+our skills reaches them after it is merged and
+`cali update -g --manifest cali.yaml --apply` has moved the lock. A re-run
+removes legacy `.bak` copies of retired prompts.
 
 Paths on Windows resolve under `%USERPROFILE%`: `~/.claude/skills` for
-Claude, `~/.agents/skills` for Copilot skills, `~/.copilot/instructions` for
+Claude, `~/.copilot/skills` for Copilot skills, `~/.copilot/instructions` for
 Copilot instructions.
 `%APPDATA%\Code\User\prompts` is only touched to delete the `.prompt.md`
 copies older installs left there — they are what VS Code's "Migrate Prompt
@@ -291,14 +334,15 @@ in. To use one shared folder instead, set `SOUNDBOARD_DIR` and
 `PROJECTS_ROOT` once (`setx SOUNDBOARD_DIR C:\path\to\soundboard`, same
 for `PROJECTS_ROOT`).
 
-Team distribution per repo: add an `apm.yml` to the team repo listing the
-skills it needs, pinned to a commit, and run `apm install` there (see the
-README, "In a team repository"). Commit `apm.yml` and `apm.lock.yaml`.
+Team distribution per repo is still APM's: add an `apm.yml` to the team repo
+listing the skills it needs, pinned to a commit, and run `apm install` there
+(see the README, "In a team repository"). Commit `apm.yml` and
+`apm.lock.yaml`.
 
 ## JetBrains (IntelliJ / PyCharm / GoLand)
 
-Copilot reads skills from `~/.agents/skills` (personal, every project, where
-APM puts them) and `<repo>/.github/skills/` (repo scope). JetBrains namespaces skills, so they
+Copilot reads skills from `~/.copilot/skills` (personal, every project, where
+Cali puts them) and `<repo>/.github/skills/` (repo scope). JetBrains namespaces skills, so they
 are typed as `/skill:<name>`:
 
 | | VS Code | JetBrains, any project |
@@ -317,22 +361,23 @@ Setup checklist:
 2. **Settings → Languages & Frameworks → GitHub Copilot → Chat → Agent** —
    enable agent mode. Restart the IDE if the toggle has just appeared.
 3. `python install.py --target copilot` from a network that reaches GitHub
-   (APM needs it; `--skills-only` only skips `graphify`, for a blocked PyPI).
+   (Cali needs it; `--skills-only` only skips `graphify`, for a blocked PyPI).
 4. Reopen the IDE. In agent-mode chat type `/skill:roj-` — all ten custom
    skills should list.
 5. Optional, per repo: an `apm.yml` in the team repo shares them with
    teammates (README, "In a team repository").
 
 Nothing shows up: confirm chat is in agent mode, that the plugin is current,
-that `install.py --status` lists the skills among APM's dependencies and
-prints no leftover warnings, and that they are under `~/.agents/skills`.
+that `install.py --status` lists the skills and prints no leftover
+warnings, and that they are under `~/.copilot/skills`.
 
 ## History: the roj- rename and retired prompts
 
 Before APM (2026-10), `install.py` copied community skills from
-`skills-inventory.json` and linked our skills; the first APM run removes
-those entries for the skills APM installs again and warns about the rest
-(see "The APM manifest").
+`skills-inventory.json` and linked our skills. APM then installed them from
+`apm.yml` until Cali replaced it (2026-10-17). Every run removes what both
+left for the skills Cali installs again and warns about the rest (see "Old
+installs").
 
 Every custom skill and prompt carries a `roj-` prefix, so they sort together
 and never collide with a community or plugin skill. Installs made before the

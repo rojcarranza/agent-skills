@@ -32,9 +32,11 @@ jobs:
       - name: Shared files are in sync
         run: python tools/sync_shared.py --check
 
-  apm-smoke:
-    # Real apm, scratch HOME: install.py installs apm itself (uv/pipx/pip),
-    # then apm.yml must resolve from this clone on every OS.
+  cali-smoke:
+    # Real cali, scratch HOME: install.py runs cali sync against this clone's
+    # cali.yaml and cali.lock on every OS. The cali repo is private, so the
+    # job needs a CALI_REPO_TOKEN secret that can read it; without one it
+    # says so and passes.
     strategy:
       fail-fast: false
       matrix:
@@ -43,31 +45,56 @@ jobs:
     defaults:
       run:
         shell: bash
+    env:
+      HAS_CALI_TOKEN: ${{ secrets.CALI_REPO_TOKEN != '' }}
     steps:
+      - name: No CALI_REPO_TOKEN, no smoke test
+        if: env.HAS_CALI_TOKEN != 'true'
+        run: echo "::notice::CALI_REPO_TOKEN is not set; skipping the cali smoke test"
       - uses: actions/checkout@v4
+        if: env.HAS_CALI_TOKEN == 'true'
+      - uses: actions/checkout@v4
+        if: env.HAS_CALI_TOKEN == 'true'
+        with:
+          repository: rojcarranza/cali
+          token: ${{ secrets.CALI_REPO_TOKEN }}
+          path: cali-src
+      - uses: actions/setup-go@v5
+        if: env.HAS_CALI_TOKEN == 'true'
+        with:
+          go-version-file: cali-src/go.mod
       - uses: actions/setup-python@v5
+        if: env.HAS_CALI_TOKEN == 'true'
         with:
           python-version: "3.12"
       - name: install.py installs everything into a scratch home
+        if: env.HAS_CALI_TOKEN == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          token: placeholder   # the GitHub MCP server prompts for this; no TTY in CI
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # cali reads this repo with it
+          token: placeholder   # a GitHub login, so the MCP server is registered
         run: |
           base="$RUNNER_TEMP"; command -v cygpath >/dev/null && base="$(cygpath -m "$RUNNER_TEMP")"
+          # ~/.local/bin of the scratch home: install.py looks there, so PATH
+          # (colon-separated, which a C:/ path would break) stays as it is.
+          mkdir -p "$base/home/.local/bin"
+          (cd cali-src && CGO_ENABLED=0 go build -o "$base/home/.local/bin/cali$(go env GOEXE)" ./cmd/cali)
           export HOME="$base/home" USERPROFILE="$base/home"
-          mkdir -p "$HOME"
+          export CALI_CONFIG_DIR="$base/cali/config" CALI_DATA_DIR="$base/cali/data" CALI_CACHE_DIR="$base/cali/cache"
           python install.py --skills-only
-          test -f "$HOME/.apm/apm.yml"
+          git diff --exit-code cali.lock   # the committed lock was complete
           for d in skills/*/; do
             n=$(basename "$d")
             test -f "$HOME/.claude/skills/$n/SKILL.md"
-            test -f "$HOME/.agents/skills/$n/SKILL.md"
+            test -f "$HOME/.copilot/skills/$n/SKILL.md"
           done
           test -f "$HOME/.claude/skills/code-tour/SKILL.md"
-          test -f "$HOME/.agents/skills/caveman/SKILL.md"
+          test -f "$HOME/.copilot/skills/caveman/SKILL.md"
           test ! -e "$HOME/.claude/skills/caveman"   # copilot-only stays out of Claude
           test -f "$HOME/.copilot/instructions/personal.instructions.md"
-          ls "$HOME/.claude/skills" "$HOME/.agents/skills" "$HOME/.copilot/instructions"
+          test -f "$HOME/.claude/rules/personal.md"
+          grep -q github-mcp-server "$HOME/.claude.json"
+          grep -q github-mcp-server "$HOME/.copilot/mcp-config.json"
+          ls "$HOME/.claude/skills" "$HOME/.copilot/skills"
 
   discoverable:
     # What `npx skills add rojcarranza/agent-skills` (skills.sh) will see.

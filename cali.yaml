@@ -1,0 +1,93 @@
+# Every skill install.py installs for Claude Code and Copilot, through Cali
+# (https://github.com/rojcarranza/cali). install.py runs
+# `cali sync -g --manifest <this file>`; cali.lock next to it pins each skill
+# to a commit and tree. Community refs are full commit SHAs: a version bump
+# is a reviewed diff. Edit here, then re-run install.py.
+version: 1
+targets: [claude, copilot]
+skills:
+  # Own skills, from this repo's default branch. cali.lock pins the commit;
+  # `cali update -g --manifest cali.yaml --apply` moves it.
+  roj-code-review-pr:
+    source: github:rojcarranza/agent-skills//skills/roj-code-review-pr
+  roj-code-review-pr-fast:
+    source: github:rojcarranza/agent-skills//skills/roj-code-review-pr-fast
+  roj-explain-feature-changes:
+    source: github:rojcarranza/agent-skills//skills/roj-explain-feature-changes
+  roj-explain-logic:
+    source: github:rojcarranza/agent-skills//skills/roj-explain-logic
+  roj-grill-plan:
+    source: github:rojcarranza/agent-skills//skills/roj-grill-plan
+  roj-idea-to-project:
+    source: github:rojcarranza/agent-skills//skills/roj-idea-to-project
+  roj-interview-prep:
+    source: github:rojcarranza/agent-skills//skills/roj-interview-prep
+  roj-investigate-issue:
+    source: github:rojcarranza/agent-skills//skills/roj-investigate-issue
+  roj-review-pr-comment:
+    source: github:rojcarranza/agent-skills//skills/roj-review-pr-comment
+  roj-soundboarding:
+    source: github:rojcarranza/agent-skills//skills/roj-soundboarding
+  roj-tour-codebase:
+    source: github:rojcarranza/agent-skills//skills/roj-tour-codebase
+  # Community skills our skills chain to (docs/community-skills.md).
+  code-tour:
+    source: github:github/awesome-copilot//skills/code-tour
+    ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+  acquire-codebase-knowledge:
+    source: github:github/awesome-copilot//skills/acquire-codebase-knowledge
+    ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+  context-map:
+    source: github:github/awesome-copilot//skills/context-map
+    ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+  write-pr-description:
+    source: github:warpdotdev/common-skills//.agents/skills/write-pr-description
+    ref: 2a03b403b4f8d42cb54b8953697737193b2e8306
+  find-skills:
+    source: github:vercel-labs/skills//skills/find-skills
+    ref: 87a266971d9460a3d2606075b8e91edc83325472
+  # Copilot only: Claude gets the equivalent from a plugin.
+  caveman:  # Claude: caveman plugin
+    source: https://github.com/juliusbrussee/caveman//skills/caveman
+    ref: 2e08b9177c07bb7249a8a2d1a6758e5db281d002
+    targets: [copilot]
+  debugging-and-error-recovery:  # Claude: superpowers:systematic-debugging
+    source: https://github.com/addyosmani/agent-skills//skills/debugging-and-error-recovery
+    ref: 1401c8b8030e023baeebb31781a6653fe8e93026
+    targets: [copilot]
+  # Optional — uncomment the entry's lines and re-run install.py:
+  # architecture-blueprint-generator:
+  #   source: github:github/awesome-copilot//skills/architecture-blueprint-generator@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+  # add-educational-comments:
+  #   source: github:github/awesome-copilot//skills/add-educational-comments@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+  # arch-linux-triage:
+  #   source: github:github/awesome-copilot//skills/arch-linux-triage@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+  # centos-linux-triage:
+  #   source: github:github/awesome-copilot//skills/centos-linux-triage@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+  # debian-linux-triage:
+  #   source: github:github/awesome-copilot//skills/debian-linux-triage@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+  # fedora-linux-triage:
+  #   source: github:github/awesome-copilot//skills/fedora-linux-triage@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+  # observability-and-instrumentation:
+  #   source: github:addyosmani/agent-skills//skills/observability-and-instrumentation@1401c8b8030e023baeebb31781a6653fe8e93026
+  # ci-cd-and-automation:
+  #   source: github:addyosmani/agent-skills//skills/ci-cd-and-automation@1401c8b8030e023baeebb31781a6653fe8e93026
+  # security-and-hardening:
+  #   source: github:addyosmani/agent-skills//skills/security-and-hardening@1401c8b8030e023baeebb31781a6653fe8e93026
+  # deprecation-and-migration:
+  #   source: github:addyosmani/agent-skills//skills/deprecation-and-migration@1401c8b8030e023baeebb31781a6653fe8e93026
+  # pdf:
+  #   source: github:anthropics/skills//skills/pdf@683bc88e56f3e09ba94f7055977f3d3aa499f202
+  # docx:
+  #   source: github:anthropics/skills//skills/docx@683bc88e56f3e09ba94f7055977f3d3aa499f202
+  # pptx:
+  #   source: github:anthropics/skills//skills/pptx@683bc88e56f3e09ba94f7055977f3d3aa499f202
+  # xlsx:
+  #   source: github:anthropics/skills//skills/xlsx@683bc88e56f3e09ba94f7055977f3d3aa499f202
+  # grilling:
+  #   source: github:mattpocock/skills//skills/productivity/grilling@49dd158d1076134a641b33efb035946536778336
+  # grill-me:  # Claude only: also uncomment the targets line
+  #   source: github:mattpocock/skills//skills/productivity/grill-me@49dd158d1076134a641b33efb035946536778336
+  #   targets: [claude]
+  # to-questionnaire:
+  #   source: github:mattpocock/skills//skills/productivity/to-questionnaire@49dd158d1076134a641b33efb035946536778336

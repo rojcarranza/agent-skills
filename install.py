@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Install Roj's AI setup for Claude Code and GitHub Copilot through APM.
+"""Install Roj's AI setup for Claude Code and GitHub Copilot.
 
 Usage:
   python3 install.py                     # both agents
   python3 install.py --target claude     # or copilot
   python3 install.py --dry-run           # what would happen
   python3 install.py --status            # what is installed, leftovers
-  python3 install.py --update            # pins with newer releases
+  python3 install.py --update            # skills with newer upstream versions
   python3 install.py --upgrade           # newer graphify, then refresh
   python3 install.py --skills-only       # skip graphify (e.g. PyPI blocked)
 
@@ -14,16 +14,17 @@ Python >= 3.8, standard library only. On Windows run it from Git Bash as
 `python install.py`; on WSL run it inside WSL (and again from Git Bash for
 Windows-side IDEs).
 
-apm.yml lists every skill, instruction and MCP server. This script writes
-~/.apm/apm.yml pointing at this clone and runs `apm install -g`; APM does
-the rest. What APM cannot do stays here: removing what pre-APM versions of
-this script installed, and graphify (EXTERNALS), whose own CLI installs its
-skill.
+cali.yaml lists every skill; this script runs
+`cali sync -g --manifest <clone>/cali.yaml` (https://github.com/rojcarranza/cali)
+to install them. The rest is done here: personal instructions, the GitHub
+MCP server (MCP_SERVERS), removing what older versions of this script and
+APM installed, and graphify (EXTERNALS), whose own CLI installs its skill.
 
 Any single skill also installs without this script, in any agent the
 `skills` CLI supports: npx skills add rojcarranza/agent-skills -s <name>.
 """
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -84,16 +85,19 @@ REQUIRES = {
 }
 
 
-# apm.yml: the manifest APM installs from (https://microsoft.github.io/apm/).
-# Read here only for names — status, legacy cleanup and tests — with a line
-# parser for the shapes this repo's apm.yml uses, so no YAML dependency.
-MANIFEST_PATH = REPO_ROOT / "apm.yml"
-_DEP_ITEM_RE = re.compile(r"^\s*(#\s*)?-\s+(.*)$")
-_OBJECT_KEY_RE = re.compile(r"^[\w-]+:\s")
+# cali.yaml: the manifest Cali installs from. Read here only for names and
+# targets — status, legacy cleanup and tests — with a line parser for the
+# shapes this repo's cali.yaml uses, so no YAML dependency. A commented skill
+# (`  # name:` with its `  #   key: value` lines) is an optional one.
+# shortcut: inline `[a, b]` target lists only; parse YAML properly if
+# cali.yaml ever needs block lists or anchors.
+MANIFEST_PATH = REPO_ROOT / "cali.yaml"
+_SKILL_LINE_RE = re.compile(r"^  (#\s*)?([\w-]+):\s*(.*)$")
+_FIELD_LINE_RE = re.compile(r"^  (#)?\s+([\w-]+):\s*(.*)$")
 
 
 def _strip_comment(value):
-    return re.sub(r"\s+#.*$", "", value).strip()
+    return re.sub(r"(^|\s+)#.*$", "", value).strip()
 
 
 def _unquote(value):
@@ -108,147 +112,113 @@ def _unquote(value):
     return value
 
 
-def _scalar(raw):
-    return _unquote(_strip_comment(raw))
-
-
-def _normalise_dep(dep):
-    """Fill path/ref/targets/name for the shorthand and the object form."""
-    spec = dep.get("spec")
-    if spec is not None:
-        path, _, ref = spec.partition("#")
-        dep["path"], dep["ref"] = path, ref or None
-    else:
-        dep["path"] = dep.get("path") or dep.get("git") or dep.get("name", "")
-        dep["ref"] = dep.get("ref")
-    targets = dep.get("targets")
-    dep["targets"] = (tuple(t.strip() for t in targets.strip("[]").split(",")
-                            if t.strip())
-                      if isinstance(targets, str) else None)
-    name = dep["path"].rstrip("/").rsplit("/", 1)[-1]
-    dep["name"] = name[:-len(".git")] if name.endswith(".git") else name
-    return dep
-
-
-def parse_manifest(text):
-    """apm.yml text -> {'apm': [dep, ...], 'mcp': [dep, ...]}. A commented
-    list item (`# - x`) is a dependency with active False — how apm.yml marks
-    optional skills."""
-    out = {"apm": [], "mcp": []}
-    section, current = None, None
+def parse_manifest(text: str) -> list:
+    """cali.yaml text -> [{'name', 'source', 'ref', 'targets', 'active'}].
+    ref is the `ref:` field, else the @ref of the source; targets is a tuple,
+    or None for the manifest's default targets."""
+    skills, current, in_skills = [], None, False
     for raw in text.splitlines():
         line = raw.rstrip()
-        stripped = line.strip()
-        if not stripped:
+        if not line.strip():
             continue
-        indent = len(line) - len(line.lstrip())
-        if indent <= 2 and not stripped.startswith(("-", "#")):
-            key = stripped.split(":", 1)[0]
-            section = key if indent == 2 and key in out else None
+        if not line.startswith((" ", "#")):
+            in_skills = line.split(":", 1)[0] == "skills"
             current = None
             continue
-        if section is None:
+        if not in_skills:
             continue
-        item = _DEP_ITEM_RE.match(line)
-        if item:
-            body = _strip_comment(item.group(2))
-            current = {"active": not item.group(1)}
-            if _OBJECT_KEY_RE.match(body):
-                key, _, value = body.partition(":")
-                current[key.strip()] = _unquote(value.strip())
-            else:
-                current["spec"] = _unquote(body)
-            out[section].append(current)
-        elif not stripped.startswith("#") and current is not None:
-            key, _, value = stripped.partition(":")
-            current[key.strip()] = _scalar(value)
-    return {name: [_normalise_dep(d) for d in deps]
-            for name, deps in out.items()}
+        entry = _SKILL_LINE_RE.match(line)
+        if entry and not _strip_comment(entry.group(3)):
+            current = {"name": entry.group(2), "active": not entry.group(1),
+                       "source": "", "ref": None, "targets": None}
+            skills.append(current)
+            continue
+        field = _FIELD_LINE_RE.match(line)
+        if (field and current is not None
+                and bool(field.group(1)) != current["active"]):
+            key, value = field.group(2), _unquote(_strip_comment(field.group(3)))
+            if key == "targets":
+                current["targets"] = tuple(
+                    t.strip() for t in value.strip("[]").split(",") if t.strip())
+            elif key in ("source", "ref"):
+                current[key] = value
+    for dep in skills:
+        if dep["ref"] is None and "@" in dep["source"].rsplit("//", 1)[-1]:
+            dep["ref"] = dep["source"].rsplit("@", 1)[1]
+    return skills
 
 
-def manifest_deps(path=None, section="apm"):
+def manifest_deps(path=None):
     text = Path(path or MANIFEST_PATH).read_text(encoding="utf-8")
-    return parse_manifest(text)[section]
+    return parse_manifest(text)
 
 
 def manifest_skill_names(active_only=True):
-    """Skill folder names apm.yml installs (or lists, with active_only off)."""
+    """Skill folder names cali.yaml installs (or lists, with active_only off)."""
     return {d["name"] for d in manifest_deps()
             if d["active"] or not active_only}
 
 
-# User scope. `apm install -g` reads ~/.apm/apm.yml and resolves relative
-# paths against ~/.apm, so the manifest there is generated, not linked: one
-# dependency, this clone's absolute path, whose own apm.yml lists the rest.
-# A plain file on every OS — no symlink support needed on Windows.
-USER_MANIFEST_MARKER = ("# Generated by agent-skills install.py. Edit apm.yml "
-                        "in the clone, not this file.")
-# install.py installs apm-cli itself, the way it installs graphify (uv, then
-# pipx, then pip --user), so Git Bash and WSL need no brew or winget. This is
-# what to do by hand when none of those worked.
-APM_TOOL = {"package": "apm-cli", "cli": "apm"}
-APM_INSTALL_HINT = """\
-apm (Agent Package Manager) is not installed and install.py could not install
-it with uv, pipx or pip (apm-cli needs Python 3.10+). Install it, open a new
-shell, then re-run install.py:
-  Windows Git Bash:  python -m pip install --user apm-cli
-                     (or: winget install --id Microsoft.APM --exact --source winget)
-  WSL / Ubuntu:      sudo apt install pipx && pipx install apm-cli
-  macOS:             brew install apm
-https://microsoft.github.io/apm/getting-started/installation/"""
+# Cali is a Go binary with no PyPI package, so install.py cannot bootstrap
+# it the way it does graphify; a missing cali stops the run with this.
+CALI_INSTALL_HINT = """\
+cali is not installed (or not on PATH). Install it from a clone of
+https://github.com/rojcarranza/cali, open a new shell, then re-run install.py:
+  macOS / Linux / WSL:  make install
+  Windows Git Bash:     sh scripts/install.sh"""
 WSL_HINT = ("WSL: this installed into the Linux home, for Claude Code and "
             "Copilot CLI inside WSL. VS Code and JetBrains on Windows read "
             "%USERPROFILE% — run install.py from Git Bash too.")
+# Cali states (`cali status --json`) for a folder Cali did not put there:
+# no pristine copy of the locked version, or a skill not locked yet.
+NOT_CALIS = {"base-lost", "unlocked"}
 
 
 def apm_home():
+    """APM's user dir. Only read: its lockfile says what APM deployed."""
     return Path.home() / ".apm"
 
 
-def render_user_manifest(repo_root=None):
-    root = Path(repo_root or REPO_ROOT).resolve().as_posix()
-    return (f"{USER_MANIFEST_MARKER}\n"
-            "name: user\n"
-            "version: 1.0.0\n"
-            "dependencies:\n"
-            "  apm:\n"
-            f"    - {json.dumps(root)}\n")
+def cali_argv(exe: str, *args: str) -> list:
+    """A cali command against this clone's cali.yaml, in the global scope:
+    skills land in ~/.claude/skills and ~/.copilot/skills, and cali.lock is
+    read and written next to cali.yaml."""
+    return [exe, *args, "-g", "--manifest", str(MANIFEST_PATH)]
 
 
-def write_user_manifest(text, force=False, dry_run=False):
-    """Write ~/.apm/apm.yml. Exits rather than replace one this script did
-    not write, unless force."""
-    dest = apm_home() / "apm.yml"
-    status = "written"
-    if dest.is_file():
-        current = dest.read_text(encoding="utf-8")
-        if current == text:
-            return "up to date"
-        if not current.startswith(USER_MANIFEST_MARKER) and not force:
-            sys.exit(f"{dest} exists and was not written by install.py. Move "
-                     f"it aside, or re-run with --force to replace it.")
-        status = "updated"
-    if not dry_run:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest.is_symlink():
-            dest.unlink()
-        with open(dest, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(text)
-    return status
+def run_cali(argv: list) -> int:
+    """Run cali with its output passed through; returns its exit code."""
+    try:
+        return subprocess.run(argv).returncode
+    except OSError as exc:
+        warn(f"{' '.join(argv)} failed: {exc}")
+        return 127
 
 
-def apm_install_argv(exe, targets, with_mcp=True):
-    value = ",".join(t for t in ("claude", "copilot") if t in targets)
-    # --update makes a dependency removed from apm.yml disappear; pins are
-    # full SHAs, so it cannot move them. --only apm skips MCP servers.
-    only = [] if with_mcp else ["--only", "apm"]
-    return [exe, "install", "-g", "--update", *only, "--target", value]
+def cali_status_rows(exe: str):
+    """{(skill, target): (state, ...)} from `cali status --offline --json`,
+    or None when cali cannot say — callers then remove no copies."""
+    try:
+        # stderr passes through, so a failing cali shows its own error.
+        run = subprocess.run(cali_argv(exe, "status", "--offline", "--json"),
+                             stdout=subprocess.PIPE, text=True, timeout=120)
+        rows = json.loads(run.stdout)["rows"] if run.returncode == 0 else None
+        if rows is not None:
+            return {(r["skill"], r["target"]): tuple(r["states"])
+                    for r in rows}
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError,
+            TypeError):
+        pass
+    warn("cali status --offline --json gave no usable result — no skill "
+         "copies are removed this run")
+    return None
 
 
 def github_token():
-    """Token for the GitHub MCP server, so APM never stops to prompt for it:
-    $token, else the logged-in GitHub CLI's, else None (a machine with no
-    GitHub login, e.g. one whose repos live on Bitbucket)."""
+    """$token, else the logged-in GitHub CLI's, else None (a machine with no
+    GitHub login, e.g. one whose repos live on Bitbucket). The GitHub MCP
+    server is registered only when there is one, as under APM; the token
+    itself is never written to any config."""
     if os.environ.get("token"):
         return os.environ["token"]
     gh = shutil.which("gh")
@@ -263,15 +233,6 @@ def github_token():
     return token if run.returncode == 0 and token else None
 
 
-def run_apm(argv, env=None):
-    """Run apm with its output passed through; returns its exit code."""
-    try:
-        return subprocess.run(argv, env=env).returncode
-    except OSError as exc:
-        warn(f"{' '.join(argv)} failed: {exc}")
-        return 127
-
-
 def is_wsl():
     if sys.platform != "linux":
         return False
@@ -282,32 +243,31 @@ def is_wsl():
         return False
 
 
-# Before APM, this script copied or linked every skill itself. Those entries
-# would collide with APM's: it rejects a symlinked skill destination, and on
-# Copilot it deploys to ~/.agents/skills, so an old ~/.copilot/skills copy
-# would load as a duplicate.
+# Before APM, this script copied or linked every skill itself; APM then
+# copied them again. Cali never replaces a folder it did not install (sync
+# reports it as kept), and it deploys Copilot skills to ~/.copilot/skills,
+# so APM's ~/.agents/skills copies would load twice.
 INSTRUCTIONS_SRC = REPO_ROOT / ".apm" / "instructions" / "personal.instructions.md"
 
 
 def legacy_skill_names():
-    """Every skill an earlier install.py put in a skills dir itself: ours,
-    and every community skill apm.yml lists (all were in the old inventory).
-    Externals are left to their own CLI."""
-    return custom_skill_names() | {d["name"] for d in manifest_deps()
-                                   if not d["path"].startswith("./")}
+    """Every skill an earlier install put in a skills dir: ours, and every
+    skill cali.yaml lists, live or optional (all were in the old inventory
+    or apm.yml). Externals are left to their own CLI."""
+    return custom_skill_names() | manifest_skill_names(active_only=False)
 
 
 def managed_skill_names(target):
-    """Skills APM installs for target: ours, and every active apm.yml
-    dependency not limited to other targets. Only these are safe to remove —
-    APM puts them straight back."""
+    """Skills Cali installs for target: ours, and every active cali.yaml
+    skill not limited to other targets. Only these are safe to remove —
+    cali sync puts them straight back."""
     return custom_skill_names() | {
         d["name"] for d in manifest_deps()
         if d["active"] and (d["targets"] is None or target in d["targets"])}
 
 
 def read_lockfile():
-    """~/.apm/apm.lock.yaml text, or None before APM's first install."""
+    """~/.apm/apm.lock.yaml text, or None on a machine APM never ran on."""
     try:
         return (apm_home() / "apm.lock.yaml").read_text(
             encoding="utf-8", errors="replace")
@@ -315,12 +275,12 @@ def read_lockfile():
         return None
 
 
-def apm_deployed_claude_skill(name, lock_text):
-    """True if the lockfile records APM deploying ~/.claude/skills/<name>.
+def apm_deployed_skill(name, lock_text):
+    """True if the APM lockfile records deploying .agents/skills/<name>.
     The name must end there: code-tour is not code-tour-x."""
     if lock_text is None:
         return False
-    pattern = r"\.claude/skills/" + re.escape(name) + r"(?![\w.-])"
+    pattern = r"\.agents/skills/" + re.escape(name) + r"(?![\w.-])"
     return re.search(pattern, lock_text.replace("\\", "/")) is not None
 
 
@@ -342,11 +302,12 @@ def _links_into_a_checkout(entry):
             and (root / ".claude-plugin" / "marketplace.json").is_file())
 
 
-def remove_installer_skills(target, dest_root, dry_run, lock_text=None):
-    """Remove what pre-APM installs left in dest_root, for skills APM now
-    installs for target. lock_text is ~/.apm/apm.lock.yaml: a Claude copy it
-    lists is APM's, not ours. APM never writes ~/.copilot/skills, so a copy
-    there is always ours. A leftover APM will not reinstall is kept."""
+def remove_installer_skills(target, dest_root, dry_run, cali_rows=None):
+    """Remove what older installs left in dest_root, for skills Cali now
+    installs for target. cali_rows is cali_status_rows(): a copy is moved to
+    backup_dir() only when Cali says it did not install it (NOT_CALIS), so a
+    Cali-installed folder, local edits included, is never touched. Without
+    cali_rows no copy is moved. A leftover Cali will not reinstall is kept."""
     results = []
     if not dest_root.is_dir():
         return results
@@ -361,27 +322,96 @@ def remove_installer_skills(target, dest_root, dry_run, lock_text=None):
             ours = entry.is_dir() and is_ours(entry, entry.name)
         if entry.name not in managed:
             if ours:
-                warn(f"{entry} was installed by the old installer; APM does "
+                warn(f"{entry} was installed by an old installer; Cali does "
                      f"not manage {entry.name} for {target} — uncomment it in "
-                     "apm.yml to keep it updated, or delete it")
+                     "cali.yaml to keep it updated, or delete it")
             continue
         if entry.is_symlink():
             if ours:
                 _remove(entry, dry_run)
                 results.append((target, entry.name, "removed (pre-APM link)"))
             else:
-                warn(f"{entry} is a link outside this clone — APM cannot "
+                warn(f"{entry} is a link outside this clone — Cali cannot "
                      f"install {entry.name} over it; remove it if it is stale")
-        elif ours and (target == "copilot" or not apm_deployed_claude_skill(
-                entry.name, lock_text)):
-            _remove(entry, dry_run)
-            results.append((target, entry.name, "removed (pre-APM copy)"))
+        elif ours and cali_rows is not None and NOT_CALIS & set(
+                cali_rows.get((entry.name, target), ())):
+            # base-lost also covers a Cali folder whose data dir was wiped, so
+            # the copy may hold local edits: move it aside, never delete it.
+            dest = _move_aside(entry, target, dry_run)
+            results.append((target, entry.name,
+                            f"moved to {dest} (not installed by Cali)"))
     return results
 
 
-def copilot_instruction_path():
-    return (Path.home() / ".copilot" / "instructions"
-            / INSTRUCTIONS_SRC.name)
+def apm_skills_root():
+    """Where APM deployed Copilot skills."""
+    return Path.home() / ".agents" / "skills"
+
+
+def remove_apm_skills(dry_run, lock_text):
+    """Remove the ~/.agents/skills copies APM deployed for skills Cali now
+    installs for Copilot (in ~/.copilot/skills). Only folders the APM
+    lockfile lists — ~/.agents/skills is shared with other tools."""
+    results = []
+    root = apm_skills_root()
+    for name in sorted(managed_skill_names("copilot")):
+        entry = root / name
+        if (entry.is_dir() and not entry.is_symlink()
+                and apm_deployed_skill(name, lock_text)):
+            _remove(entry, dry_run)
+            results.append(("copilot", name,
+                            "removed (APM copy in ~/.agents/skills)"))
+    return results
+
+
+def instruction_path(target):
+    """Where the personal instructions go: the paths APM deployed to."""
+    if target == "claude":
+        return Path.home() / ".claude" / "rules" / "personal.md"
+    return Path.home() / ".copilot" / "instructions" / INSTRUCTIONS_SRC.name
+
+
+def render_instructions(text, target):
+    """The file as target reads it. Copilot takes it as is; Claude rules
+    take `paths:` where Copilot takes `applyTo:` — the conversion APM made
+    (description dropped)."""
+    if target != "claude" or not text.startswith("---\n"):
+        return text
+    end = text.find("\n---\n", 4)
+    if end < 0:
+        return text
+    globs = []
+    for line in text[4:end].splitlines():
+        key, _, value = line.partition(":")
+        if key.strip() == "applyTo":
+            globs = [g.strip() for g in _unquote(value.strip()).split(",")
+                     if g.strip()]
+    if not globs:  # no applyTo: a rule without paths loads everywhere
+        return text[end + 5:]
+    paths = "".join(f"  - {json.dumps(g)}\n" for g in globs)
+    return f"---\npaths:\n{paths}---\n" + text[end + 5:]
+
+
+def shipped_instructions():
+    """Every version of INSTRUCTIONS_SRC this clone has shipped: the file
+    on disk plus each committed one (none when git or history is missing).
+    A deployed file equal to one of them is ours to update."""
+    texts = {INSTRUCTIONS_SRC.read_text(encoding="utf-8")}
+    rel = INSTRUCTIONS_SRC.relative_to(REPO_ROOT).as_posix()
+    try:
+        log = subprocess.run(["git", "log", "--format=%H", "--", rel],
+                             cwd=str(REPO_ROOT), capture_output=True,
+                             text=True, timeout=60)
+        for sha in log.stdout.split() if log.returncode == 0 else ():
+            show = subprocess.run(["git", "show", f"{sha}:{rel}"],
+                                  cwd=str(REPO_ROOT), capture_output=True,
+                                  timeout=60)
+            if show.returncode == 0:
+                texts.add(show.stdout.decode("utf-8", "replace")
+                          .replace("\r\n", "\n"))
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return texts
 
 
 def _links_into_dotfiles(link):
@@ -395,28 +425,109 @@ def _links_into_dotfiles(link):
             and (target.parent.parent / "install.py").is_file())
 
 
-def remove_instruction_copy(dry_run):
-    """The dotfiles repo linked (or, on Windows, copied) the same file APM
-    now deploys. Remove its link or an identical copy; keep an edited copy or
-    a link to anything else."""
-    dest = copilot_instruction_path()
+def _write_text(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+
+
+def install_instructions(target, dry_run):
+    """Deploy INSTRUCTIONS_SRC for target. Replaces a missing file, a
+    version this repo shipped, or the dotfiles repo's link; keeps an
+    edited copy or a link to anything else, with a warning. Nothing is
+    returned when the file is already current."""
+    dest = instruction_path(target)
+    new = render_instructions(INSTRUCTIONS_SRC.read_text(encoding="utf-8"),
+                              target)
     if dest.is_symlink():
-        if _links_into_dotfiles(dest):
-            _remove(dest, dry_run)
-            return [("copilot", dest.name,
-                     "removed (dotfiles link — APM deploys it now)")]
-        warn(f"{dest} links somewhere other than the dotfiles repo — left in "
-             f"place; remove it if APM should deploy {dest.name}")
+        if not _links_into_dotfiles(dest):
+            warn(f"{dest} links somewhere other than the dotfiles repo — left "
+                 f"in place; remove it so install.py can deploy {dest.name}")
+            return []
+        status = "replaced dotfiles link"
+    elif dest.is_file():
+        current = dest.read_text(encoding="utf-8", errors="replace")
+        if current == new:
+            return []
+        if current not in {render_instructions(t, target)
+                           for t in shipped_instructions()}:
+            warn(f"{dest} differs from {INSTRUCTIONS_SRC} — left in place; "
+                 "merge your edits into the repo copy, delete it, and re-run")
+            return []
+        status = "updated"
+    else:
+        status = "installed"
+    if not dry_run:
+        if dest.is_symlink():
+            dest.unlink()
+        _write_text(dest, new)
+    return [(target, dest.name, status)]
+
+
+# MCP servers install.py registers, per target, in the shape each agent's
+# user config takes: Claude Code ~/.claude.json and Copilot CLI
+# ~/.copilot/mcp-config.json, both under "mcpServers". The GitHub server is
+# remote and signs in with OAuth, so no token goes in the file. An entry of
+# the same name is never replaced, so a hand-tuned one survives.
+GITHUB_MCP_URL = "https://api.githubcopilot.com/mcp/"
+MCP_SERVERS = {
+    "github-mcp-server": {
+        "claude": {"type": "http", "url": GITHUB_MCP_URL},
+        "copilot": {"type": "http", "url": GITHUB_MCP_URL, "tools": ["*"]},
+    },
+    # Optional, for projects with a UI to drive: microsoft/playwright-mcp —
+    # add its entry here from https://github.com/microsoft/playwright-mcp.
+}
+
+
+def mcp_config_path(target):
+    if target == "claude":
+        return Path.home() / ".claude.json"
+    return Path.home() / ".copilot" / "mcp-config.json"
+
+
+def register_mcp_servers(target, dry_run):
+    """Add each MCP_SERVERS entry missing from target's config, keeping
+    every other key. A file that is not a JSON object is never rewritten."""
+    path = mcp_config_path(target)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (OSError, ValueError) as exc:
+        warn(f"{path} is not valid JSON ({exc}) — left alone; add the MCP "
+             "servers by hand")
         return []
-    if not dest.is_file():
+    servers = data.get("mcpServers", {}) if isinstance(data, dict) else None
+    if not isinstance(servers, dict):
+        warn(f"{path} has no mcpServers object — left alone; add the MCP "
+             "servers by hand")
         return []
-    if dest.read_bytes() == INSTRUCTIONS_SRC.read_bytes():
-        _remove(dest, dry_run)
-        return [("copilot", dest.name,
-                 "removed (dotfiles copy — APM deploys it now)")]
-    warn(f"{dest} differs from {INSTRUCTIONS_SRC} — left in place; merge "
-         f"your edits into the repo copy, delete it, and re-run")
-    return []
+    results = []
+    for name, configs in MCP_SERVERS.items():
+        if target not in configs:
+            continue
+        if name in servers:
+            results.append((target, f"mcp:{name}", "already configured"))
+            continue
+        servers[name] = configs[target]
+        results.append((target, f"mcp:{name}", "added"))
+    if dry_run or not any(s == "added" for _, _, s in results):
+        return results
+    data["mcpServers"] = servers
+    # Same directory, then rename: a crash never leaves a half-written file.
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(data, fh, indent=2)
+            fh.write("\n")
+        if path.exists():
+            shutil.copymode(str(path), tmp)
+        os.replace(tmp, str(path))
+    except OSError:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+    return results
 
 
 # Custom skills and prompts were renamed with a "roj-" prefix. Installs made
@@ -543,6 +654,30 @@ def is_generated(path):
         return GENERATED_MARKER in path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return False
+
+
+# Taken once, so every copy one run moves lands in the same folder.
+_RUN_STAMP = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+
+
+def backup_dir():
+    """Where install.py keeps copies it moved out of a skills dir, one
+    folder per run."""
+    return Path.home() / ".agent-skills-backups" / _RUN_STAMP
+
+
+def _move_aside(path, target, dry_run):
+    """Move path to backup_dir()/<target>/<name> (a free name) and return
+    where it went, or would go on a dry run."""
+    dest = backup_dir() / target / path.name
+    n = 1
+    while dest.exists():
+        n += 1
+        dest = dest.with_name(f"{path.name}-{n}")
+    if not dry_run:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(path), str(dest))
+    return dest
 
 
 def _remove(path, dry_run):
@@ -839,25 +974,32 @@ def install_externals_for_target(target, sel_externals, dry_run):
 
 
 def show_status(targets):
-    exe = find_cli("apm")
+    exe = find_cli("cali")
     if exe:
-        run_apm([exe, "deps", "list", "-g"])
+        run_cali(cali_argv(exe, "list"))
     else:
-        warn("apm is not installed — nothing APM manages can be listed")
+        warn("cali is not installed — nothing Cali manages can be listed")
     warnings = []
+    cali_rows = cali_status_rows(exe) if exe else None
     lock_text = read_lockfile()
     for target in targets:
         root = target_root(target)
         left = remove_installer_skills(target, root, dry_run=True,
-                                       lock_text=lock_text)
+                                       cali_rows=cali_rows)
         if left:
             warnings.append(f"{target}: {', '.join(n for _, n, _ in left)} "
-                            f"left by a pre-APM install in {root} — re-run "
+                            f"left by an older install in {root} — re-run "
                             f"install.py to remove")
         older = (remove_legacy(target, root, dry_run=True)
                  + retire_prompts(target, root, dry_run=True))
         if target == "copilot":
-            older += remove_instruction_copy(dry_run=True)
+            older += remove_apm_skills(True, lock_text)
+        for _, name, status in install_instructions(target, dry_run=True):
+            if status == "replaced dotfiles link":
+                older.append((target, name, status))
+            else:
+                warnings.append(f"{target}: {name} is not deployed or out of "
+                                "date — re-run install.py")
         for _, name, _ in older:
             warnings.append(f"{target}: {name} left by an older install — "
                             "re-run install.py to remove")
@@ -910,13 +1052,11 @@ def main():
     ap.add_argument("--dry-run", action="store_true",
                     help="print planned actions without writing or running "
                          "anything")
-    ap.add_argument("--force", action="store_true",
-                    help="replace a ~/.apm/apm.yml install.py did not write")
     ap.add_argument("--status", action="store_true",
-                    help="show what APM installed, graphify, and leftovers")
+                    help="show what Cali installed, graphify, and leftovers")
     ap.add_argument("--update", action="store_true",
-                    help="list apm.yml pins with newer upstream releases "
-                         "(apm outdated -g); bump them in apm.yml, re-run")
+                    help="list skills with newer upstream versions "
+                         "(cali status); changes nothing")
     ap.add_argument("--upgrade", action="store_true",
                     help="upgrade external CLIs (graphify) before refreshing "
                          "their skill files")
@@ -930,53 +1070,50 @@ def main():
         show_status(targets)
         return
 
-    exe = find_cli("apm")
+    exe = find_cli("cali")
     if not exe and args.dry_run:
-        warn("apm is not installed — a real run would install apm-cli "
-             "first (uv, pipx or pip)")
+        warn("cali is not installed — a real run would stop here:\n"
+             + CALI_INSTALL_HINT)
     elif not exe:
-        exe = bootstrap_cli(APM_TOOL, False)
-        if not exe:
-            sys.exit(APM_INSTALL_HINT)
+        sys.exit(CALI_INSTALL_HINT)
     if args.update:
         if args.dry_run:
-            log("dry-run: would run apm outdated -g")
+            log("dry-run: would run cali status -g --manifest "
+                f"{MANIFEST_PATH}")
             return
-        sys.exit(run_apm([exe, "outdated", "-g"]))
+        sys.exit(run_cali(cali_argv(exe, "status")))
 
-    manifest = render_user_manifest()
-    # Refuse a foreign ~/.apm/apm.yml before anything is removed.
-    write_user_manifest(manifest, args.force, dry_run=True)
     results = []
+    cali_rows = cali_status_rows(exe) if exe else None
     lock_text = read_lockfile()
     for target in targets:
         results.extend(remove_installer_skills(
-            target, target_root(target), args.dry_run, lock_text=lock_text))
+            target, target_root(target), args.dry_run, cali_rows=cali_rows))
         results.extend(remove_legacy(target, target_root(target),
                                      args.dry_run))
         results.extend(retire_prompts(target, target_root(target),
                                       args.dry_run))
-    if "copilot" in targets:
-        results.extend(remove_instruction_copy(args.dry_run))
-    results.append(("apm", "~/.apm/apm.yml", write_user_manifest(
-        manifest, args.force, args.dry_run)))
-    token = github_token()
-    if not token:
+        if target == "copilot":
+            results.extend(remove_apm_skills(args.dry_run, lock_text))
+        results.extend(install_instructions(target, args.dry_run))
+    if github_token():
+        for target in targets:
+            results.extend(register_mcp_servers(target, args.dry_run))
+    else:
         log("No GitHub token ($token or 'gh auth login') — skipping MCP "
             "servers; skills and instructions install as usual")
-    argv = apm_install_argv(exe or "apm", targets, with_mcp=bool(token))
+    argv = cali_argv(exe or "cali", "sync")
     if args.dry_run:
-        results.append(("apm", "install",
-                        "dry-run: would run " + " ".join(["apm", *argv[1:]])))
+        results.append(("cali", "sync", "dry-run: would run "
+                        + " ".join(["cali", *argv[1:]])))
     else:
-        code = run_apm(argv, env=dict(os.environ, token=token) if token
-                       else None)
+        code = run_cali(argv)
         if code:
             print_summary(results, targets, args.dry_run)
-            warn("apm install failed — pre-APM entries removed above come "
-                 "back once a re-run of install.py succeeds")
+            warn("cali sync failed — skill folders removed or moved above come back "
+                 "once a re-run of install.py succeeds")
             sys.exit(code)
-        results.append(("apm", "install", "done"))
+        results.append(("cali", "sync", "done"))
 
     sel_externals = set() if args.skills_only else default_external_names()
     if args.skills_only:

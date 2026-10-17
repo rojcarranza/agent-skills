@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "skills": {
+    "acquire-codebase-knowledge": {
+      "source": "https://github.com/github/awesome-copilot",
+      "path": "skills/acquire-codebase-knowledge",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "commit": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "tree": "522888a523fbf2c448b4d03cb0bd2b7cf815c380"
+    },
+    "caveman": {
+      "source": "https://github.com/juliusbrussee/caveman",
+      "path": "skills/caveman",
+      "ref": "2e08b9177c07bb7249a8a2d1a6758e5db281d002",
+      "commit": "2e08b9177c07bb7249a8a2d1a6758e5db281d002",
+      "tree": "b314dd99b2b8723aae2de5a22079914567f2e58f"
+    },
+    "code-tour": {
+      "source": "https://github.com/github/awesome-copilot",
+      "path": "skills/code-tour",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "commit": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "tree": "4092b96dd32d93e85ca0384adecb126973717cee"
+    },
+    "context-map": {
+      "source": "https://github.com/github/awesome-copilot",
+      "path": "skills/context-map",
+      "ref": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "commit": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
+      "tree": "8b684d625e209fc960011407e2e504fa2ff2cad8"
+    },
+    "debugging-and-error-recovery": {
+      "source": "https://github.com/addyosmani/agent-skills",
+      "path": "skills/debugging-and-error-recovery",
+      "ref": "1401c8b8030e023baeebb31781a6653fe8e93026",
+      "commit": "1401c8b8030e023baeebb31781a6653fe8e93026",
+      "tree": "c3b5c340bae3ac952733213b40035820acfb48a3"
+    },
+    "find-skills": {
+      "source": "https://github.com/vercel-labs/skills",
+      "path": "skills/find-skills",
+      "ref": "87a266971d9460a3d2606075b8e91edc83325472",
+      "commit": "87a266971d9460a3d2606075b8e91edc83325472",
+      "tree": "76a98a285cb0434f3d39e1a873823556330e398b"
+    },
+    "roj-code-review-pr": {
+      "source": "https://github.com/rojcarranza/agent-skills",
+      "path": "skills/roj-code-review-pr",
+      "ref": "",
+      "commit": "add72e58bf647df3bf587c6f80079f920cd73033",
+      "tree": "9b966e2aed30b8aa183564a3f2ce61065390c639"
+    },
+    "roj-code-review-pr-fast": {
+      "source": "https://github.com/rojcarranza/agent-skills",
+      "path": "skills/roj-code-review-pr-fast",
+      "ref": "",
+      "commit": "add72e58bf647df3bf587c6f80079f920cd73033",
+      "tree": "4f217cda66ef3ab82f502c91ed402c5a26e84590"
+    },
+    "roj-explain-feature-changes": {
+      "source": "https://github.com/rojcarranza/agent-skills",
+      "path": "skills/roj-explain-feature-changes",
+      "ref": "",
+      "commit": "add72e58bf647df3bf587c6f80079f920cd73033",
+      "tree": "6f6b003ac48725a9a1cafb89af8176684cee0c5c"
+    },
+    "roj-explain-logic": {
+      "source": "https://github.com/rojcarranza/agent-skills",
+      "path": "skills/roj-explain-logic",
+      "ref": "",
+      "commit": "add72e58bf647df3bf587c6f80079f920cd73033",
+      "tree": "37782d5b34f2e36053edb2ace707ace500d025ef"
+    },
+    "roj-grill-plan": {
+      "source": "https://github.com/rojcarranza/agent-skills",
+      "path": "skills/roj-grill-plan",
+      "ref": "",
+      "commit": "add72e58bf647df3bf587c6f80079f920cd73033",
+      "tree": "5a97fdfa63cb579ace85ab359fd790e70a29d6de"
+    },
+    "roj-idea-to-project": {
+      "source": "https://github.com/rojcarranza/agent-skills",
+      "path": "skills/roj-idea-to-project",
+      "ref": "",
+      "commit": "add72e58bf647df3bf587c6f80079f920cd73033",
+      "tree": "f49c63201044f7b05cde90afce0f1ef9069607e4"
+    },
+    "roj-interview-prep": {
+      "source": "https://github.com/rojcarranza/agent-skills",
+      "path": "skills/roj-interview-prep",
+      "ref": "",
+      "commit": "add72e58bf647df3bf587c6f80079f920cd73033",
+      "tree": "62dfd6ef0c5b336f20533a3dacca976e83d77263"
+    },
+    "roj-investigate-issue": {
+      "source": "https://github.com/rojcarranza/agent-skills",
+      "path": "skills/roj-investigate-issue",
+      "ref": "",
+      "commit": "add72e58bf647df3bf587c6f80079f920cd73033",
+      "tree": "da32ad6feb8015dec7dba54ae61134265e7363ec"
+    },
+    "roj-review-pr-comment": {
+      "source": "https://github.com/rojcarranza/agent-skills",
+      "path": "skills/roj-review-pr-comment",
+      "ref": "",
+      "commit": "add72e58bf647df3bf587c6f80079f920cd73033",
+      "tree": "ca9bf4f748746c1c96b0717f5863fa6ea9227286"
+    },
+    "roj-soundboarding": {
+      "source": "https://github.com/rojcarranza/agent-skills",
+      "path": "skills/roj-soundboarding",
+      "ref": "",
+      "commit": "add72e58bf647df3bf587c6f80079f920cd73033",
+      "tree": "7a8bc17ea8ca446717b2f65b9d3832f40035eb1b"
+    },
+    "roj-tour-codebase": {
+      "source": "https://github.com/rojcarranza/agent-skills",
+      "path": "skills/roj-tour-codebase",
+      "ref": "",
+      "commit": "add72e58bf647df3bf587c6f80079f920cd73033",
+      "tree": "91d2fcba95952826f01dc663be12baa6ef375f73"
+    },
+    "write-pr-description": {
+      "source": "https://github.com/warpdotdev/common-skills",
+      "path": ".agents/skills/write-pr-description",
+      "ref": "2a03b403b4f8d42cb54b8953697737193b2e8306",
+      "commit": "2a03b403b4f8d42cb54b8953697737193b2e8306",
+      "tree": "a13f8ec1e8f0697fe7836746e6b3b88b998b988a"
+    }
+  }
+}
