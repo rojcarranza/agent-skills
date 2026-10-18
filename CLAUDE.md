@@ -48,7 +48,13 @@
   `roj-code-review-pr-fast` or `roj-review-pr-comment`.
 - No personal paths, real ticket IDs or employer details in `skills/`.
   Employer-specific patterns live in the git-ignored `.private-patterns`.
-- A new skill also goes into `.claude-plugin/marketplace.json`.
+- A new skill is one PR: `skills/<name>/`, its
+  `.claude-plugin/marketplace.json` entry, its `cali.yaml` entry
+  (`source: .//skills/<name>`) and its `cali.lock` entry. Commit the skill
+  first, then `cali sync -g --manifest cali.yaml` writes the lock entry.
+- Any change under `skills/<name>/` moves its tree: after committing it, run
+  `cali update -g --manifest cali.yaml --apply` and commit `cali.lock` in
+  the same PR. `cali sync -g --manifest cali.yaml --frozen` must exit 0.
 
 ## Before pushing
 
