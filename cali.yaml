@@ -1,7 +1,7 @@
 # Every skill install.py installs for Claude Code and Copilot, through Cali
 # (https://github.com/rojcarranza/cali). install.py runs
 # `cali sync -g --manifest <this file>`; cali.lock next to it pins each skill
-# to a commit and tree. Community refs are full commit SHAs: a version bump
+# to a tree (and community skills to a commit). Community refs are full commit SHAs: a version bump
 # is a reviewed diff. Edit here, then re-run install.py.
 version: 1
 targets: [claude, copilot]
