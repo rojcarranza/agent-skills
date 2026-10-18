@@ -512,7 +512,7 @@ class TestManifest(unittest.TestCase):
         for d in skill_dirs():
             with self.subTest(skill=d.name):
                 self.assertEqual(live.get(d.name),
-                                 "github:rojcarranza/agent-skills//skills/"
+                                 ".//skills/"
                                  + d.name)
 
     def test_every_requirement_is_live(self):
@@ -524,7 +524,7 @@ class TestManifest(unittest.TestCase):
 
     def test_community_refs_are_full_shas(self):
         for d in self.deps:
-            if d["source"].startswith("github:rojcarranza/agent-skills//"):
+            if d["source"].startswith(".//"):
                 continue
             with self.subTest(dep=d["name"]):
                 self.assertRegex(d["ref"] or "", SHA_RE)

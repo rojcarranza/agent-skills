@@ -768,9 +768,9 @@ class TestParseManifest(unittest.TestCase):
 version: 1
 targets: [claude, copilot]
 skills:
-  # Own skills, from this repo's default branch.
+  # Own skills, from this clone.
   roj-explain-logic:
-    source: github:rojcarranza/agent-skills//skills/roj-explain-logic
+    source: .//skills/roj-explain-logic
   code-tour:
     source: github:github/awesome-copilot//skills/code-tour
     ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
@@ -795,7 +795,7 @@ skills:
         self.assertEqual(
             (dep["name"], dep["source"], dep["ref"], dep["targets"], dep["active"]),
             ("roj-explain-logic",
-             "github:rojcarranza/agent-skills//skills/roj-explain-logic",
+             ".//skills/roj-explain-logic",
              None, None, True))
 
     def test_ref_field(self):
