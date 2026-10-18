@@ -848,6 +848,20 @@ skills:
         lock = json.loads((install.REPO_ROOT / "cali.lock").read_text("utf-8"))
         self.assertEqual(set(lock["skills"]), install.manifest_skill_names())
 
+    def test_own_skills_are_locked_at_head(self):
+        # The cali sync --frozen tree check, without cali: run
+        # `cali update -g --manifest cali.yaml --apply` when this fails.
+        lock = json.loads((install.REPO_ROOT / "cali.lock").read_text("utf-8"))
+        for name, entry in lock["skills"].items():
+            if entry["source"] != ".":
+                continue
+            with self.subTest(skill=name):
+                tree = subprocess.run(
+                    ["git", "rev-parse", "HEAD:" + entry["path"]],
+                    cwd=install.REPO_ROOT, capture_output=True, text=True,
+                    check=True).stdout.strip()
+                self.assertEqual(entry["tree"], tree)
+
 
 class TestCali(TempDirTest):
     def test_argv_points_at_the_repo_manifest(self):
