@@ -1,35 +1,35 @@
 # Every skill install.py installs for Claude Code and Copilot, through Cali
 # (https://github.com/rojcarranza/cali). install.py runs
 # `cali sync -g --manifest <this file>`; cali.lock next to it pins each skill
-# to a commit and tree. Community refs are full commit SHAs: a version bump
+# to a tree (and community skills to a commit). Community refs are full commit SHAs: a version bump
 # is a reviewed diff. Edit here, then re-run install.py.
 version: 1
 targets: [claude, copilot]
 skills:
-  # Own skills, from this repo's default branch. cali.lock pins the commit;
+  # Own skills, from this clone at its checked-out HEAD. cali.lock pins the tree;
   # `cali update -g --manifest cali.yaml --apply` moves it.
   roj-code-review-pr:
-    source: github:rojcarranza/agent-skills//skills/roj-code-review-pr
+    source: .//skills/roj-code-review-pr
   roj-code-review-pr-fast:
-    source: github:rojcarranza/agent-skills//skills/roj-code-review-pr-fast
+    source: .//skills/roj-code-review-pr-fast
   roj-explain-feature-changes:
-    source: github:rojcarranza/agent-skills//skills/roj-explain-feature-changes
+    source: .//skills/roj-explain-feature-changes
   roj-explain-logic:
-    source: github:rojcarranza/agent-skills//skills/roj-explain-logic
+    source: .//skills/roj-explain-logic
   roj-grill-plan:
-    source: github:rojcarranza/agent-skills//skills/roj-grill-plan
+    source: .//skills/roj-grill-plan
   roj-idea-to-project:
-    source: github:rojcarranza/agent-skills//skills/roj-idea-to-project
+    source: .//skills/roj-idea-to-project
   roj-interview-prep:
-    source: github:rojcarranza/agent-skills//skills/roj-interview-prep
+    source: .//skills/roj-interview-prep
   roj-investigate-issue:
-    source: github:rojcarranza/agent-skills//skills/roj-investigate-issue
+    source: .//skills/roj-investigate-issue
   roj-review-pr-comment:
-    source: github:rojcarranza/agent-skills//skills/roj-review-pr-comment
+    source: .//skills/roj-review-pr-comment
   roj-soundboarding:
-    source: github:rojcarranza/agent-skills//skills/roj-soundboarding
+    source: .//skills/roj-soundboarding
   roj-tour-codebase:
-    source: github:rojcarranza/agent-skills//skills/roj-tour-codebase
+    source: .//skills/roj-tour-codebase
   # Community skills our skills chain to (docs/community-skills.md).
   code-tour:
     source: github:github/awesome-copilot//skills/code-tour

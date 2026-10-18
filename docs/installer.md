@@ -61,9 +61,9 @@ runs `install.py` as part of normal machine setup.
 `install.py` is the whole workflow. Each skill is a name with a git source:
 
 ```yaml
-# Own skill: this repo's default branch, pinned by cali.lock
+# Own skill: this clone at its checked-out HEAD, pinned by cali.lock
 roj-explain-logic:
-  source: github:rojcarranza/agent-skills//skills/roj-explain-logic
+  source: .//skills/roj-explain-logic
 
 # Community skill pinned to a commit, for one agent only
 caveman:
@@ -74,7 +74,7 @@ caveman:
 
 - **Pin to a commit.** Every community ref is a full commit SHA, so a new
   upstream version is a reviewed diff. [`cali.lock`](../cali.lock) records
-  the commit and tree of every skill, ours included.
+  the commit and tree of every community skill, and the tree of ours.
 - **One agent only.** `targets: [copilot]` (or `[claude]`) limits an entry;
   caveman and debugging-and-error-recovery are Copilot only because Claude
   gets the same from a plugin.
@@ -86,10 +86,12 @@ caveman:
   upstream versions. Put the new SHA in `cali.yaml`, then run
   `cali update -g --manifest cali.yaml --apply` (a re-run of `install.py`
   only reports `ref changed`), review the `cali.lock` diff and commit it.
-- **Our own skills** come from GitHub, not from the clone: an edit reaches
-  the installed copy after it is merged, with
-  `cali update -g --manifest cali.yaml --apply`, which moves `cali.lock`.
-  Commit that lock change.
+- **Our own skills** come from the clone at its checked-out HEAD
+  (`.//skills/<name>`), so a branch installs its own version before it is
+  merged. A committed edit moves the skill's tree:
+  `cali update -g --manifest cali.yaml --apply` moves `cali.lock` to it.
+  Commit that lock change in the same PR; until then
+  `cali sync --frozen` fails with "locked tree is behind the repo".
 - **Local edits** to an installed skill are kept: `cali sync` never
   overwrites a folder, and `cali update` merges upstream changes into it.
 
@@ -315,8 +317,8 @@ From the dotfiles repo root, `python install.py install agent-skills` does
 steps 1–3 and 5.
 
 Cali installs skills as copies on every platform, so Windows needs no symlink
-rights. Copies are snapshots of the commit in `cali.lock`: an edit to one of
-our skills reaches them after it is merged and
+rights. Copies are snapshots of the tree in `cali.lock`: an edit to one of
+our skills reaches them after it is committed and
 `cali update -g --manifest cali.yaml --apply` has moved the lock. A re-run
 removes legacy `.bak` copies of retired prompts.
 

@@ -81,7 +81,8 @@ jobs:
           export HOME="$base/home" USERPROFILE="$base/home"
           export CALI_CONFIG_DIR="$base/cali/config" CALI_DATA_DIR="$base/cali/data" CALI_CACHE_DIR="$base/cali/cache"
           python install.py --skills-only
-          git diff --exit-code cali.lock   # the committed lock was complete
+          # The committed lock is complete and no own skill's tree is behind HEAD.
+          "$HOME/.local/bin/cali$(go env GOEXE)" sync -g --manifest cali.yaml --frozen
           for d in skills/*/; do
             n=$(basename "$d")
             test -f "$HOME/.claude/skills/$n/SKILL.md"

@@ -108,7 +108,7 @@ skills/<name>/
   examples/       sample inputs and outputs
 .claude-plugin/   marketplace.json — the Claude Code plugin view of skills/
 cali.yaml         every skill and community skill install.py installs (Cali manifest)
-cali.lock         the commit and tree each of them is pinned to
+cali.lock         the tree each of them is pinned to (and commit, for community skills)
 .apm/instructions/  personal instructions install.py deploys to Copilot and Claude
 tools/            sync_shared.py — copies shared files into every skill using them
 install.py        runs cali sync, deploys instructions and MCP servers, installs graphify (docs/installer.md)
@@ -135,8 +135,14 @@ test_skills.py    spec + publishing checks for every skill
   (`PROJ-123`, `$SOUNDBOARD_DIR`). Put employer-specific strings in a
   git-ignored `.private-patterns` file (one regex per line) and the tests
   check for them locally.
-- Add a new skill to `.claude-plugin/marketplace.json`; a test fails until
-  you do.
+- A new skill is one PR: the `skills/<name>/` folder, its
+  `.claude-plugin/marketplace.json` entry, its `cali.yaml` entry
+  (`source: .//skills/<name>`) and its `cali.lock` entry. Commit the skill,
+  then run `cali sync -g --manifest cali.yaml` to write the lock entry and
+  commit that too; a test fails until all four are in.
+- A change to an existing skill moves its tree: commit it, then run
+  `cali update -g --manifest cali.yaml --apply` and commit the `cali.lock`
+  change in the same PR. A test fails until you do.
 
 ## Tests
 

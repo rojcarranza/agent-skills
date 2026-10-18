@@ -768,9 +768,9 @@ class TestParseManifest(unittest.TestCase):
 version: 1
 targets: [claude, copilot]
 skills:
-  # Own skills, from this repo's default branch.
+  # Own skills, from this clone.
   roj-explain-logic:
-    source: github:rojcarranza/agent-skills//skills/roj-explain-logic
+    source: .//skills/roj-explain-logic
   code-tour:
     source: github:github/awesome-copilot//skills/code-tour
     ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
@@ -795,7 +795,7 @@ skills:
         self.assertEqual(
             (dep["name"], dep["source"], dep["ref"], dep["targets"], dep["active"]),
             ("roj-explain-logic",
-             "github:rojcarranza/agent-skills//skills/roj-explain-logic",
+             ".//skills/roj-explain-logic",
              None, None, True))
 
     def test_ref_field(self):
@@ -847,6 +847,20 @@ skills:
         # cali sync --frozen would pass: every live skill is locked, nothing else.
         lock = json.loads((install.REPO_ROOT / "cali.lock").read_text("utf-8"))
         self.assertEqual(set(lock["skills"]), install.manifest_skill_names())
+
+    def test_own_skills_are_locked_at_head(self):
+        # The cali sync --frozen tree check, without cali: run
+        # `cali update -g --manifest cali.yaml --apply` when this fails.
+        lock = json.loads((install.REPO_ROOT / "cali.lock").read_text("utf-8"))
+        for name, entry in lock["skills"].items():
+            if entry["source"] != ".":
+                continue
+            with self.subTest(skill=name):
+                tree = subprocess.run(
+                    ["git", "rev-parse", "HEAD:" + entry["path"]],
+                    cwd=install.REPO_ROOT, capture_output=True, text=True,
+                    check=True).stdout.strip()
+                self.assertEqual(entry["tree"], tree)
 
 
 class TestCali(TempDirTest):
