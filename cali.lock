@@ -106,6 +106,13 @@
       "commit": "87a266971d9460a3d2606075b8e91edc83325472",
       "tree": "76a98a285cb0434f3d39e1a873823556330e398b"
     },
+    "impeccable": {
+      "source": "https://github.com/pbakaus/impeccable",
+      "path": "plugin/skills/impeccable",
+      "ref": "aeeb3d8c30b5f95aeeb3e893b0f1a308af8fdb8f",
+      "commit": "aeeb3d8c30b5f95aeeb3e893b0f1a308af8fdb8f",
+      "tree": "bbde20e5648a84150287cc84cee31224515ba153"
+    },
     "observability-and-instrumentation": {
       "source": "https://github.com/addyosmani/agent-skills",
       "path": "skills/observability-and-instrumentation",
