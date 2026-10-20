@@ -4,7 +4,7 @@ Every skill here is listed in [`cali.yaml`](../cali.yaml) — live ones install 
 default, commented ones are optional: uncomment and re-run `install.py`.
 Sources: `github/awesome-copilot`, `juliusbrussee/caveman`,
 `addyosmani/agent-skills`, `warpdotdev/common-skills`, `anthropics/skills`,
-`vercel-labs/skills` and `mattpocock/skills`. Each skill in `cali.yaml` gets a section here.
+`vercel-labs/skills`, `pbakaus/impeccable` and `mattpocock/skills`. Each skill in `cali.yaml` gets a section here.
 
 ## code-tour
 Creates CodeTour `.tour` walkthroughs through a repo, PR, or bug.
@@ -134,6 +134,21 @@ Upstream gotcha: its last step offers `npx skills add <owner/repo@skill> -g -y`,
 a one-off global install nothing here records. Treat that as a trial; to
 keep a skill, add it to `cali.yaml` pinned to a commit, re-run `install.py` and
 commit the entry with its `cali.lock` change. The community copy is deliberately not patched.
+
+## impeccable
+Designs, critiques and polishes frontend UI: layout, typography, color,
+motion, UX copy, accessibility and design systems. From `pbakaus/impeccable`
+(Apache-2.0), fetched from its `plugin/skills/` folder at tag `skill-v4.7.0`.
+- `Critique the settings page and fix the visual hierarchy`
+- `Polish this landing page`
+
+Upstream gotcha: `scripts/impeccable` runs a native engine. Impeccable's own
+installer copies it into `scripts/bin/<os>-<arch>/`, but the skill in git has
+no binary. Installed through Cali, the launcher downloads the engine on first
+use to `~/.impeccable/bin/<version>/`, which is outside the skill folder. The
+skill folder stays byte-identical to the commit and under Cali's 10 MiB
+per-file cap. Do not copy a binary into `scripts/bin/`: Cali then reports a
+local edit and cannot read the folder.
 
 ## grilling
 Interviews you about a plan, decision or idea in rounds: every question that
