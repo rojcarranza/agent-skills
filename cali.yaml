@@ -100,7 +100,7 @@ skills:
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
   impeccable:
     source: github:pbakaus/impeccable//plugin/skills/impeccable
-    ref: aeeb3d8c30b5f95aeeb3e893b0f1a308af8fdb8f  # skill-v4.7.0
+    ref: aeeb3d8c30b5f95aeeb3e893b0f1a308af8fdb8f
   # Optional — uncomment the entry's lines and re-run install.py:
   # grilling:
   #   source: github:mattpocock/skills//skills/productivity/grilling@49dd158d1076134a641b33efb035946536778336

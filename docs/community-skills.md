@@ -147,8 +147,15 @@ installer copies it into `scripts/bin/<os>-<arch>/`, but the skill in git has
 no binary. Installed through Cali, the launcher downloads the engine on first
 use to `~/.impeccable/bin/<version>/`, which is outside the skill folder. The
 skill folder stays byte-identical to the commit and under Cali's 10 MiB
-per-file cap. Do not copy a binary into `scripts/bin/`: Cali then reports a
-local edit and cannot read the folder.
+per-file cap. Do not copy a binary into `scripts/bin/`: Cali can no longer
+read the folder, and every `status`, `update` and `sync` fails on it.
+
+Its long builds spawn shipped agents (`impeccable-finish-reviewer`,
+`impeccable-documenter`, `impeccable-asset-producer`,
+`impeccable-manual-edit-applier`). Those agents are not part of the skill
+folder, and Cali does not install them. Without them the skill falls back to
+its `reference/degraded/` in-thread passes. Agents left in `~/.claude/agents/`
+by impeccable's own installer are not updated with the pinned skill.
 
 ## grilling
 Interviews you about a plan, decision or idea in rounds: every question that
