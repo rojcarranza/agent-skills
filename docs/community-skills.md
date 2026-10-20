@@ -48,8 +48,7 @@ Adds explanatory comments to a file for learning purposes.
 ## debian-linux-triage
 ## fedora-linux-triage
 Host diagnosis for one Linux distribution: services, packages, logs,
-networking. Cherry-picks from `github/awesome-copilot` — install the one
-matching your build agents.
+networking. Cherry-picks from `github/awesome-copilot`; all four install.
 - `Triage why the docker service keeps restarting on this Debian agent`
 
 `roj-investigate-issue` names the matching one in its Solution when a root

@@ -8,12 +8,47 @@
       "commit": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
       "tree": "522888a523fbf2c448b4d03cb0bd2b7cf815c380"
     },
+    "add-educational-comments": {
+      "source": "https://github.com/github/awesome-copilot",
+      "path": "skills/add-educational-comments",
+      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "tree": "e9d3c89ab799b5a833c302ef45bd77eef5639c88"
+    },
+    "arch-linux-triage": {
+      "source": "https://github.com/github/awesome-copilot",
+      "path": "skills/arch-linux-triage",
+      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "tree": "148fe897a1a9574e87a843ae85d8114b70f1693e"
+    },
+    "architecture-blueprint-generator": {
+      "source": "https://github.com/github/awesome-copilot",
+      "path": "skills/architecture-blueprint-generator",
+      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "tree": "85df2c5df09933ba0cf7b1e3b39469d4437c8d95"
+    },
     "caveman": {
       "source": "https://github.com/juliusbrussee/caveman",
       "path": "skills/caveman",
       "ref": "2e08b9177c07bb7249a8a2d1a6758e5db281d002",
       "commit": "2e08b9177c07bb7249a8a2d1a6758e5db281d002",
       "tree": "b314dd99b2b8723aae2de5a22079914567f2e58f"
+    },
+    "centos-linux-triage": {
+      "source": "https://github.com/github/awesome-copilot",
+      "path": "skills/centos-linux-triage",
+      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "tree": "2c49e5f067b98bc84978dd9aa6fa8518d34103e1"
+    },
+    "ci-cd-and-automation": {
+      "source": "https://github.com/addyosmani/agent-skills",
+      "path": "skills/ci-cd-and-automation",
+      "ref": "aeac41d4d005999432bb7312f7ff06383a91d59d",
+      "commit": "aeac41d4d005999432bb7312f7ff06383a91d59d",
+      "tree": "34db321777a17e268ac425f0f7f2501dda55c955"
     },
     "code-tour": {
       "source": "https://github.com/github/awesome-copilot",
@@ -29,6 +64,13 @@
       "commit": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
       "tree": "8b684d625e209fc960011407e2e504fa2ff2cad8"
     },
+    "debian-linux-triage": {
+      "source": "https://github.com/github/awesome-copilot",
+      "path": "skills/debian-linux-triage",
+      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "tree": "864a6de81ae2649734bfbd12849e9a56b0f6c9ca"
+    },
     "debugging-and-error-recovery": {
       "source": "https://github.com/addyosmani/agent-skills",
       "path": "skills/debugging-and-error-recovery",
@@ -36,12 +78,54 @@
       "commit": "1401c8b8030e023baeebb31781a6653fe8e93026",
       "tree": "c3b5c340bae3ac952733213b40035820acfb48a3"
     },
+    "deprecation-and-migration": {
+      "source": "https://github.com/addyosmani/agent-skills",
+      "path": "skills/deprecation-and-migration",
+      "ref": "aeac41d4d005999432bb7312f7ff06383a91d59d",
+      "commit": "aeac41d4d005999432bb7312f7ff06383a91d59d",
+      "tree": "452a130309afc52a26beceb21f1467936e53a37c"
+    },
+    "docx": {
+      "source": "https://github.com/anthropics/skills",
+      "path": "skills/docx",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "tree": "6e6f5b95c1de6e803cc07b214f5059b074d64e0c"
+    },
+    "fedora-linux-triage": {
+      "source": "https://github.com/github/awesome-copilot",
+      "path": "skills/fedora-linux-triage",
+      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
+      "tree": "5be4b50eb6b4044edcd12e4cac1f7ee398bfd1bc"
+    },
     "find-skills": {
       "source": "https://github.com/vercel-labs/skills",
       "path": "skills/find-skills",
       "ref": "87a266971d9460a3d2606075b8e91edc83325472",
       "commit": "87a266971d9460a3d2606075b8e91edc83325472",
       "tree": "76a98a285cb0434f3d39e1a873823556330e398b"
+    },
+    "observability-and-instrumentation": {
+      "source": "https://github.com/addyosmani/agent-skills",
+      "path": "skills/observability-and-instrumentation",
+      "ref": "aeac41d4d005999432bb7312f7ff06383a91d59d",
+      "commit": "aeac41d4d005999432bb7312f7ff06383a91d59d",
+      "tree": "1e8f1c0144e2b8f7859f5870329a31f8abc58193"
+    },
+    "pdf": {
+      "source": "https://github.com/anthropics/skills",
+      "path": "skills/pdf",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "tree": "6369f4649de69bd6857c9bc3b058a77206009238"
+    },
+    "pptx": {
+      "source": "https://github.com/anthropics/skills",
+      "path": "skills/pptx",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "tree": "64529c8b3f35fe632b7256bd2f6d46e4b40160ce"
     },
     "roj-code-review-pr": {
       "source": ".",
@@ -120,12 +204,26 @@
       "commit": "",
       "tree": "91d2fcba95952826f01dc663be12baa6ef375f73"
     },
+    "security-and-hardening": {
+      "source": "https://github.com/addyosmani/agent-skills",
+      "path": "skills/security-and-hardening",
+      "ref": "aeac41d4d005999432bb7312f7ff06383a91d59d",
+      "commit": "aeac41d4d005999432bb7312f7ff06383a91d59d",
+      "tree": "f9f5b22b97f1f0bfe47a30c0ac860c343e332a94"
+    },
     "write-pr-description": {
       "source": "https://github.com/warpdotdev/common-skills",
       "path": ".agents/skills/write-pr-description",
       "ref": "2a03b403b4f8d42cb54b8953697737193b2e8306",
       "commit": "2a03b403b4f8d42cb54b8953697737193b2e8306",
       "tree": "a13f8ec1e8f0697fe7836746e6b3b88b998b988a"
+    },
+    "xlsx": {
+      "source": "https://github.com/anthropics/skills",
+      "path": "skills/xlsx",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "tree": "fe6471cc9b5b97aae0b576ccb92ffd9b0207589d"
     }
   }
 }

@@ -55,35 +55,50 @@ skills:
     source: https://github.com/addyosmani/agent-skills//skills/debugging-and-error-recovery
     ref: 1401c8b8030e023baeebb31781a6653fe8e93026
     targets: [copilot]
+  # Cherry-picks for both targets.
+  architecture-blueprint-generator:
+    source: github:github/awesome-copilot//skills/architecture-blueprint-generator
+    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
+  add-educational-comments:
+    source: github:github/awesome-copilot//skills/add-educational-comments
+    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
+  arch-linux-triage:
+    source: github:github/awesome-copilot//skills/arch-linux-triage
+    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
+  centos-linux-triage:
+    source: github:github/awesome-copilot//skills/centos-linux-triage
+    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
+  debian-linux-triage:
+    source: github:github/awesome-copilot//skills/debian-linux-triage
+    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
+  fedora-linux-triage:
+    source: github:github/awesome-copilot//skills/fedora-linux-triage
+    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
+  observability-and-instrumentation:
+    source: github:addyosmani/agent-skills//skills/observability-and-instrumentation
+    ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+  ci-cd-and-automation:
+    source: github:addyosmani/agent-skills//skills/ci-cd-and-automation
+    ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+  security-and-hardening:
+    source: github:addyosmani/agent-skills//skills/security-and-hardening
+    ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+  deprecation-and-migration:
+    source: github:addyosmani/agent-skills//skills/deprecation-and-migration
+    ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+  pdf:
+    source: github:anthropics/skills//skills/pdf
+    ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
+  docx:
+    source: github:anthropics/skills//skills/docx
+    ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
+  pptx:
+    source: github:anthropics/skills//skills/pptx
+    ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
+  xlsx:
+    source: github:anthropics/skills//skills/xlsx
+    ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
   # Optional — uncomment the entry's lines and re-run install.py:
-  # architecture-blueprint-generator:
-  #   source: github:github/awesome-copilot//skills/architecture-blueprint-generator@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
-  # add-educational-comments:
-  #   source: github:github/awesome-copilot//skills/add-educational-comments@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
-  # arch-linux-triage:
-  #   source: github:github/awesome-copilot//skills/arch-linux-triage@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
-  # centos-linux-triage:
-  #   source: github:github/awesome-copilot//skills/centos-linux-triage@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
-  # debian-linux-triage:
-  #   source: github:github/awesome-copilot//skills/debian-linux-triage@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
-  # fedora-linux-triage:
-  #   source: github:github/awesome-copilot//skills/fedora-linux-triage@7cce7cfb4b61196c36d7e8eb8475ae84b356b126
-  # observability-and-instrumentation:
-  #   source: github:addyosmani/agent-skills//skills/observability-and-instrumentation@1401c8b8030e023baeebb31781a6653fe8e93026
-  # ci-cd-and-automation:
-  #   source: github:addyosmani/agent-skills//skills/ci-cd-and-automation@1401c8b8030e023baeebb31781a6653fe8e93026
-  # security-and-hardening:
-  #   source: github:addyosmani/agent-skills//skills/security-and-hardening@1401c8b8030e023baeebb31781a6653fe8e93026
-  # deprecation-and-migration:
-  #   source: github:addyosmani/agent-skills//skills/deprecation-and-migration@1401c8b8030e023baeebb31781a6653fe8e93026
-  # pdf:
-  #   source: github:anthropics/skills//skills/pdf@683bc88e56f3e09ba94f7055977f3d3aa499f202
-  # docx:
-  #   source: github:anthropics/skills//skills/docx@683bc88e56f3e09ba94f7055977f3d3aa499f202
-  # pptx:
-  #   source: github:anthropics/skills//skills/pptx@683bc88e56f3e09ba94f7055977f3d3aa499f202
-  # xlsx:
-  #   source: github:anthropics/skills//skills/xlsx@683bc88e56f3e09ba94f7055977f3d3aa499f202
   # grilling:
   #   source: github:mattpocock/skills//skills/productivity/grilling@49dd158d1076134a641b33efb035946536778336
   # grill-me:  # Claude only: also uncomment the targets line
