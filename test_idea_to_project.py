@@ -336,8 +336,8 @@ class CheckReadyTest(unittest.TestCase):
     def write(self, rel, text, newline="\n"):
         p = self.root / rel
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(text.replace("\n", newline), encoding="utf-8",
-                     newline="")
+        with open(p, "w", encoding="utf-8", newline="") as f:
+            f.write(text.replace("\n", newline))
 
     def run_ready(self, *args):
         return run_script(CHECK_READY, [*args, str(self.root)],
