@@ -62,3 +62,10 @@
 python3 -m unittest test_install test_skills test_idea_to_project
 python3 tools/sync_shared.py --check
 ```
+
+Push through `git push no-mistakes <branch>`, never `origin`: the
+`.no-mistakes.yaml` gates (the checks above, a cali smoke test and the skills
+listing) run on the Mac under Python 3.12 via `uv`. Use `gh-axi` for GitHub,
+not raw `gh`. Run `/code-review` only on PRs that did not go through
+no-mistakes. The gates are Mac only: before changing the installer, run the
+commands above by hand on Windows (Git Bash) and Ubuntu, with Python 3.12 as CI did.
