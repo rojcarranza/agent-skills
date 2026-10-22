@@ -17,8 +17,7 @@ branch, so the PR that adds them is not checked by its own gates.
 
 Agents use [`gh-axi`](https://github.com/kunchenguid/gh-axi) for issues, PRs,
 reviews and checks. Raw `gh` is a fallback only where gh-axi has no command,
-and the agent says so when it uses it. Until the dotfiles pin lands, run it as
-`npx -y gh-axi@0.1.43`.
+and the agent says so when it uses it.
 
 ## Onboard a repo
 
@@ -56,10 +55,11 @@ Steps marked **Claude Code** do nothing in other agents.
 
 The tools are pinned in the dotfiles repo; see its
 [Upstream tools](https://github.com/rojcarranza/dotfiles#upstream-tools)
-table for how to bump each one, `gh-axi` included. Monthly, as a PR you review:
+table for how to bump each one. Monthly, as a PR you review:
 
 1. Edit the tag in the dotfiles `flake.nix`, run `nix flake update no-mistakes`
-   (or `treehouse`, `gh-axi`), then `./rebuild.sh`.
+   (or `treehouse`), then `./rebuild.sh`. `gh-axi` is built from source, so it follows the
+   extra `pnpmDeps` hash step in that table (`pkgs/gh-axi.nix`) instead.
 2. `no-mistakes daemon restart` - the running daemon keeps the old binary.
 3. `no-mistakes doctor`.
 4. Make one gated push on the pilot repo (ai-account-switcher).
