@@ -62,6 +62,9 @@ run `apm install`. Commit `apm.yml` and `apm.lock.yaml`; teammates run
 Every flag, the manifest, externals (`graphify`), the Windows VDI and
 JetBrains setup are in [docs/installer.md](docs/installer.md).
 
+Putting a repo behind local `no-mistakes` gates, and updating the pinned
+tools, is in [docs/workflow.md](docs/workflow.md).
+
 ## Skills
 
 | Skill | What it does |
