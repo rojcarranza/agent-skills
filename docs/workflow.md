@@ -49,7 +49,8 @@ The tools are pinned in the dotfiles repo; see its
 [Upstream tools](https://github.com/rojcarranza/dotfiles#upstream-tools)
 table for how to bump each one. Monthly, as a PR you review:
 
-1. Bump the input and rebuild (`nix flake update no-mistakes`, `./rebuild.sh`).
+1. Edit the tag in the dotfiles `flake.nix`, run `nix flake update no-mistakes`
+   (or `treehouse`), then `./rebuild.sh`.
 2. `no-mistakes daemon restart` - the running daemon keeps the old binary.
 3. `no-mistakes doctor`.
 4. Make one gated push on the pilot repo (ai-account-switcher).
