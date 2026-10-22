@@ -1,5 +1,5 @@
-# Gates run locally (Actions is off, docs/workflow.md). Mac only: the suite
-# needs Python 3.10+, so every Python command runs under uv's 3.12. Windows
+# Gates run locally (Actions is off, docs/workflow.md). Mac only.
+# CI used Python 3.12, so every Python command runs under uv's 3.12. Windows
 # (Git Bash) and Ubuntu run the suite by hand, see CLAUDE.md.
 no_ci: true
 allow_repo_commands: false
