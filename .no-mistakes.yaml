@@ -1,0 +1,56 @@
+# Gates run locally (Actions is off, docs/workflow.md). Mac only: the suite
+# needs Python 3.10+, so every Python command runs under uv's 3.12. Windows
+# (Git Bash) and Ubuntu run the suite by hand, see CLAUDE.md.
+no_ci: true
+allow_repo_commands: false
+commands:
+  lint: uv run --no-project --python 3.12 python tools/sync_shared.py --check
+gates:
+  - name: unittest-suite
+    after: test
+    command: >-
+      uv run --no-project --python 3.12 python -m unittest
+      test_install test_skills test_idea_to_project
+  - name: shared-files-in-sync
+    after: test
+    command: uv run --no-project --python 3.12 python tools/sync_shared.py --check
+  - name: cali-smoke
+    after: test
+    # install.py into a scratch HOME with the locally installed cali; the real
+    # home is never written and no token is needed.
+    command: |
+      bash -c '
+      set -euo pipefail
+      base="$(mktemp -d)"; trap "rm -rf \"$base\"" EXIT
+      mkdir -p "$base/home/.local/bin"
+      cp "$HOME/.local/bin/cali" "$base/home/.local/bin/cali"
+      export HOME="$base/home" USERPROFILE="$base/home"
+      export CALI_CONFIG_DIR="$base/cali/config" CALI_DATA_DIR="$base/cali/data" CALI_CACHE_DIR="$base/cali/cache"
+      export token=placeholder
+      uv run --no-project --python 3.12 python install.py --skills-only
+      "$HOME/.local/bin/cali" sync -g --manifest cali.yaml --frozen
+      for d in skills/*/; do
+        n=$(basename "$d")
+        test -f "$HOME/.claude/skills/$n/SKILL.md"
+        test -f "$HOME/.copilot/skills/$n/SKILL.md"
+      done
+      test -f "$HOME/.claude/skills/code-tour/SKILL.md"
+      test -f "$HOME/.copilot/skills/caveman/SKILL.md"
+      test ! -e "$HOME/.claude/skills/caveman"
+      test -f "$HOME/.copilot/instructions/personal.instructions.md"
+      test -f "$HOME/.claude/rules/personal.md"
+      grep -q github-mcp-server "$HOME/.claude.json"
+      grep -q github-mcp-server "$HOME/.copilot/mcp-config.json"
+      '
+  - name: skills-listing
+    after: test
+    command: |
+      bash -c '
+      set -euo pipefail
+      NO_COLOR=1 npx -y skills@1.7.4 add . --list > "${TMPDIR:-/tmp}/skills-list.txt" 2>&1 || { cat "${TMPDIR:-/tmp}/skills-list.txt"; exit 1; }
+      sed -E "s/\x1b\[[0-9;]*[A-Za-z]//g" "${TMPDIR:-/tmp}/skills-list.txt" > "${TMPDIR:-/tmp}/skills-list.clean"
+      for d in skills/*/; do
+        n=$(basename "$d")
+        grep -qE "^[^a-zA-Z0-9]*${n}[[:space:]]*$" "${TMPDIR:-/tmp}/skills-list.clean" || { echo "$n not discovered"; exit 1; }
+      done
+      '
