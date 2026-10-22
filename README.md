@@ -155,7 +155,8 @@ python3 tools/sync_shared.py --check
 npx skills add . --list               # what skills.sh will discover
 ```
 
-CI runs all three on every push and pull request.
+The no-mistakes gate runs all three on every push (GitHub Actions is off, see
+[docs/workflow.md](docs/workflow.md)).
 
 ### Evals
 
