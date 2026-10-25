@@ -84,7 +84,8 @@ generated files (`*.pb.go`, `*_generated.go`), lockfiles, binaries.
    the branch clean.
 
 Determine the mode: on the base branch itself, or when step 6 found any
-staged, unstaged or untracked work, the review is a self-review — **pre-PR**.
+staged, unstaged or untracked work other than the excluded review output,
+the review is a self-review — **pre-PR**.
 Otherwise, if `git rev-parse @{u}` succeeds and `git log @{u}..HEAD` is
 empty, the branch is pushed — **post-PR**. Anything else is **pre-PR**.
 

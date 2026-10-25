@@ -86,7 +86,8 @@ or it is dropped.
 
 Detected from Git: a clean feature branch that is pushed, with an upstream
 and nothing ahead, is treated as post-PR. The base branch itself, or any
-staged, unstaged or untracked work, always means pre-PR.
+staged, unstaged or untracked work other than this skill's own earlier
+report and tour, always means pre-PR.
 
 - **Pre-PR** — drafts a PR description from the change summary, and may offer
   to apply fixes after asking.

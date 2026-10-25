@@ -139,7 +139,7 @@
       "path": "skills/roj-code-review-pr",
       "ref": "",
       "commit": "",
-      "tree": "9cdd4c828f12c4624278976f16e710cf3273e7c5"
+      "tree": "8ef1c836a3db4927211e07bdb83c5b6bd8b5acfb"
     },
     "roj-code-review-pr-fast": {
       "source": ".",
