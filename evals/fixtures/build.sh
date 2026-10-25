@@ -149,7 +149,7 @@ Python 3.12, so that we stay on a supported runtime.
 ## Acceptance criteria
 
 - The orders service image builds on Python 3.12.
-- The `orders-chart` repository deploys the new image tag.
+- The `orders-chart` repository deploys image tag `1.9.0`.
 - The `orders-gateway` repository's client pin works with the new runtime.
 EOF
   cat > SB-PROJ-3002.md <<'EOF'
@@ -160,12 +160,12 @@ EOF
 ## Acceptance Criteria
 
 - [ ] The orders service image builds on Python 3.12.
-- [ ] The `orders-chart` repository deploys the new image tag.
+- [ ] The `orders-chart` repository deploys image tag `1.9.0`.
 
 ## Core tasks
 
 - [ ] `repo`: raise the Python version in `Dockerfile` and `pyproject.toml`.
-- [ ] `orders-chart`: set the new image tag in `values.yaml`.
+- [ ] `orders-chart`: set image tag `1.9.0` in `values.yaml`.
 - [ ] Tell the gateway team about the new runtime.
 
 ### `repo`
@@ -179,7 +179,7 @@ EOF
 
 | # | File/Property | Location | Before | After | Reason | Source |
 |---|---|---|---|---|---|---|
-| 3 | `image.tag` | `values.yaml:4` | `1.8.0` | **`1.9.0`** | The chart must deploy the rebuilt image. | story: deploys the new image tag |
+| 3 | `image.tag` | `values.yaml:4` | `1.8.0` | **`1.9.0`** | The chart must deploy the rebuilt image. | story: deploys image tag `1.9.0` |
 
 ## Questions
 
