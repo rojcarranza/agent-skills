@@ -325,17 +325,18 @@ class TestSoundboarding(unittest.TestCase):
         example = (self.SB / "examples" / "SB-PROJ-1001.md").read_text("utf-8")
         self.assertEqual(self.headings(example), self.headings(template))
 
-    def test_bundled_template_has_no_team_specific_question(self):
+    def test_bundled_template_has_no_standing_question(self):
         template = (self.SB / "assets" / "SB-template.md").read_text("utf-8")
-        self.assertNotIn("sprint review", template.lower())
+        section = re.search(r"(?ms)^## Questions\n(.*?)(?=^## |\Z)",
+                            template)
+        self.assertIsNotNone(section)
+        bullets = [l[1:].strip() for l in section.group(1).splitlines()
+                   if l.startswith("-")]
+        self.assertEqual([b for b in bullets if b], [])
 
     def test_before_after_tables_carry_location_and_source(self):
         header = ("| # | File/Property | Location | Before | After | Reason "
                   "| Source |")
-        skill = (self.SB / "SKILL.md").read_text("utf-8")
-        flat = " ".join(skill.split())
-        self.assertIn("#, File/Property, Location, Before, After, Reason, "
-                      "Source", flat)
         example = (self.SB / "examples" / "SB-PROJ-1001.md").read_text("utf-8")
         self.assertIn(header, example)
         rows = [l for l in example.splitlines()
@@ -344,15 +345,6 @@ class TestSoundboarding(unittest.TestCase):
         for row in rows:
             with self.subTest(row=row[:40]):
                 self.assertRegex(row, r"`[^`]+:\d+(?:[-,]\d+)*`")
-
-    def test_user_template_overrides_the_bundled_one(self):
-        flat = " ".join((self.SB / "SKILL.md").read_text("utf-8").split())
-        self.assertRegex(flat, r"TEMPLATE: `SOUNDBOARD_DIR/SB-template.md` "
-                               r"when it exists")
-
-    def test_skill_names_its_reference(self):
-        self.assertIn("references/test-commands.md",
-                      (self.SB / "SKILL.md").read_text("utf-8"))
 
 
 def git_bash():

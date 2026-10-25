@@ -35,7 +35,7 @@
 
 | # | File/Property | Location | Before | After | Reason | Source |
 |---|---|---|---|---|---|---|
-| 1 | `BAMBOO_VERSION` | `docker/Dockerfile:12` | `9.6.9` | **`12.1.6`** | The image pins an older agent version than the upgraded server. | Story goal |
+| 1 | `BAMBOO_VERSION` | `docker/Dockerfile:12` | `9.6.9` | **`12.1.6`** | The image pins an older agent version than the upgraded server. | story: goal |
 | 2 | `wrapper.java.version.min` | `docker/wrapper.conf:7` | `8` | **`21`** *(proposed)* | The wrapper still allows a JDK 8 start; the target Java version is not confirmed. | Question 1 |
 | 3 | `wrapper.java.version.fallback` | `docker/wrapper.conf:8` | `11` | **`21`** *(proposed)* | Same as row 2 for the fallback. | Question 1 |
 | 4 | `JAVA_FALLBACK` | `docker/agent.sh:5` | `/opt/java/jdk-8/bin/java` | **`/opt/java/jdk-21/bin/java`** *(proposed)* | The fallback path still points at JDK 8. | Question 1 |
@@ -48,8 +48,8 @@
 
 | # | File/Property | Location | Before | After | Reason | Source |
 |---|---|---|---|---|---|---|
-| 5 | `agent_server_url` | `values.yaml:9` | production URL | ACC server URL (in `values-acc.yaml`) | Agents under test must not register with the production server. | Story goal; Question 2 |
-| 6 | `imagetag` (all 4 pools) | `values.yaml:14,24,34,44` | `2026-02-17_13-53` | new image tag | The current tag is the image built from `ci-agent-image` before this change. | Row 1 |
+| 5 | `agent_server_url` | `values.yaml:9` | production URL | ACC server URL (in `values-acc.yaml`) | Agents under test must not register with the production server. | story: goal; Question 2 |
+| 6 | `imagetag` (all 4 pools) | `values.yaml:14,24,34,44` | `2026-02-17_13-53` | new image tag | The current tag is the image built from `ci-agent-image` before this change. | story: goal |
 
 ## Questions
 

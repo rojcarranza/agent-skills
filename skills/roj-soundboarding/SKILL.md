@@ -219,9 +219,9 @@ Multiple matches: list them and ask which. No match: STOP and ask.
    review and commit, plus the manual tasks still open.
    When any code task was approved, offer in one line: "Review the working
    tree with roj-code-review-pr?" On a yes, chain to `roj-code-review-pr` on
-   the uncommitted changes, with the SB's Acceptance Criteria as the intent
-   it checks against; if the skill is not installed, say so and stop. Never
-   start the review unasked.
+   the working tree, and put the SB's Acceptance Criteria in the review
+   request as what to check the change against; if the skill is not
+   installed, say so and stop. Never start the review unasked.
 7. **Tour (ask first).** Offer to refresh the tour (see Tour output) so it
    walks the code as implemented, not as planned. Build it only on a yes.
 

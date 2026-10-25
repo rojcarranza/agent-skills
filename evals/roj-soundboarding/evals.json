@@ -89,7 +89,7 @@
         "Both code tasks are ticked `- [x]` in SB-PROJ-3002.md and the gateway-team task stays unticked as manual",
         "values.yaml in the orders-chart checkout has tag `1.9.0`, and no file outside the two tables changed",
         "Notes in SB-PROJ-3002.md has a Baseline line that names the failing legacy test",
-        "Ends by offering to review the working tree with roj-code-review-pr and does not start the review",
+        "Ends by offering to review the working tree with roj-code-review-pr, with the SB's acceptance criteria in the review request, and does not start the review",
         "Lists the changed files per repository for manual review and commit",
         "Does not commit, create a branch or push"
       ]

@@ -172,14 +172,14 @@ EOF
 
 | # | File/Property | Location | Before | After | Reason | Source |
 |---|---|---|---|---|---|---|
-| 1 | base image | `Dockerfile:1` | `python:3.10-slim` | **`python:3.12-slim`** | Story: image builds on Python 3.12. | Story |
-| 2 | `requires-python` | `pyproject.toml:4` | `>=3.10` | **`>=3.12`** | Keeps the package metadata in line with the image. | Story |
+| 1 | base image | `Dockerfile:1` | `python:3.10-slim` | **`python:3.12-slim`** | Story: image builds on Python 3.12. | story: image builds on Python 3.12 |
+| 2 | `requires-python` | `pyproject.toml:4` | `>=3.10` | **`>=3.12`** | Keeps the package metadata in line with the image. | story: image builds on Python 3.12 |
 
 ### `orders-chart`
 
 | # | File/Property | Location | Before | After | Reason | Source |
 |---|---|---|---|---|---|---|
-| 3 | `image.tag` | `values.yaml:4` | `1.8.0` | **`1.9.0`** | The chart must deploy the rebuilt image. | Story |
+| 3 | `image.tag` | `values.yaml:4` | `1.8.0` | **`1.9.0`** | The chart must deploy the rebuilt image. | story: deploys the new image tag |
 
 ## Questions
 
