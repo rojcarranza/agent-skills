@@ -71,8 +71,8 @@ Gates:
 - A Blocker must be Confirmed. Otherwise downgrade it.
 - A claim about what a tool, library or vendor API does (what it returns or
   raises on empty input or on error, what a flag defaults to, how a field is
-  interpreted) is Confirmed only when its source or documentation was read in
-  this run. Otherwise it is Probable, and that behaviour is the named
+  interpreted) is Confirmed only when its source or documentation was read, or
+  its behaviour was observed in an approved command run, in this run. Otherwise it is Probable, and that behaviour is the named
   assumption; if the finding depends on it and nothing else, drop the finding
   rather than guess. Remembered behaviour is not a source.
 

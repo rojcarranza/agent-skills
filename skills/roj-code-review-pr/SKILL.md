@@ -34,7 +34,8 @@ has `graphify-out/graph.json`.
 
 The skill needs a terminal to run `git`. If the agent cannot run commands
 (some Copilot configurations), say so and ask the user to paste
-`git diff <base>...HEAD` — then review that, and skip phases 5 and 8.
+`git diff <base>...HEAD`, `git status --porcelain`, `git diff HEAD` and the
+contents of the untracked files — then review that, and skip phases 5 and 8.
 
 ## Phase 1 — Resolve the base branch
 
