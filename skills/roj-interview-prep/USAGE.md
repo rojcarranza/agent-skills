@@ -16,7 +16,7 @@ assessment. Never touches git — you review and commit manually.
 
 Any agent, with Node.js:
 
-    npx skills add r0jjames/agent-skills -s roj-interview-prep
+    npx skills add rojcarranza/agent-skills -s roj-interview-prep
 
 Or from a clone of this repo (adds the skills it depends on, plus the
 Windows copy fallback):

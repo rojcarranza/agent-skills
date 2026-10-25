@@ -544,5 +544,24 @@ class TestManifest(unittest.TestCase):
         self.assertIn('applyTo: "**"', text.split("---", 2)[1])
 
 
+class TestNoStaleAccount(unittest.TestCase):
+    """The GitHub account was renamed; old links rely on a redirect."""
+
+    def test_no_reference_to_old_account(self):
+        stale = "r0j" + "james"
+        files = subprocess.run(
+            ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True,
+            check=True).stdout.decode("utf-8").split("\0")
+        hits = []
+        for name in filter(None, files):
+            try:
+                text = (ROOT / name).read_text(encoding="utf-8")
+            except (UnicodeDecodeError, FileNotFoundError):
+                continue
+            if stale in text.lower():
+                hits.append(name)
+        self.assertEqual(hits, [], "replace the old account name with rojcarranza")
+
+
 if __name__ == "__main__":
     unittest.main()

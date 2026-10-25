@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Hook: Python 3, stdlib only; always exits 0; never blocks the tool call.
-- Config via `claude/settings.json` `env`: `PR_REVIEW_OWNERS` default `r0jjames`, `PR_REVIEW_COPILOT` default `0`.
+- Config via `claude/settings.json` `env`: `PR_REVIEW_OWNERS` default `rojcarranza`, `PR_REVIEW_COPILOT` default `0`.
 - Hook command path uses `$HOME/.claude/`, never a machine-specific path.
 - Review: exactly one review per run, `event: COMMENT`, max 15 inline comments, hidden marker `<!-- review-pr-comment:<headRefOid> -->` as the body's last line.
 - No Claude attribution in reviews or commits (no `Co-Authored-By`, no `Claude-Session`, no "Generated with Claude").
@@ -67,7 +67,7 @@ _spec = importlib.util.spec_from_file_location("pr_review_hook", _PATH)
 hook = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(hook)
 
-URL = "https://github.com/r0jjames/demo/pull/7"
+URL = "https://github.com/rojcarranza/demo/pull/7"
 
 
 def payload(command="gh pr create --fill", stdout=URL + "\n", response=None):
@@ -78,7 +78,7 @@ def payload(command="gh pr create --fill", stdout=URL + "\n", response=None):
                        "tool_response": response})
 
 
-def run(raw, owners="r0jjames", copilot="0"):
+def run(raw, owners="rojcarranza", copilot="0"):
     out = io.StringIO()
     code = hook.main(io.StringIO(raw), out,
                      {"PR_REVIEW_OWNERS": owners, "PR_REVIEW_COPILOT": copilot})
@@ -120,7 +120,7 @@ class TriggerTest(unittest.TestCase):
         self.assertIn(URL, out)
 
     def test_multiple_owners_case_insensitive(self):
-        code, out = run(payload(), owners="some-org, R0JJames")
+        code, out = run(payload(), owners="some-org, RojCarranza")
         self.assertIn(URL, out)
 
     def test_empty_owners_disables(self):
@@ -139,7 +139,7 @@ class CopilotTest(unittest.TestCase):
             code, out = run(payload(), copilot="1")
         args = sp.call_args[0][0]
         self.assertEqual(args[:4], ["gh", "api", "-X", "POST"])
-        self.assertIn("repos/r0jjames/demo/pulls/7/requested_reviewers", args)
+        self.assertIn("repos/rojcarranza/demo/pulls/7/requested_reviewers", args)
         self.assertIn("reviewers[]=copilot-pull-request-reviewer[bot]", args)
         self.assertIn("Copilot review was also requested", out)
 
@@ -294,8 +294,8 @@ Expected: 14 tests, OK.
 
 Run:
 ```bash
-echo '{"tool_input":{"command":"gh pr create"},"tool_response":{"stdout":"https://github.com/r0jjames/x/pull/1"}}' \
-  | PR_REVIEW_OWNERS=r0jjames python3 claude/pr_review_hook.py; echo "exit=$?"
+echo '{"tool_input":{"command":"gh pr create"},"tool_response":{"stdout":"https://github.com/rojcarranza/x/pull/1"}}' \
+  | PR_REVIEW_OWNERS=rojcarranza python3 claude/pr_review_hook.py; echo "exit=$?"
 echo 'garbage' | python3 claude/pr_review_hook.py; echo "exit=$?"
 ```
 Expected: first prints the JSON with `additionalContext` then `exit=0`; second prints only `exit=0`.
@@ -341,7 +341,7 @@ Append to `ClaudeSettingsTest` in `tests/test_claude.py` (before `if __name__`):
 
     def test_pr_review_defaults(self):
         env = self.settings()["env"]
-        self.assertEqual(env["PR_REVIEW_OWNERS"], "r0jjames")
+        self.assertEqual(env["PR_REVIEW_OWNERS"], "rojcarranza")
         self.assertEqual(env["PR_REVIEW_COPILOT"], "0")
 
     def test_review_skill_stays_out_of_the_listing(self):
@@ -369,7 +369,7 @@ Also update the module docstring's first line to `"""Claude Code: CLI install + 
 
 ```json
   "env": {
-    "PR_REVIEW_OWNERS": "r0jjames",
+    "PR_REVIEW_OWNERS": "rojcarranza",
     "PR_REVIEW_COPILOT": "0"
   },
   "hooks": {
@@ -408,7 +408,7 @@ without asking — the allowlist is the authorization.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `PR_REVIEW_OWNERS` | `r0jjames` | Comma-separated owners/orgs whose repos get auto-review; empty disables |
+| `PR_REVIEW_OWNERS` | `rojcarranza` | Comma-separated owners/orgs whose repos get auto-review; empty disables |
 | `PR_REVIEW_COPILOT` | `0` | `1` also requests a Copilot review |
 
 Override per repository in its `.claude/settings.json`:
@@ -693,7 +693,7 @@ No code unless a check fails. Needs a new Claude Code session so the new hook an
 ```bash
 cd "$(mktemp -d)" && git init -q -b main && printf 'def total(xs):\n    return sum(xs)\n' > calc.py
 git add . && git commit -qm init
-gh repo create r0jjames/pr-review-sandbox --private --source . --push
+gh repo create rojcarranza/pr-review-sandbox --private --source . --push
 git switch -c planted-bug
 printf 'def total(xs):\n    t = 0\n    for i in range(1, len(xs)):\n        t += xs[i]\n    return t\n' > calc.py
 git commit -qam "refactor: loop in total" && git push -qu origin planted-bug
@@ -706,8 +706,8 @@ In a fresh `claude` session in that directory, ask: "open a PR for this branch".
 - [ ] **Step 3: Check the review**
 
 ```bash
-gh api repos/r0jjames/pr-review-sandbox/pulls/1/reviews --jq '.[] | {state, body}'
-gh api repos/r0jjames/pr-review-sandbox/pulls/1/comments --jq '.[] | {path, line, body}'
+gh api repos/rojcarranza/pr-review-sandbox/pulls/1/reviews --jq '.[] | {state, body}'
+gh api repos/rojcarranza/pr-review-sandbox/pulls/1/comments --jq '.[] | {path, line, body}'
 ```
 Expected: exactly one review, `state: "COMMENTED"`, body ends with `<!-- review-pr-comment:<sha> -->`; an inline comment on `calc.py` line 3 flagging the skipped first element; no Claude attribution.
 
@@ -719,7 +719,7 @@ In the same session run `/review-pr-comment 1`. Expected: "already reviewed", an
 
 In the sandbox add `.claude/settings.json` with `{"env":{"PR_REVIEW_COPILOT":"1"}}`, push a second branch, open PR 2 through Claude. Then:
 ```bash
-gh api repos/r0jjames/pr-review-sandbox/pulls/2/requested_reviewers
+gh api repos/rojcarranza/pr-review-sandbox/pulls/2/requested_reviewers
 ```
 Expected: Copilot is listed (or has already reviewed). **If the request fails on this account, remove the Copilot switch** (the `request_copilot` function and its tests, the `PR_REVIEW_COPILOT` env key and its test, the README row), run the suite, and commit `fix(claude): drop the Copilot switch — not available on this account`.
 
@@ -729,4 +729,4 @@ In the sandbox set `.claude/settings.json` to `{"env":{"PR_REVIEW_OWNERS":""}}`,
 
 - [ ] **Step 7: Clean up and report**
 
-Report the PR 1 review URL as evidence. Ask the user before deleting the sandbox repo (`gh repo delete r0jjames/pr-review-sandbox` needs the `delete_repo` scope).
+Report the PR 1 review URL as evidence. Ask the user before deleting the sandbox repo (`gh repo delete rojcarranza/pr-review-sandbox` needs the `delete_repo` scope).

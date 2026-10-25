@@ -111,7 +111,7 @@ something you do not care about.
 
 Any agent, with Node.js:
 
-    npx skills add r0jjames/agent-skills -s roj-code-review-pr
+    npx skills add rojcarranza/agent-skills -s roj-code-review-pr
 
 Or from a clone of this repo (adds the skills it depends on, plus the
 Windows copy fallback):

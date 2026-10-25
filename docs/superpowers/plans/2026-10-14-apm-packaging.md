@@ -1282,7 +1282,7 @@ git commit -m "feat(install): install through apm and retire the skills inventor
           cd "$HOME" && apm install -g --target claude,copilot --dry-run
 ```
 
-Also update the `discoverable` job comment from `r0jjames/agent-skills` to `rojcarranza/agent-skills`.
+Also make sure the `discoverable` job comment names `rojcarranza/agent-skills`.
 
 - [ ] **Step 2: Lint the workflow locally**
 
@@ -1337,7 +1337,7 @@ Replace the intro's install instructions with: "Every skill here is listed in [`
 
 - [ ] **Step 5: Check no stale references remain**
 
-Run: `grep -rnE "skills-inventory|--add-inventory|--check-inventory|--repo |--skill |--list|--uninstall|r0jjames" README.md docs/installer.md docs/community-skills.md install.py .github .claude-plugin`
+Run: `grep -rnE "skills-inventory|--add-inventory|--check-inventory|--repo |--skill |--list|--uninstall" README.md docs/installer.md docs/community-skills.md install.py .github .claude-plugin`
 Expected: no output (history paragraph wording must avoid these tokens, or the match is reviewed and accepted as history).
 
 - [ ] **Step 6: Run the suite and commit**

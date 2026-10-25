@@ -39,7 +39,7 @@ Not goals:
 | Where PRs are created | From Claude Code (`gh pr create` via the Bash tool) |
 | Trigger mechanism | `PostToolUse` hook injecting `additionalContext` that tells Claude to run the skill |
 | Output on GitHub | One review, `event: COMMENT`, inline comments + short summary body |
-| Which repos | Owner-based allowlist; default is the user's login `r0jjames` |
+| Which repos | Owner-based allowlist; default is the user's login `rojcarranza` |
 | Confirmation before posting | None — auto-post. The user's request is standing authorization, scoped to allowlisted owners |
 | Copilot | Opt-in switch, default off; requested by the hook alongside Claude's review |
 
@@ -136,7 +136,7 @@ Environment variables in `claude/settings.json` `env`:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `PR_REVIEW_OWNERS` | `r0jjames` | Comma-separated GitHub owners/orgs whose repos get auto-review |
+| `PR_REVIEW_OWNERS` | `rojcarranza` | Comma-separated GitHub owners/orgs whose repos get auto-review |
 | `PR_REVIEW_COPILOT` | `0` | `1` also requests a Copilot review |
 
 A repository's own `.claude/settings.json` can set either variable to
@@ -217,7 +217,7 @@ override the global value (add an org, turn Copilot on for one repo, or set
 
 - Frontmatter valid; the `code-review-pr` references resolve from the
   installed location.
-- End-to-end on a throwaway repo owned by `r0jjames`: branch with a planted
+- End-to-end on a throwaway repo owned by `rojcarranza`: branch with a planted
   bug → Claude opens the PR → hook fires → one `COMMENT` review lands with
   inline comments on the correct lines and the marker → a manual re-run on
   the same SHA is skipped.
