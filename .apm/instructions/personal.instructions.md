@@ -59,10 +59,13 @@ description: Personal Copilot instructions - output style, working approach, git
   an AI assistant. Never add an AI assistant as author, committer, co-author
   or trailer - no `Co-Authored-By`, no "Generated with" footers, no tool
   attribution of any kind.
-- Every pull request starts from a tracked Jira item. Find the one the change
-  answers; if there is none, ask for its key or for one to be created, and
-  never invent a key. Put the key in the branch name, in the pull request
-  title and at the top of the pull request description, e.g. `PROJ-123`.
+- Every pull request starts from a tracked item. When the repository's work
+  is tracked in Jira, find the item the change answers; if there is none, ask
+  for its key or for one to be created, and never invent a key. Put the key
+  in the branch name, in the pull request title and at the top of the pull
+  request description, e.g. `PROJ-123`. Otherwise use the repository's own
+  issue tracker and its own instructions. A repository's own instructions
+  win on branch, commit and pull request conventions.
 - Never edit a repository's `.gitignore`. To keep generated output untracked,
   offer `.git/info/exclude` instead.
 - Never delete or overwrite a file without reading it first.
