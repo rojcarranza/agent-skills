@@ -4,27 +4,17 @@
     "name": "Roj Carranza"
   },
   "metadata": {
-    "description": "Code review, code comprehension, onboarding tours, issue investigation and DevOps workflow skills for Claude Code and GitHub Copilot",
+    "description": "Idea-to-project planning for Claude Code; the other skills in this repo are for GitHub Copilot",
     "version": "1.0.0"
   },
   "plugins": [
     {
       "name": "roj-skills",
-      "description": "Branch and PR review, guided code explanation, repository onboarding tours, root-cause investigation, soundboarding, plan grilling, idea-to-project planning and interview prep",
+      "description": "Idea-to-project planning: turns a new app idea into a build-ready project through gated phases",
       "source": "./",
       "strict": false,
       "skills": [
-        "./skills/roj-code-review-pr",
-        "./skills/roj-code-review-pr-fast",
-        "./skills/roj-explain-feature-changes",
-        "./skills/roj-explain-logic",
-        "./skills/roj-grill-plan",
-        "./skills/roj-idea-to-project",
-        "./skills/roj-interview-prep",
-        "./skills/roj-investigate-issue",
-        "./skills/roj-review-pr-comment",
-        "./skills/roj-soundboarding",
-        "./skills/roj-tour-codebase"
+        "./skills/roj-idea-to-project"
       ]
     }
   ]

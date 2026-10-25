@@ -29,16 +29,22 @@ gates:
       export token=placeholder
       uv run --no-project --python 3.12 python install.py --skills-only
       "$HOME/.local/bin/cali" sync -g --manifest cali.yaml --frozen
+      # Copilot gets every skill; Claude only roj-idea-to-project.
       for d in skills/*/; do
         n=$(basename "$d")
-        test -f "$HOME/.claude/skills/$n/SKILL.md"
         test -f "$HOME/.copilot/skills/$n/SKILL.md"
+        if [ "$n" = roj-idea-to-project ]; then
+          test -f "$HOME/.claude/skills/$n/SKILL.md"
+        else
+          test ! -e "$HOME/.claude/skills/$n"
+        fi
       done
-      test -f "$HOME/.claude/skills/code-tour/SKILL.md"
+      test -f "$HOME/.copilot/skills/code-tour/SKILL.md"
+      test ! -e "$HOME/.claude/skills/code-tour"
       test -f "$HOME/.copilot/skills/caveman/SKILL.md"
       test ! -e "$HOME/.claude/skills/caveman"
       test -f "$HOME/.copilot/instructions/personal.instructions.md"
-      test -f "$HOME/.claude/rules/personal.md"
+      test ! -e "$HOME/.claude/rules/personal.md"
       grep -q github-mcp-server "$HOME/.claude.json"
       grep -q github-mcp-server "$HOME/.copilot/mcp-config.json"
       '

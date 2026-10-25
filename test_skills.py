@@ -527,13 +527,18 @@ class TestPublishable(unittest.TestCase):
         self.assertIn("MIT License",
                       (ROOT / "LICENSE").read_text(encoding="utf-8"))
 
-    def test_marketplace_lists_every_skill(self):
+    def test_marketplace_lists_the_skills_claude_gets(self):
+        """Only skills cali.yaml targets at Claude are in the plugin."""
         data = json.loads((ROOT / ".claude-plugin" / "marketplace.json")
                           .read_text(encoding="utf-8"))
         listed = sorted(s for plugin in data["plugins"]
                         for s in plugin["skills"])
+        claude = {d["name"] for d in install.manifest_deps()
+                  if d["active"] and (d["targets"] is None
+                                      or "claude" in d["targets"])}
         self.assertEqual(listed,
-                         [f"./skills/{d.name}" for d in skill_dirs()])
+                         [f"./skills/{d.name}" for d in skill_dirs()
+                          if d.name in claude])
 
 
 SHA_RE = re.compile(r"[0-9a-f]{40}")

@@ -189,9 +189,7 @@ Short. In chat:
    JSON, and `docs/codebase/` is the better entry point.
 
 Then offer, without doing any of it: zooming into a step with
-`roj-explain-logic`, annotating a file with `add-educational-comments` (a
-cherry-pick, usually absent), or
-re-running after the branch moves.
+`roj-explain-logic`, or re-running after the branch moves.
 
 ## Gotchas
 

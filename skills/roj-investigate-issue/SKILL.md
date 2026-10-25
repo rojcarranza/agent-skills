@@ -134,8 +134,7 @@ Write the report next to the input file: input `PROJ-123.md` produces
    run locally, or which build to rerun and what output to expect.
 
 When the root cause is on the agent host, name the detected OS/distro in
-the Solution and note that a matching awesome-copilot
-`<distro>-linux-triage` skill exists for deeper host diagnosis.
+the Solution.
 
 ## Phase 6 — Solve
 

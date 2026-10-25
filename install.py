@@ -365,31 +365,11 @@ def remove_apm_skills(dry_run, lock_text):
 
 
 def instruction_path(target):
-    """Where the personal instructions go: the paths APM deployed to."""
+    """Where the personal instructions go, or None for a target that gets
+    none. Claude reads the global ~/.claude/CLAUDE.md instead."""
     if target == "claude":
-        return Path.home() / ".claude" / "rules" / "personal.md"
+        return None
     return Path.home() / ".copilot" / "instructions" / INSTRUCTIONS_SRC.name
-
-
-def render_instructions(text, target):
-    """The file as target reads it. Copilot takes it as is; Claude rules
-    take `paths:` where Copilot takes `applyTo:` — the conversion APM made
-    (description dropped)."""
-    if target != "claude" or not text.startswith("---\n"):
-        return text
-    end = text.find("\n---\n", 4)
-    if end < 0:
-        return text
-    globs = []
-    for line in text[4:end].splitlines():
-        key, _, value = line.partition(":")
-        if key.strip() == "applyTo":
-            globs = [g.strip() for g in _unquote(value.strip()).split(",")
-                     if g.strip()]
-    if not globs:  # no applyTo: a rule without paths loads everywhere
-        return text[end + 5:]
-    paths = "".join(f"  - {json.dumps(g)}\n" for g in globs)
-    return f"---\npaths:\n{paths}---\n" + text[end + 5:]
 
 
 def shipped_instructions():
@@ -432,13 +412,14 @@ def _write_text(path, text):
 
 
 def install_instructions(target, dry_run):
-    """Deploy INSTRUCTIONS_SRC for target. Replaces a missing file, a
+    """Deploy INSTRUCTIONS_SRC for target (Copilot only). Replaces a missing file, a
     version this repo shipped, or the dotfiles repo's link; keeps an
     edited copy or a link to anything else, with a warning. Nothing is
     returned when the file is already current."""
     dest = instruction_path(target)
-    new = render_instructions(INSTRUCTIONS_SRC.read_text(encoding="utf-8"),
-                              target)
+    if dest is None:
+        return []
+    new = INSTRUCTIONS_SRC.read_text(encoding="utf-8")
     if dest.is_symlink():
         if not _links_into_dotfiles(dest):
             warn(f"{dest} links somewhere other than the dotfiles repo — left "
@@ -449,8 +430,7 @@ def install_instructions(target, dry_run):
         current = dest.read_text(encoding="utf-8", errors="replace")
         if current == new:
             return []
-        if current not in {render_instructions(t, target)
-                           for t in shipped_instructions()}:
+        if current not in shipped_instructions():
             warn(f"{dest} differs from {INSTRUCTIONS_SRC} — left in place; "
                  "merge your edits into the repo copy, delete it, and re-run")
             return []

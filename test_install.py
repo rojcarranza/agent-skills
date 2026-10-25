@@ -214,7 +214,15 @@ class TestRetirePrompts(TempDirTest):
 
 class ExternalTest(TempDirTest):
     """Externals delegate to a CLI, so every test here fakes both the CLI
-    lookup and the subprocess call — nothing may reach a real install."""
+    lookup and the subprocess call — nothing may reach a real install.
+    install.log() and ok() print, so stdout is captured per test."""
+
+    def setUp(self):
+        super().setUp()
+        self.stdout = io.StringIO()
+        patcher = mock.patch("sys.stdout", self.stdout)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def fake_external(self, **overrides):
         ext = {
@@ -644,11 +652,14 @@ class TestRequiresInvariants(unittest.TestCase):
 
     def test_requirements_are_live_for_every_target(self):
         deps = {d["name"]: d for d in install.manifest_deps() if d["active"]}
+        both = {"claude", "copilot"}
         for skill, needs in install.REQUIRES.items():
             for dep in needs:
                 with self.subTest(skill=skill, dep=dep):
                     self.assertIn(dep, deps)
-                    self.assertIsNone(deps[dep]["targets"])
+                    self.assertLessEqual(
+                        set(deps[skill]["targets"] or both),
+                        set(deps[dep]["targets"] or both))
 
 
 class TestExplainFeatureChangesSkill(unittest.TestCase):
@@ -702,8 +713,6 @@ class TestSkillDependencies(unittest.TestCase):
         r"(?<![\w>-])`?([a-z][a-z0-9]*(?:[-:][a-z0-9]+)+)`?\s+skill\b"
         r"|\bskill\s+`([a-z][a-z0-9:-]+)`")
     BACKTICKED = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`")
-    # `<distro>-linux-triage`: one installable skill per placeholder value.
-    TEMPLATED = re.compile(r"`<[a-z]+>(-[a-z0-9-]+)`")
 
     def referenced(self):
         """{name: {custom skill, ...}} for outside-looking skill names."""
@@ -727,7 +736,6 @@ class TestSkillDependencies(unittest.TestCase):
                          for m in self.NAMED_SKILL.finditer(line)]
                 if re.search(r"skill|chain", line, re.I):
                     names += self.BACKTICKED.findall(line)
-                names += ["*" + s for s in self.TEMPLATED.findall(line)]
                 for name in names:
                     found.setdefault(name, set()).add(skill)
         return found
@@ -741,14 +749,9 @@ class TestSkillDependencies(unittest.TestCase):
             if name in self.NOT_SKILLS:
                 continue
             with self.subTest(name=name, used_by=sorted(users)):
-                if name.startswith("*"):
-                    self.assertTrue(
-                        any(n.endswith(name[1:]) for n in installable),
-                        f"no installable skill matches {name}")
-                else:
-                    self.assertIn(name, installable,
-                                  "add it to cali.yaml, "
-                                  "or list it in PLUGIN_PROVIDED/NOT_SKILLS")
+                self.assertIn(name, installable,
+                              "add it to cali.yaml, "
+                              "or list it in PLUGIN_PROVIDED/NOT_SKILLS")
 
     def test_scanner_still_sees_the_known_chains(self):
         # Guards the scanner itself: if a regex stops matching, the test
@@ -756,8 +759,7 @@ class TestSkillDependencies(unittest.TestCase):
         found = self.referenced()
         for name in ("code-tour", "context-map", "caveman",
                      "acquire-codebase-knowledge", "write-pr-description",
-                     "debugging-and-error-recovery", "find-skills",
-                     "*-linux-triage"):
+                     "debugging-and-error-recovery", "find-skills"):
             with self.subTest(name):
                 self.assertIn(name, found)
 
@@ -1295,7 +1297,6 @@ class TestApmLeftovers(TempDirTest):
 
 class TestInstructions(TempDirTest):
     SRC = '---\napplyTo: "**"\ndescription: Mine.\n---\n\n# Rules\n'
-    CLAUDE = '---\npaths:\n  - "**"\n---\n\n# Rules\n'
 
     def setUp(self):
         super().setUp()
@@ -1305,7 +1306,7 @@ class TestInstructions(TempDirTest):
         self.dest = {
             "copilot": self.tmp / "home" / ".copilot" / "instructions"
                        / "personal.instructions.md",
-            "claude": self.tmp / "home" / ".claude" / "rules" / "personal.md"}
+            "claude": None}
         for p in (mock.patch("install.INSTRUCTIONS_SRC", self.src),
                   mock.patch("install.instruction_path",
                              side_effect=lambda t: self.dest[t]),
@@ -1320,42 +1321,25 @@ class TestInstructions(TempDirTest):
             results = install.install_instructions(target, dry_run)
         return results, err.getvalue()
 
-    def test_render_for_claude_matches_what_apm_wrote(self):
-        self.assertEqual(install.render_instructions(self.SRC, "claude"),
-                         self.CLAUDE)
-        self.assertEqual(install.render_instructions(self.SRC, "copilot"),
-                         self.SRC)
-
-    def test_render_without_front_matter_is_unchanged(self):
-        self.assertEqual(install.render_instructions("# x\n", "claude"), "# x\n")
-
-    def test_render_without_apply_to_drops_front_matter(self):
-        self.assertEqual(install.render_instructions(
-            "---\ndescription: d\n---\n# x\n", "claude"), "# x\n")
-
-    def test_repo_file_renders_for_claude(self):
-        text = install.render_instructions(
-            install.INSTRUCTIONS_SRC.read_text(encoding="utf-8"), "claude")
-        self.assertTrue(text.startswith('---\npaths:\n  - "**"\n---\n'))
+    def test_claude_gets_no_instructions(self):
+        results, err = self.deploy("claude")
+        self.assertEqual((results, err), ([], ""))
 
     def test_installed_when_absent(self):
-        for target, want in (("copilot", self.SRC), ("claude", self.CLAUDE)):
-            with self.subTest(target=target):
-                results, _ = self.deploy(target)
-                self.assertEqual(self.dest[target].read_text(), want)
-                self.assertEqual(results, [(target, self.dest[target].name,
-                                            "installed")])
+        results, _ = self.deploy("copilot")
+        self.assertEqual(self.dest["copilot"].read_text(), self.SRC)
+        self.assertEqual(results, [("copilot", self.dest["copilot"].name,
+                                    "installed")])
 
     def test_up_to_date_is_silent(self):
-        self.deploy("claude")
-        self.assertEqual(self.deploy("claude"), ([], ""))
+        self.deploy("copilot")
+        self.assertEqual(self.deploy("copilot"), ([], ""))
 
     def test_older_shipped_version_is_updated(self):
-        self.dest["claude"].parent.mkdir(parents=True)
-        self.dest["claude"].write_text(install.render_instructions(
-            "old rules\n", "claude"))
-        results, _ = self.deploy("claude")
-        self.assertEqual(self.dest["claude"].read_text(), self.CLAUDE)
+        self.dest["copilot"].parent.mkdir(parents=True)
+        self.dest["copilot"].write_text("old rules\n")
+        results, _ = self.deploy("copilot")
+        self.assertEqual(self.dest["copilot"].read_text(), self.SRC)
         self.assertEqual(results[0][2], "updated")
 
     def test_edited_copy_kept_with_warning(self):
@@ -1397,8 +1381,8 @@ class TestInstructions(TempDirTest):
         self.assertIn("other than the dotfiles repo", err)
 
     def test_dry_run_writes_nothing(self):
-        results, _ = self.deploy("claude", dry_run=True)
-        self.assertFalse(self.dest["claude"].exists())
+        results, _ = self.deploy("copilot", dry_run=True)
+        self.assertFalse(self.dest["copilot"].exists())
         self.assertEqual(results[0][2], "installed")
 
 
@@ -1411,8 +1395,7 @@ class TestInstructionSources(unittest.TestCase):
 
     def test_real_paths(self):
         with mock.patch("install.Path.home", return_value=Path("/h")):
-            self.assertEqual(install.instruction_path("claude"),
-                             Path("/h/.claude/rules/personal.md"))
+            self.assertIsNone(install.instruction_path("claude"))
             self.assertEqual(install.instruction_path("copilot"),
                              Path("/h/.copilot/instructions/personal.instructions.md"))
 
@@ -1443,7 +1426,8 @@ class TestMain(TempDirTest):
                 mock.patch("install.target_root",
                            side_effect=lambda t: home / t),
                 mock.patch("install.instruction_path",
-                           side_effect=lambda t: home / "instr" / f"{t}.md"),
+                           side_effect=lambda t: None if t == "claude"
+                           else home / "instr" / f"{t}.md"),
                 mock.patch("install.mcp_config_path",
                            side_effect=lambda t: home / f"mcp-{t}.json"),
                 mock.patch("install.claude_commands_dir",
@@ -1480,9 +1464,10 @@ class TestMain(TempDirTest):
         home = self.tmp / "home"
         self.assertEqual(code, 0)
         self.assertEqual(calls, [self.cali("sync")])
+        self.assertTrue((home / "instr" / "copilot.md").is_file())
+        self.assertFalse((home / "instr" / "claude.md").exists())
         for t in ("claude", "copilot"):
             with self.subTest(target=t):
-                self.assertTrue((home / "instr" / f"{t}.md").is_file())
                 servers = json.loads((home / f"mcp-{t}.json").read_text())
                 self.assertIn("github-mcp-server", servers["mcpServers"])
 
@@ -1632,8 +1617,8 @@ class TestMain(TempDirTest):
         self.assertTrue(dest.is_symlink())
 
     def test_status_warns_about_undeployed_instructions(self):
-        _, _, _, err = self.run_main(["--status", "--target", "claude"])
-        self.assertIn("claude.md is not deployed or out of date — re-run "
+        _, _, _, err = self.run_main(["--status", "--target", "copilot"])
+        self.assertIn("copilot.md is not deployed or out of date — re-run "
                       "install.py", err)
         self.assertFalse((self.tmp / "home" / "instr").exists())
 

@@ -35,25 +35,6 @@ for this skill directly only when documents are wanted without tours.
 Lists every file relevant to a task before changes are made.
 - `Build a context map for adding rate limiting to the API`
 
-## architecture-blueprint-generator
-Generates an architecture blueprint (stack detection, patterns, diagrams).
-- `Generate an architecture blueprint for this repo`
-
-## add-educational-comments
-Adds explanatory comments to a file for learning purposes.
-- `Add educational comments to src/scheduler.py`
-
-## arch-linux-triage
-## centos-linux-triage
-## debian-linux-triage
-## fedora-linux-triage
-Host diagnosis for one Linux distribution: services, packages, logs,
-networking. Cherry-picks from `github/awesome-copilot`; all four install.
-- `Triage why the docker service keeps restarting on this Debian agent`
-
-`roj-investigate-issue` names the matching one in its Solution when a root
-cause sits on the agent host; it never requires them.
-
 ## caveman
 Terse-output mode — cuts output tokens while keeping technical substance.
 - `Caveman mode: explain this build failure`
@@ -89,7 +70,7 @@ from `addyosmani/agent-skills`.
 
 ## pdf
 Reads, fills, merges and creates PDF files. Cherry-pick from
-`anthropics/skills`.
+`anthropics/skills`, Copilot only (Claude has its own).
 - `Merge these three PDFs and add page numbers`
 
 ## docx

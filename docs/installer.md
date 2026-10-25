@@ -75,9 +75,11 @@ caveman:
 - **Pin to a commit.** Every community ref is a full commit SHA, so a new
   upstream version is a reviewed diff. [`cali.lock`](../cali.lock) records
   the commit and tree of every community skill, and the tree of ours.
-- **One agent only.** `targets: [copilot]` (or `[claude]`) limits an entry;
-  caveman and debugging-and-error-recovery are Copilot only because Claude
-  gets the same from a plugin.
+- **One agent only.** `targets: [copilot]` (or `[claude]`) limits an entry.
+  Copilot is the work agent, so every entry is Copilot only except
+  `roj-idea-to-project`, which installs for both. The community skills our
+  skills chain to follow their dependents, and caveman, debugging-and-error-recovery
+  and pdf are Copilot only because Claude has its own.
 - **Optional entries** are commented out in `cali.yaml`. Uncomment one and
   re-run `install.py` to install it. Commenting a live entry out drops it
   from `cali.lock` on the next run, but `cali sync` never deletes a folder:
@@ -100,12 +102,13 @@ Where things land:
 | What | Claude Code | Copilot |
 | --- | --- | --- |
 | Skills (Cali) | `~/.claude/skills/<name>/` | `~/.copilot/skills/<name>/` |
-| Instructions | `~/.claude/rules/personal.md` | `~/.copilot/instructions/personal.instructions.md` |
+| Instructions | none (`~/.claude/CLAUDE.md` is yours) | `~/.copilot/instructions/personal.instructions.md` |
 | MCP servers | `~/.claude.json` (`mcpServers`) | `~/.copilot/mcp-config.json` (`mcpServers`) |
 
-The instruction file is `.apm/instructions/personal.instructions.md`. Copilot
-gets it as is; Claude gets the same body with `applyTo:` turned into
-`paths:` (the conversion APM made). A deployed file is replaced when it is
+The instruction file is `.apm/instructions/personal.instructions.md`, deployed
+to Copilot as is. Claude gets none: it reads the global `~/.claude/CLAUDE.md`,
+and an earlier `~/.claude/rules/personal.md` is left alone (delete it by
+hand). A deployed file is replaced when it is
 missing, a version this repo shipped (any commit of that file), or the
 dotfiles repo's link; one you edited, or a link to anything else, is kept
 with a warning — move the edits into the repo copy and delete it.

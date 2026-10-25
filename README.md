@@ -10,8 +10,8 @@ supports.
 ## Install
 
 **Everything, with Cali (recommended)** — my skills, the community skills
-they chain to, personal instructions and the GitHub MCP server, for Claude
-Code and Copilot. The skills are listed in one manifest
+they chain to, personal instructions and the GitHub MCP server, for
+Copilot (`roj-idea-to-project` also for Claude Code). The skills are listed in one manifest
 ([`cali.yaml`](cali.yaml), pinned in [`cali.lock`](cali.lock)) and
 installed by [Cali](https://github.com/rojcarranza/cali).
 
@@ -49,8 +49,9 @@ SHA in `cali.yaml`, then `cali update -g --manifest cali.yaml --apply`.
 (interactive), or `-s <skill> -a claude-code github-copilot -g`.
 
 **Claude Code plugin** — `/plugin marketplace add rojcarranza/agent-skills`,
-then `/plugin install roj-skills@roj-agent-skills`. Plugin skills are
-namespaced (`/roj-skills:roj-code-review-pr`).
+then `/plugin install roj-skills@roj-agent-skills`. The plugin carries only
+`roj-idea-to-project`, the one skill that supports Claude; the rest are for
+Copilot. Plugin skills are namespaced (`/roj-skills:roj-idea-to-project`).
 
 Use one route per machine: a plugin plus a skills-dir install lists each skill twice.
 
@@ -112,7 +113,7 @@ skills/<name>/
 .claude-plugin/   marketplace.json — the Claude Code plugin view of skills/
 cali.yaml         every skill and community skill install.py installs (Cali manifest)
 cali.lock         the tree each of them is pinned to (and commit, for community skills)
-.apm/instructions/  personal instructions install.py deploys to Copilot and Claude
+.apm/instructions/  personal instructions install.py deploys to Copilot
 tools/            sync_shared.py — copies shared files into every skill using them
 install.py        runs cali sync, deploys instructions and MCP servers, installs graphify (docs/installer.md)
 test_install.py   installer tests
