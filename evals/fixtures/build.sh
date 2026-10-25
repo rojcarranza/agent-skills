@@ -164,11 +164,11 @@ EOF
 
 ## Core tasks
 
-- [ ] `orders-service`: raise the Python version in `Dockerfile` and `pyproject.toml`.
+- [ ] `repo`: raise the Python version in `Dockerfile` and `pyproject.toml`.
 - [ ] `orders-chart`: set the new image tag in `values.yaml`.
 - [ ] Tell the gateway team about the new runtime.
 
-### `orders-service`
+### `repo`
 
 | # | File/Property | Location | Before | After | Reason | Source |
 |---|---|---|---|---|---|---|
@@ -187,7 +187,7 @@ EOF
 
 ## Notes
 
-- Impacted repositories: `orders-service` (the open workspace), `orders-chart`.
+- Impacted repositories: `repo` (the open workspace), `orders-chart`.
 
 ## Testing
 

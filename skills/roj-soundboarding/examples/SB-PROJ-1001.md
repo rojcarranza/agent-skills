@@ -48,7 +48,7 @@
 
 | # | File/Property | Location | Before | After | Reason | Source |
 |---|---|---|---|---|---|---|
-| 5 | `agent_server_url` | `values.yaml:9` | production URL | ACC server URL (in `values-acc.yaml`) | Agents under test must not register with the production server. | story: goal; Question 2 |
+| 5 | `agent_server_url` | `values.yaml:9` | production URL | ACC server URL (in `values-acc.yaml`) *(proposed)* | Agents under test must not register with the production server. | story: goal; Question 2; Question 4 |
 | 6 | `imagetag` (all 4 pools) | `values.yaml:14,24,34,44` | `2026-02-17_13-53` | new image tag | The current tag is the image built from `ci-agent-image` before this change. | story: goal |
 
 ## Questions

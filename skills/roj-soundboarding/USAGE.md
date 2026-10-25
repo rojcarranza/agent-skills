@@ -13,8 +13,8 @@ commit manually.
 - A refined SB document is ready to execute → **implement**.
 - Solo story, no team refinement needed → **create + implement** chained.
 
-Plain wording routes here too: "plan this ticket", "break this story into
-tasks", "refine this story".
+Plain wording routes here too: "plan this ticket", "break this ticket into
+tasks", "break this story into tasks", "refine this story".
 
 ## Commands per platform
 

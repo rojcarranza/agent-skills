@@ -16,6 +16,10 @@
     "should_trigger": true
   },
   {
+    "query": "break this ticket into tasks: PROJ-3007 - bump the orders chart to the 1.9.0 image and check the service side too",
+    "should_trigger": true
+  },
+  {
     "query": "refine this story against the code before sprint planning: PROJ-3005",
     "should_trigger": true
   },

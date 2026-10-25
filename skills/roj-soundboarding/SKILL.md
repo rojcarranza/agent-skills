@@ -1,6 +1,6 @@
 ---
 name: roj-soundboarding
-description: Soundboarding (SB) workflow - turn a user story (a story .md, pasted Jira ticket text, or a Jira key or URL read through a connected Atlassian/Jira tool) into an SB document with codebase-investigated core tasks, or implement an existing SB document task by task with review stops. Use when the user says "soundboarding", "create an SB", "SB document", "implement SB-...", "plan this ticket", "break this story into tasks" or "refine this story", or asks to turn a story or ticket into a refined, investigated task list before implementation.
+description: Soundboarding (SB) workflow - turn a user story (a story .md, pasted Jira ticket text, or a Jira key or URL read through a connected Atlassian/Jira tool) into an SB document with codebase-investigated core tasks, or implement an existing SB document task by task with review stops. Use when the user says "soundboarding", "create an SB", "SB document", "implement SB-...", "plan this ticket", "break this ticket into tasks", "break this story into tasks" or "refine this story", or asks to turn a story or ticket into a refined, investigated task list before implementation.
 license: MIT
 ---
 
@@ -190,8 +190,9 @@ Multiple matches: list them and ask which. No match: STOP and ask.
    4. Verify before reporting: run `git diff` in the target repository and
       compare it with the task's before/after table. Every listed change
       must be present with the exact After value, and no file outside the
-      task may have new changes (files preflight already reported as dirty
-      are exempt unless the task edits them). Report any mismatch.
+      task may have new changes (the SB document itself and files preflight
+      already reported as dirty are exempt unless the task edits them).
+      Report any mismatch.
    5. Run the narrowest relevant check for the files the task changed (the
       test file or package covering them, or the linter for a config
       file), as `references/test-commands.md` describes. Compare a failure
