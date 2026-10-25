@@ -120,7 +120,7 @@ class TriggerTest(unittest.TestCase):
         self.assertIn(URL, out)
 
     def test_multiple_owners_case_insensitive(self):
-        code, out = run(payload(), owners="some-org, R0JJames")
+        code, out = run(payload(), owners="some-org, RojCarranza")
         self.assertIn(URL, out)
 
     def test_empty_owners_disables(self):

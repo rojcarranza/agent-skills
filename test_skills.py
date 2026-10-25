@@ -558,7 +558,7 @@ class TestNoStaleAccount(unittest.TestCase):
                 text = (ROOT / name).read_text(encoding="utf-8")
             except (UnicodeDecodeError, FileNotFoundError):
                 continue
-            if stale in text:
+            if stale in text.lower():
                 hits.append(name)
         self.assertEqual(hits, [], "replace the old account name with rojcarranza")
 
