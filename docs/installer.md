@@ -106,9 +106,10 @@ Where things land:
 | MCP servers | `~/.claude.json` (`mcpServers`) | `~/.copilot/mcp-config.json` (`mcpServers`) |
 
 The instruction file is `.apm/instructions/personal.instructions.md`, deployed
-to Copilot as is. Claude gets none: it reads the global `~/.claude/CLAUDE.md`,
-and an earlier `~/.claude/rules/personal.md` is left alone (delete it by
-hand). A deployed file is replaced when it is
+to Copilot as is. Claude gets none: it reads the global `~/.claude/CLAUDE.md`.
+An earlier `~/.claude/rules/personal.md` is moved to the backup folder (see
+"Old installs") when its body is a version this repo shipped; an edited copy
+or a link is kept with a warning. A deployed file is replaced when it is
 missing, a version this repo shipped (any commit of that file), or the
 dotfiles repo's link; one you edited, or a link to anything else, is kept
 with a warning — move the edits into the repo copy and delete it.
@@ -142,10 +143,23 @@ skills in `cali.yaml` for that target.
   `~/.apm/apm.lock.yaml` lists them; anything else there (other tools use
   that folder) is left alone.
 
-Anything else the old installers left — an optional skill still commented
-out in `cali.yaml`, or a Copilot-only skill in `~/.claude/skills` — is kept
-with a warning: uncomment it in `cali.yaml` to have Cali manage it, or
-delete it. If `cali sync` then fails, the run says so: the removed entries
+- A skill Cali no longer installs for that agent is moved to the same
+  backup folder, whether Cali or an older installer put it there: a
+  Copilot-only skill in
+  `~/.claude/skills` (every one but `roj-idea-to-project`), and the pruned
+  community skills (`RETIRED_SKILLS` in `install.py`) in either agent. Only
+  a link into a checkout of this repo, a dangling link, or a copy whose
+  `SKILL.md` declares that name moves; a folder with any other name, such
+  as `no-mistakes`, is never touched.
+- `~/.claude/rules/personal.md`, which earlier versions deployed for
+  Claude, is moved to `<backup>/claude/personal.md` when its body is a
+  version this repo shipped. An edited copy or a link is kept with a
+  warning.
+
+`--dry-run` lists these moves without making them, and `--status` lists
+whatever is still left. An optional skill still commented out in
+`cali.yaml` is kept with a warning: uncomment it in `cali.yaml` to have
+Cali manage it, or delete it. If `cali sync` then fails, the run says so: the removed entries
 come back once a re-run succeeds. `install.py` never uninstalls `apm` or
 deletes `~/.apm`.
 

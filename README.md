@@ -46,7 +46,8 @@ To add or drop a skill, edit `cali.yaml` and re-run `install.py`.
 SHA in `cali.yaml`, then `cali update -g --manifest cali.yaml --apply`.
 
 **Only some skills, with Node.js** — `npx skills add rojcarranza/agent-skills`
-(interactive), or `-s <skill> -a claude-code github-copilot -g`.
+(interactive), or `-s <skill> -a github-copilot -g`. Only
+`roj-idea-to-project` also supports Claude Code (`-a claude-code github-copilot`).
 
 **Claude Code plugin** — `/plugin marketplace add rojcarranza/agent-skills`,
 then `/plugin install roj-skills@roj-agent-skills`. The plugin carries only
