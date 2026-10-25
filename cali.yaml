@@ -72,19 +72,23 @@ skills:
     source: https://github.com/addyosmani/agent-skills//skills/debugging-and-error-recovery
     ref: 1401c8b8030e023baeebb31781a6653fe8e93026
     targets: [copilot]
-  # Cherry-picks. Claude has its own pdf, so that one is Copilot only.
+  # Cherry-picks, Copilot only like the rest.
   observability-and-instrumentation:
     source: github:addyosmani/agent-skills//skills/observability-and-instrumentation
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+    targets: [copilot]
   ci-cd-and-automation:
     source: github:addyosmani/agent-skills//skills/ci-cd-and-automation
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+    targets: [copilot]
   security-and-hardening:
     source: github:addyosmani/agent-skills//skills/security-and-hardening
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+    targets: [copilot]
   deprecation-and-migration:
     source: github:addyosmani/agent-skills//skills/deprecation-and-migration
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+    targets: [copilot]
   pdf:
     source: github:anthropics/skills//skills/pdf
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
@@ -92,15 +96,19 @@ skills:
   docx:
     source: github:anthropics/skills//skills/docx
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
+    targets: [copilot]
   pptx:
     source: github:anthropics/skills//skills/pptx
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
+    targets: [copilot]
   xlsx:
     source: github:anthropics/skills//skills/xlsx
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
+    targets: [copilot]
   impeccable:
     source: github:pbakaus/impeccable//plugin/skills/impeccable
     ref: aeeb3d8c30b5f95aeeb3e893b0f1a308af8fdb8f
+    targets: [copilot]
   # Optional — uncomment the entry's lines and re-run install.py:
   # grilling:
   #   source: github:mattpocock/skills//skills/productivity/grilling@49dd158d1076134a641b33efb035946536778336

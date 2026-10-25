@@ -847,6 +847,13 @@ skills:
                          ("github:x/y//skills/tool",
                           "2e08b9177c07bb7249a8a2d1a6758e5db281d002"))
 
+    def test_only_roj_idea_to_project_installs_for_claude(self):
+        # Copilot is the work agent; roj-idea-to-project alone serves both.
+        self.assertEqual(install.managed_skill_names("claude"),
+                         {"roj-idea-to-project"})
+        self.assertLessEqual(install.custom_skill_names(),
+                             install.managed_skill_names("copilot"))
+
     def test_repo_manifest_matches_its_lock(self):
         # cali sync --frozen would pass: every live skill is locked, nothing else.
         lock = json.loads((install.REPO_ROOT / "cali.lock").read_text("utf-8"))

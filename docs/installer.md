@@ -77,9 +77,8 @@ caveman:
   the commit and tree of every community skill, and the tree of ours.
 - **One agent only.** `targets: [copilot]` (or `[claude]`) limits an entry.
   Copilot is the work agent, so every entry is Copilot only except
-  `roj-idea-to-project`, which installs for both. The community skills our
-  skills chain to follow their dependents, and caveman, debugging-and-error-recovery
-  and pdf are Copilot only because Claude has its own.
+  `roj-idea-to-project`, which installs for both. Every community skill,
+  cherry-picks included, is Copilot only.
 - **Optional entries** are commented out in `cali.yaml`. Uncomment one and
   re-run `install.py` to install it. Commenting a live entry out drops it
   from `cali.lock` on the next run, but `cali sync` never deletes a folder:

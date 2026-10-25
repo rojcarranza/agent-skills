@@ -2,6 +2,7 @@
 
 Every skill here is listed in [`cali.yaml`](../cali.yaml) — live ones install by
 default, commented ones are optional: uncomment and re-run `install.py`.
+Every live one installs for Copilot only (`targets: [copilot]`).
 Sources: `github/awesome-copilot`, `juliusbrussee/caveman`,
 `addyosmani/agent-skills`, `warpdotdev/common-skills`, `anthropics/skills`,
 `vercel-labs/skills`, `pbakaus/impeccable` and `mattpocock/skills`. Each skill in `cali.yaml` gets a section here.

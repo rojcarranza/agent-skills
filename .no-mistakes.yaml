@@ -43,6 +43,8 @@ gates:
       test ! -e "$HOME/.claude/skills/code-tour"
       test -f "$HOME/.copilot/skills/caveman/SKILL.md"
       test ! -e "$HOME/.claude/skills/caveman"
+      test -f "$HOME/.copilot/skills/docx/SKILL.md"
+      test ! -e "$HOME/.claude/skills/docx"
       test -f "$HOME/.copilot/instructions/personal.instructions.md"
       test ! -e "$HOME/.claude/rules/personal.md"
       grep -q github-mcp-server "$HOME/.claude.json"
