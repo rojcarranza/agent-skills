@@ -139,14 +139,14 @@
       "path": "skills/roj-code-review-pr",
       "ref": "",
       "commit": "",
-      "tree": "9b966e2aed30b8aa183564a3f2ce61065390c639"
+      "tree": "21e52745d87c0d9b5fb09bb0f44d41965d9be241"
     },
     "roj-code-review-pr-fast": {
       "source": ".",
       "path": "skills/roj-code-review-pr-fast",
       "ref": "",
       "commit": "",
-      "tree": "4f217cda66ef3ab82f502c91ed402c5a26e84590"
+      "tree": "8a382bfd25846e5d9e44a9fddbb1c78ba0c62515"
     },
     "roj-explain-feature-changes": {
       "source": ".",
@@ -181,21 +181,21 @@
       "path": "skills/roj-interview-prep",
       "ref": "",
       "commit": "",
-      "tree": "62dfd6ef0c5b336f20533a3dacca976e83d77263"
+      "tree": "2c69ab297f81cca06603656dbc1761cf627e4d75"
     },
     "roj-investigate-issue": {
       "source": ".",
       "path": "skills/roj-investigate-issue",
       "ref": "",
       "commit": "",
-      "tree": "b28f4b9a127b11e1ede0e20667231e3317b90113"
+      "tree": "4217eac093d4f49006e17711d3cda057c1b5e095"
     },
     "roj-review-pr-comment": {
       "source": ".",
       "path": "skills/roj-review-pr-comment",
       "ref": "",
       "commit": "",
-      "tree": "ca9bf4f748746c1c96b0717f5863fa6ea9227286"
+      "tree": "7396c2e024cfca73f3e5cf02e1cbc77f633fde60"
     },
     "roj-soundboarding": {
       "source": ".",
@@ -209,7 +209,7 @@
       "path": "skills/roj-tour-codebase",
       "ref": "",
       "commit": "",
-      "tree": "91d2fcba95952826f01dc663be12baa6ef375f73"
+      "tree": "3fc034dbc50e165e6205556166396e36facda8a6"
     },
     "security-and-hardening": {
       "source": "https://github.com/addyosmani/agent-skills",
