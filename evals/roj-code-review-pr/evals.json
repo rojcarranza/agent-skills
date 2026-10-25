@@ -44,6 +44,22 @@
         "Runs no command other than git and the read-only graphify queries without asking",
         "Does not fetch from the remote unasked"
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "review my work before I commit it - some of it is not committed yet",
+      "fixture": {
+        "repo": "pyrepo-dirty"
+      },
+      "expected_output": "The full review covers the committed branch and the uncommitted edits and untracked file, and says so.",
+      "expectations": [
+        "Runs git status --porcelain and git diff against HEAD in addition to the three-dot branch diff",
+        "Flags the hard-coded API token in the uncommitted app/cli.py",
+        "Flags the shell=True command injection in the untracked app/notify.py",
+        "Also flags the committed defect: upload() returns None after the last failed attempt",
+        "Report header has an Uncommitted line naming the reviewed files, and does not list them as excluded",
+        "Runs no command other than git and the read-only graphify queries without asking"
+      ]
     }
   ]
 }

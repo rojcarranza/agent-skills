@@ -1,15 +1,16 @@
 ---
 name: roj-code-review-pr
-description: Review the changes on the current Git feature branch, before or after a PR is opened, and write a review report, plus a CodeTour on request. Use when the user says "review my branch", "review this PR", "code review", "review before I push", "check my changes", or asks for defects/risks in a diff. Detects the stacks the diff touches (Java/Maven, Python, Bash, Go, Bamboo, Docker, Kubernetes, Helm) and loads only the matching rules. Git-only — never calls a PR host API. For pure comprehension ("explain this branch") use roj-explain-logic; for a quick chat-only pass use roj-code-review-pr-fast.
+description: Review the changes on the current Git feature branch, uncommitted work included, before or after a PR is opened, and write a review report, plus a CodeTour on request. Use when the user says "review my branch", "review this PR", "code review", "review before I push", "check my changes", or asks for defects/risks in a diff. Detects the stacks the diff touches (Java/Maven, Python, Bash, Go, Bamboo, Docker, Kubernetes, Helm) and loads only the matching rules. Git-only — never calls a PR host API. For pure comprehension ("explain this branch") use roj-explain-logic; for a quick chat-only pass use roj-code-review-pr-fast.
 license: MIT
 allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git status *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git symbolic-ref *) Bash(git merge-base *) Bash(git show *) Bash(graphify query *) Bash(graphify explain *) Bash(graphify path *) Bash(graphify affected *)
 ---
 
 # Code Review PR
 
-Review the diff between the current feature branch and its base. Report
-defects that would matter if shipped, plus a plain-language summary of what
-the branch does so the change is understood, not just audited.
+Review the diff between the current feature branch and its base, plus any
+staged, unstaged and untracked work. Report defects that would matter if
+shipped, plus a plain-language summary of what the branch does so the change
+is understood, not just audited.
 
 Rules that hold for the whole run:
 
@@ -70,8 +71,16 @@ branch point, which is the main source of reviewing unrelated code.
 List but do not review: `vendor/`, `target/`, `dist/`, `node_modules/`,
 generated files (`*.pb.go`, `*_generated.go`), lockfiles, binaries.
 
-Uncommitted work is excluded. If `git status --porcelain` is dirty, state in
-the report how many uncommitted files were left out.
+6. **Uncommitted work is part of the review.** Run `git status --porcelain`.
+   When it lists changes, also run `git diff --stat HEAD` and
+   `git diff -U15 HEAD` (staged and unstaged edits), and read every untracked
+   file it lists (`??`) as new code. Add these files and lines to the header
+   counts and mark each finding that anchors to one as uncommitted. A finding
+   may anchor to an uncommitted or untracked line the same way as to a
+   committed hunk. On the base branch itself (no commits past the base), the
+   working tree alone is the review: say so in the header instead of calling
+   the branch clean. Uncommitted work never turns on post-PR mode; it only
+   adds to what is reviewed.
 
 Determine the mode: if `git rev-parse @{u}` succeeds and `git log @{u}..HEAD`
 is empty, the branch is pushed — **post-PR**. Otherwise **pre-PR**.

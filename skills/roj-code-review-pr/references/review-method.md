@@ -69,6 +69,12 @@ Gates:
 - Speculative items carry no severity. They become questions in
   *Needs your input*.
 - A Blocker must be Confirmed. Otherwise downgrade it.
+- A claim about what a tool, library or vendor API does (what it returns or
+  raises on empty input or on error, what a flag defaults to, how a field is
+  interpreted) is Confirmed only when its source or documentation was read in
+  this run. Otherwise it is Probable, and that behaviour is the named
+  assumption; if the finding depends on it and nothing else, drop the finding
+  rather than guess. Remembered behaviour is not a source.
 
 ## Never report
 
@@ -135,7 +141,8 @@ Not coverage percentage. Ask:
 <repo> · base `<base>` @ `<merge-base sha>` · <n> commits ·
 <n> files · +<a>/-<b> · lenses: <loaded> (skipped: <if any>) ·
 mode: pre-PR | post-PR
-Excluded: <generated/vendored paths, uncommitted files>
+Uncommitted: <n staged/unstaged, n untracked reviewed | none>
+Excluded: <generated/vendored paths>
 
 ### What this branch does
 <3-6 sentences of intent>
@@ -179,13 +186,13 @@ be consistent with it. Apply no fix without asking.
 **Report this** — `deploy.sh:31`, Blocker, Confirmed:
 
 ```bash
-kubectl delete namespace "$NS"
+rm -rf "$RELEASE_DIR/"*
 ```
 
-`$NS` is set from `${1:-}` with `set -u` absent, so an invocation with no
-argument deletes the namespace named by the empty string, which `kubectl`
-resolves to the current context's namespace. Concrete failure, one line, no
-speculation needed.
+`$RELEASE_DIR` is set from `${1:-}` and the script has no `set -u`, so an
+invocation with no argument expands the line to `rm -rf /*`. The shell's own
+expansion rules prove it from the lines shown; no tool behaviour is assumed.
+Concrete failure, one line, no speculation needed.
 
 **Report this** — `Chart.yaml:3`, Major, Probable:
 

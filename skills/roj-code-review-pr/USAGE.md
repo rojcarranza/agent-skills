@@ -9,7 +9,9 @@ and never posts comments.
 
 ## When to use
 
-- Before pushing a feature branch, or before opening a PR.
+- Before pushing a feature branch, or before opening a PR. Staged, unstaged
+  and untracked files are reviewed with the commits; on the base branch the
+  working tree alone is the review.
 - After opening a PR, to produce findings you can paste as review comments.
 - Any branch touching Java/Maven, Python, Bash, Go, Bamboo specs, Dockerfiles,
   Kubernetes manifests or Helm charts.

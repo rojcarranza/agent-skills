@@ -48,6 +48,7 @@ produced the Blocker below.
 
 deploy-cli · base `origin/main` @ `9f31c0a` · 4 commits ·
 5 files · +118/-21 · lenses: lang-go, platform-helm · mode: pre-PR
+Uncommitted: none
 Excluded: none
 
 ### What this branch does
@@ -93,14 +94,15 @@ guard the template with `default 30`.
 #### 🟠 Major
 
 **`cmd/deploy.go:57`** · Confirmed
-`--wait-timeout` defaults to `0`, which Helm treats as "no timeout" rather
-than "fail immediately", so an unhealthy release now blocks the Bamboo job
-until the job's own timeout kills it — and because `Atomic` is set, the
-rollback never runs.
-Fails when: a bad image tag is deployed; before this branch the task failed
-in seconds, now the agent is held for the job's full 60 minutes and the
-release is left in `pending-upgrade`.
-Fix: default to a bounded value (`5 * time.Minute`) and reject `0`.
+The flag is parsed with `time.ParseDuration`, which needs a unit, but the
+unchanged `bamboo-specs/deploy.yaml:34` passes `--wait-timeout 300`. A bare
+`300` is rejected, so the staging deploy task can no longer run.
+Fails when: the staging plan runs; `deploy` exits with `invalid argument
+"300" for "--wait-timeout" flag: time: missing unit in duration "300"` before
+any Helm call, and every deploy from this branch fails in Bamboo. Verified by
+running `go run ./cmd/deploy --wait-timeout 300` locally.
+Fix: pass `--wait-timeout 5m` in the spec, or accept bare seconds in the
+flag parser.
 
 #### 🟡 Minor
 
@@ -114,22 +116,23 @@ Fix: wrap with `%w`.
 ### Tests
 
 `client_test.go` covers the timeout-to-exit-code mapping, including the
-failure path — good. Not covered: the `Atomic` rollback path, and the
-`--wait-timeout=0` case, which is the Major above. A table case with a zero
-timeout would have caught it.
+failure path — good. Not covered: the `Atomic` rollback path, and flag
+parsing of the value the Bamboo spec actually passes (`300`), which is the
+Major above. A table case with that input would have caught it.
 
 ### Runtime / deploy impact
 
 Every upgrade now blocks until the release is ready and rolls back on
 failure, so deploy tasks that previously returned in seconds will run for as
 long as the rollout takes. Bamboo task timeouts should be checked against the
-new `--wait-timeout` default. Chart 0.4.0 renames nothing, so existing
+new `--wait-timeout` value. Chart 0.4.0 renames nothing, so existing
 releases upgrade in place.
 
 ### Needs your input
 
-- Does the staging Bamboo deploy task pass `--wait-timeout` explicitly? The
-  spec is not in this repository, so the effective default there is unknown.
+- Does the production Bamboo plan pass `--wait-timeout` in the same form as
+  staging? Only the staging spec is in this repository, so its value there is
+  unknown.
 
 ### Good
 
