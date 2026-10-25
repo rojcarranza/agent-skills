@@ -74,16 +74,19 @@ generated files (`*.pb.go`, `*_generated.go`), lockfiles, binaries.
 6. **Uncommitted work is part of the review.** Run `git status --porcelain`.
    When it lists changes, also run `git diff --stat HEAD` and
    `git diff -U15 HEAD` (staged and unstaged edits), and read every untracked
-   file it lists (`??`) as new code. Add these files and lines to the header
+   file it lists (`??`) as new code, except this skill's own output from an
+   earlier run (`<branch-slug>-review.md` and `.tours/review-*.tour`), which
+   is neither listed nor reviewed. Add these files and lines to the header
    counts and mark each finding that anchors to one as uncommitted. A finding
    may anchor to an uncommitted or untracked line the same way as to a
    committed hunk. On the base branch itself (no commits past the base), the
    working tree alone is the review: say so in the header instead of calling
-   the branch clean. Uncommitted work never turns on post-PR mode; it only
-   adds to what is reviewed.
+   the branch clean.
 
-Determine the mode: if `git rev-parse @{u}` succeeds and `git log @{u}..HEAD`
-is empty, the branch is pushed — **post-PR**. Otherwise **pre-PR**.
+Determine the mode: on the base branch itself, or when step 6 found any
+staged, unstaged or untracked work, the review is a self-review — **pre-PR**.
+Otherwise, if `git rev-parse @{u}` succeeds and `git log @{u}..HEAD` is
+empty, the branch is pushed — **post-PR**. Anything else is **pre-PR**.
 
 ## Phase 3 — Detect the stacks
 

@@ -4,8 +4,9 @@ One complete run, end to end, on a realistic branch. Consult this only when
 the output format needs grounding — it is not loaded by default.
 
 The branch: `feature/PROJ-4471-atomic-upgrade` in the Go deploy CLI. It adds
-a `--wait-timeout` flag, switches the Helm upgrade call to atomic, and bumps
-the chart used by the staging environment.
+a `--wait-timeout` flag and passes it from the staging Bamboo spec, switches
+the Helm upgrade call to atomic, and bumps the chart used by the staging
+environment.
 
 ## Phase trace (what the skill did)
 
@@ -22,8 +23,9 @@ M       internal/helm/client.go
 M       charts/service/Chart.yaml
 M       charts/service/values-staging.yaml
 M       internal/helm/client_test.go
+M       bamboo-specs/deploy.yaml
 $ git diff --stat origin/main...HEAD
- 5 files changed, 118 insertions(+), 21 deletions(-)
+ 6 files changed, 119 insertions(+), 21 deletions(-)
 $ git rev-parse @{u}
 fatal: no upstream configured for branch 'feature/PROJ-4471-atomic-upgrade'
 ```
@@ -38,8 +40,9 @@ and `govet` enabled — so unchecked errors are not reported here, the linter
 owns them).
 
 Tooling offered and approved: `go vet ./...`, `helm template charts/service
--f charts/service/values-staging.yaml`. The `helm template` run is what
-produced the Blocker below.
+-f charts/service/values-staging.yaml`, `go run ./cmd/deploy --wait-timeout
+300`. The `helm template` run is what produced the Blocker below, and the
+`go run` is what confirmed the Major.
 
 ## The report
 
@@ -47,7 +50,7 @@ produced the Blocker below.
 ## Review — feature/PROJ-4471-atomic-upgrade vs origin/main
 
 deploy-cli · base `origin/main` @ `9f31c0a` · 4 commits ·
-5 files · +118/-21 · lenses: lang-go, platform-helm · mode: pre-PR
+6 files · +119/-21 · lenses: lang-go, platform-helm · mode: pre-PR
 Uncommitted: none
 Excluded: none
 
@@ -65,6 +68,8 @@ leaving the release in `pending-upgrade`. The staging chart is bumped to
 - `charts/service/Chart.yaml` — version 0.3.2 → 0.4.0.
 - `charts/service/values-staging.yaml` — adds `probes.startupSeconds`.
 - `internal/helm/client_test.go` — covers the timeout mapping.
+- `bamboo-specs/deploy.yaml` — the staging deploy task passes
+  `--wait-timeout 300`.
 
 Flow: `deploy` parses flags → `helm.Client.Upgrade` builds the action with
 `Atomic: true`, `Wait: true`, `Timeout: <flag>` → on a wait failure Helm
@@ -94,9 +99,10 @@ guard the template with `default 30`.
 #### 🟠 Major
 
 **`cmd/deploy.go:57`** · Confirmed
-The flag is parsed with `time.ParseDuration`, which needs a unit, but the
-unchanged `bamboo-specs/deploy.yaml:34` passes `--wait-timeout 300`. A bare
-`300` is rejected, so the staging deploy task can no longer run.
+The flag is parsed with `time.ParseDuration`, which needs a unit, but
+`bamboo-specs/deploy.yaml:34`, added in this same diff, passes
+`--wait-timeout 300`. A bare `300` is rejected, so the staging deploy task
+can no longer run.
 Fails when: the staging plan runs; `deploy` exits with `invalid argument
 "300" for "--wait-timeout" flag: time: missing unit in duration "300"` before
 any Helm call, and every deploy from this branch fails in Bamboo. Verified by

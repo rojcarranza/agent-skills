@@ -189,7 +189,7 @@ be consistent with it. Apply no fix without asking.
 rm -rf "$RELEASE_DIR/"*
 ```
 
-`$RELEASE_DIR` is set from `${1:-}` and the script has no `set -u`, so an
+`$RELEASE_DIR` is set from `${1:-}` with no guard for an empty value (`${1:?}`), so an
 invocation with no argument expands the line to `rm -rf /*`. The shell's own
 expansion rules prove it from the lines shown; no tool behaviour is assumed.
 Concrete failure, one line, no speculation needed.
