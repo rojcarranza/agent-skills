@@ -8,40 +8,12 @@
       "commit": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
       "tree": "522888a523fbf2c448b4d03cb0bd2b7cf815c380"
     },
-    "add-educational-comments": {
-      "source": "https://github.com/github/awesome-copilot",
-      "path": "skills/add-educational-comments",
-      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "tree": "e9d3c89ab799b5a833c302ef45bd77eef5639c88"
-    },
-    "arch-linux-triage": {
-      "source": "https://github.com/github/awesome-copilot",
-      "path": "skills/arch-linux-triage",
-      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "tree": "148fe897a1a9574e87a843ae85d8114b70f1693e"
-    },
-    "architecture-blueprint-generator": {
-      "source": "https://github.com/github/awesome-copilot",
-      "path": "skills/architecture-blueprint-generator",
-      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "tree": "85df2c5df09933ba0cf7b1e3b39469d4437c8d95"
-    },
     "caveman": {
       "source": "https://github.com/juliusbrussee/caveman",
       "path": "skills/caveman",
       "ref": "2e08b9177c07bb7249a8a2d1a6758e5db281d002",
       "commit": "2e08b9177c07bb7249a8a2d1a6758e5db281d002",
       "tree": "b314dd99b2b8723aae2de5a22079914567f2e58f"
-    },
-    "centos-linux-triage": {
-      "source": "https://github.com/github/awesome-copilot",
-      "path": "skills/centos-linux-triage",
-      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "tree": "2c49e5f067b98bc84978dd9aa6fa8518d34103e1"
     },
     "ci-cd-and-automation": {
       "source": "https://github.com/addyosmani/agent-skills",
@@ -64,13 +36,6 @@
       "commit": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
       "tree": "8b684d625e209fc960011407e2e504fa2ff2cad8"
     },
-    "debian-linux-triage": {
-      "source": "https://github.com/github/awesome-copilot",
-      "path": "skills/debian-linux-triage",
-      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "tree": "864a6de81ae2649734bfbd12849e9a56b0f6c9ca"
-    },
     "debugging-and-error-recovery": {
       "source": "https://github.com/addyosmani/agent-skills",
       "path": "skills/debugging-and-error-recovery",
@@ -91,13 +56,6 @@
       "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
       "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
       "tree": "6e6f5b95c1de6e803cc07b214f5059b074d64e0c"
-    },
-    "fedora-linux-triage": {
-      "source": "https://github.com/github/awesome-copilot",
-      "path": "skills/fedora-linux-triage",
-      "ref": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "commit": "613efc8c21d9b3ce642dff361d17006cd9967e28",
-      "tree": "5be4b50eb6b4044edcd12e4cac1f7ee398bfd1bc"
     },
     "find-skills": {
       "source": "https://github.com/vercel-labs/skills",
@@ -160,7 +118,7 @@
       "path": "skills/roj-explain-logic",
       "ref": "",
       "commit": "",
-      "tree": "37782d5b34f2e36053edb2ace707ace500d025ef"
+      "tree": "b016bb8b2796fd527cc318b74f1572513d37056e"
     },
     "roj-grill-plan": {
       "source": ".",
@@ -188,7 +146,7 @@
       "path": "skills/roj-investigate-issue",
       "ref": "",
       "commit": "",
-      "tree": "4217eac093d4f49006e17711d3cda057c1b5e095"
+      "tree": "cc79cadf23e7f4da668ea77fd8f4067d21ed31ae"
     },
     "roj-review-pr-comment": {
       "source": ".",
@@ -209,7 +167,7 @@
       "path": "skills/roj-tour-codebase",
       "ref": "",
       "commit": "",
-      "tree": "3fc034dbc50e165e6205556166396e36facda8a6"
+      "tree": "aec4c80f75e3fc93e6afacf5290ea47a41cdcd67"
     },
     "security-and-hardening": {
       "source": "https://github.com/addyosmani/agent-skills",
