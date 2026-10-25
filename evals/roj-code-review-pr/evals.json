@@ -57,7 +57,7 @@
         "Flags the hard-coded API token in the uncommitted app/cli.py",
         "Flags the shell=True command injection in the untracked app/notify.py",
         "Also flags the committed defect: upload() returns None after the last failed attempt",
-        "Report header has an Uncommitted line naming the reviewed files, and does not list them as excluded",
+        "Report header has an Uncommitted line counting the staged/unstaged and untracked files reviewed, and does not list them as excluded",
         "Runs no command other than git and the read-only graphify queries without asking"
       ]
     }
