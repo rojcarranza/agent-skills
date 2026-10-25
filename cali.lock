@@ -139,14 +139,14 @@
       "path": "skills/roj-code-review-pr",
       "ref": "",
       "commit": "",
-      "tree": "8ef1c836a3db4927211e07bdb83c5b6bd8b5acfb"
+      "tree": "a5097ae265d13a24863fe7f2747e31e103c40002"
     },
     "roj-code-review-pr-fast": {
       "source": ".",
       "path": "skills/roj-code-review-pr-fast",
       "ref": "",
       "commit": "",
-      "tree": "e4f0d134a014b9c78da209a9d09cf57a560c7b1b"
+      "tree": "d8263ec7742f26d5af35909e437d0e6b7c8ea433"
     },
     "roj-explain-feature-changes": {
       "source": ".",
@@ -195,7 +195,7 @@
       "path": "skills/roj-review-pr-comment",
       "ref": "",
       "commit": "",
-      "tree": "45d9eba0b42277d32423310e6e063edec6ce141d"
+      "tree": "834fa1ab81b78c5b76325766aaef056ecdabdb16"
     },
     "roj-soundboarding": {
       "source": ".",
