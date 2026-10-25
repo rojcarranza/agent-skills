@@ -215,14 +215,14 @@ class TestRetirePrompts(TempDirTest):
 class ExternalTest(TempDirTest):
     """Externals delegate to a CLI, so every test here fakes both the CLI
     lookup and the subprocess call — nothing may reach a real install.
-    install.log() and ok() print, so stdout is captured per test."""
+    install.log(), ok() and warn() print, so both streams are captured."""
 
     def setUp(self):
         super().setUp()
-        self.stdout = io.StringIO()
-        patcher = mock.patch("sys.stdout", self.stdout)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        for stream in ("stdout", "stderr"):
+            patcher = mock.patch(f"sys.{stream}", io.StringIO())
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def fake_external(self, **overrides):
         ext = {
