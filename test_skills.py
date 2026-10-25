@@ -310,6 +310,51 @@ class TestGraphFirst(unittest.TestCase):
         self.assertIn("`graph-first.md` step does not apply", text)
 
 
+class TestSoundboarding(unittest.TestCase):
+    """The example SB is what the model copies: it must hold the template's
+    sections and no others, and its tables must carry the evidence columns."""
+
+    SB = SKILLS / "roj-soundboarding"
+
+    @staticmethod
+    def headings(text):
+        return re.findall(r"(?m)^## (.+)$", text)
+
+    def test_example_has_only_the_template_sections(self):
+        template = (self.SB / "assets" / "SB-template.md").read_text("utf-8")
+        example = (self.SB / "examples" / "SB-PROJ-1001.md").read_text("utf-8")
+        self.assertEqual(self.headings(example), self.headings(template))
+
+    def test_bundled_template_has_no_team_specific_question(self):
+        template = (self.SB / "assets" / "SB-template.md").read_text("utf-8")
+        self.assertNotIn("sprint review", template.lower())
+
+    def test_before_after_tables_carry_location_and_source(self):
+        header = ("| # | File/Property | Location | Before | After | Reason "
+                  "| Source |")
+        skill = (self.SB / "SKILL.md").read_text("utf-8")
+        flat = " ".join(skill.split())
+        self.assertIn("#, File/Property, Location, Before, After, Reason, "
+                      "Source", flat)
+        example = (self.SB / "examples" / "SB-PROJ-1001.md").read_text("utf-8")
+        self.assertIn(header, example)
+        rows = [l for l in example.splitlines()
+                if re.match(r"\| \d+ \|", l)]
+        self.assertTrue(rows)
+        for row in rows:
+            with self.subTest(row=row[:40]):
+                self.assertRegex(row, r"`[^`]+:\d+(?:[-,]\d+)*`")
+
+    def test_user_template_overrides_the_bundled_one(self):
+        flat = " ".join((self.SB / "SKILL.md").read_text("utf-8").split())
+        self.assertRegex(flat, r"TEMPLATE: `SOUNDBOARD_DIR/SB-template.md` "
+                               r"when it exists")
+
+    def test_skill_names_its_reference(self):
+        self.assertIn("references/test-commands.md",
+                      (self.SB / "SKILL.md").read_text("utf-8"))
+
+
 def git_bash():
     """bash for the eval fixtures. On Windows, Git Bash next to git: a bare
     `bash` there can resolve to System32's WSL launcher."""
@@ -344,7 +389,8 @@ class TestEvals(unittest.TestCase):
     # Skills whose descriptions overlap; each must keep an eval set.
     REQUIRED = {"roj-code-review-pr", "roj-code-review-pr-fast",
                 "roj-review-pr-comment", "roj-explain-logic",
-                "roj-explain-feature-changes", "roj-idea-to-project"}
+                "roj-explain-feature-changes", "roj-idea-to-project",
+                "roj-soundboarding"}
 
     def eval_dirs(self):
         return sorted(p for p in (ROOT / "evals").iterdir()

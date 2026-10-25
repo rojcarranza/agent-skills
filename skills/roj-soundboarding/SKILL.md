@@ -1,6 +1,6 @@
 ---
 name: roj-soundboarding
-description: Soundboarding (SB) workflow — turn a user story (<TICKET-ID>.md) into an SB document with codebase-investigated core tasks, or implement an existing SB document task by task with review stops. Use when the user says "soundboarding", "create an SB", "SB document", "implement SB-...", or asks to turn a user story into a refined, investigated task list before implementation.
+description: Soundboarding (SB) workflow - turn a user story (a story .md, pasted Jira ticket text, or a Jira key or URL read through a connected Atlassian/Jira tool) into an SB document with codebase-investigated core tasks, or implement an existing SB document task by task with review stops. Use when the user says "soundboarding", "create an SB", "SB document", "implement SB-...", "plan this ticket", "break this story into tasks" or "refine this story", or asks to turn a story or ticket into a refined, investigated task list before implementation.
 license: MIT
 ---
 
@@ -16,8 +16,10 @@ chained. Pick the flow from what the user asked for.
 - SOUNDBOARD_DIR: where story files and SB documents live.
 - PROJECTS_ROOT: the directory that holds local checkouts of the team's
   repositories.
-- TEMPLATE: `assets/SB-template.md` in this skill's own folder; if it is
-  missing, fall back to `SOUNDBOARD_DIR/SB-template.md`.
+- TEMPLATE: `SOUNDBOARD_DIR/SB-template.md` when it exists - a template
+  you keep beside your stories overrides the bundled one, so each team or
+  repository supplies its own standing questions. Otherwise
+  `assets/SB-template.md` in this skill's own folder.
 
 Resolve SOUNDBOARD_DIR and PROJECTS_ROOT in this order: a path stated in the
 user's message, then the environment variable of the same name
@@ -30,8 +32,9 @@ user's message, then the environment variable of the same name
   code they describe.
 - PROJECTS_ROOT: the parent directory of that repository root.
 
-State the resolved SOUNDBOARD_DIR in one line at the start of the run, so
-the user sees where the SB document will be written.
+State the resolved SOUNDBOARD_DIR and the TEMPLATE in use in one line at
+the start of the run, so the user sees where the SB document will be
+written and which template shapes it.
 
 ## Hard rules (all flows)
 
@@ -39,29 +42,46 @@ the user sees where the SB document will be written.
    read from local checkouts during this run. Everything unverified goes into
    the Questions section. Never present an assumption as a finding.
 2. **Template fidelity:** Read TEMPLATE fresh at the start of every create
-   run and produce every section it defines. If no template can be found:
-   STOP and ask. Never invent the structure.
-3. **Git: hands off.** Never create a branch, never commit, never push — in
+   run and produce every section it defines, and no section it does not.
+   If no template can be found: STOP and ask. Never invent the structure.
+3. **Git: hands off.** Never create a branch, never commit, never push - in
    any repository. All edits stay in the working tree; the user reviews,
    commits, and branches manually. Read-only git commands (`git status`,
-   `git diff`) are allowed.
+   `git diff`, `git branch --show-current`) are allowed. Jira is read-only
+   too: never comment on, transition or edit a ticket.
 4. **Ask, don't guess:** when something is ambiguous, ask the user one
    question and wait for the answer.
 5. **Graph check, first and every run:** before investigating a repository,
    look for `graphify-out/graph.json` at its root. Present: follow
    `references/graph-first.md`. Absent: search directly. Close the final chat
-   message with one line: `Graph: used`, `Graph: stale, skipped` or
-   `Graph: none found, searched directly`. The read-only `graphify` queries in
-   that file are allowed alongside the read-only git commands.
+   message with a Graph line only when it informs: `Graph: used` or
+   `Graph: stale, skipped` when a graph exists, `Graph: none found, searched
+   directly` only when a large repository (hundreds of source files) has none.
+   Otherwise print no Graph line; this replaces the always-print closing rule
+   in that file. The read-only `graphify` queries in that file are allowed
+   alongside the read-only git commands.
 
 ## Flow 1: Create an SB document
 
-Input: a user story markdown file (example: `PROJ-1001.md`). Resolve it as
-given relative to the current workspace first, then inside SOUNDBOARD_DIR.
-If it cannot be found or read: STOP and ask. Never proceed with an invented
-story.
+Input: the user story, in any of these forms (pick by what the user gave):
 
-1. **Read inputs.** Read the story file and TEMPLATE. Extract the goal, the
+- A story markdown file (example: `PROJ-1001.md`). Resolve it as given
+  relative to the current workspace first, then inside SOUNDBOARD_DIR.
+- Ticket text pasted into the message (a Jira issue copied from the browser,
+  with or without its key).
+- A Jira key (`PROJ-1001`) or issue URL with no file. Read it with an
+  Atlassian or Jira tool when one is connected to this session (look at the
+  tools you have for one that reads a single issue; use that tool's own
+  arguments). Fetch only the issue: summary, description, acceptance
+  criteria, labels and links. No such tool, or the call fails: ask the user to
+  paste the ticket text, and wait. Never call the Jira REST API yourself, ask
+  for a token, or write to Jira.
+
+If the story cannot be found, read or fetched: STOP and ask. Never proceed
+with an invented story. The story's key names the output file (step 5); pasted
+text without a key: ask for a name for the file, once.
+
+1. **Read inputs.** Read the story and TEMPLATE. Extract the goal, the
    acceptance criteria, and every repository, system, tool, and version
    mentioned or implied.
 2. **Identify impacted repositories.** The repository open in the current
@@ -93,8 +113,13 @@ story.
    - **Core tasks:** concrete `- [ ]` checkboxes. Each code task starts with
      the repository it touches in backticks. Where investigation found exact
      changes, include before/after tables with columns: #, File/Property,
-     Before, After, Reason. Non-code tasks (emails, requests to other teams)
-     are plain checkboxes without a repo tag.
+     Location, Before, After, Reason, Source. Location is `path:line` of the
+     Before value as read this run. Source says where the After value and the
+     Reason come from: `story` (with the criterion), a documentation URL you opened
+     this run for a vendor fact, or `Question <n>` for an assumption you could not verify.
+     A vendor or product fact with no Source goes into Questions instead of
+     the table or Notes. Non-code tasks (emails, requests to other teams) are
+     plain checkboxes without a repo tag.
    - **Questions:** unknowns from the investigation, missing repos, story
      ambiguities — plus every standing question already in the template.
    - **Notes:** risks, environment caveats, and one line listing the
@@ -104,7 +129,8 @@ story.
      link cells empty — they are completed during implementation.
 5. **Write the output file.** Name it `SB-` + the story file's basename
    (`PROJ-1001.md` → `SB-PROJ-1001.md`; `PROJ-1002 - Batch 1.md` →
-   `SB-PROJ-1002 - Batch 1.md`) and write it into SOUNDBOARD_DIR
+   `SB-PROJ-1002 - Batch 1.md`); for a pasted or fetched story, `SB-` + its
+   key (`SB-PROJ-1001.md`). Write it into SOUNDBOARD_DIR
    by absolute path, regardless of the current workspace. If file-editing
    tools refuse to write outside the workspace, write from the terminal. If
    the output file already exists: show a short summary of what would change
@@ -137,8 +163,24 @@ Multiple matches: list them and ask which. No match: STOP and ask.
    (search one and two levels deep).
 3. **Preflight.** Verify every repository needed by the remaining tasks
    exists locally; if one is missing, report which and STOP before touching
-   anything. Run `git status --porcelain` in each target repository and warn
-   about dirty working trees (informational only — continue after warning).
+   anything. In each target repository run `git status --porcelain` and
+   `git branch --show-current`, and warn about:
+   - a dirty working tree;
+   - the default branch: the current branch equals the one
+     `git symbolic-ref --short refs/remotes/origin/HEAD` names (without
+     `origin/`), or, when that is unset, is `main`, `master` or `develop`.
+     Say: "Edits will land on <branch>. This skill never creates a branch;
+     run `git switch -c <type>/<TICKET-ID>` first, or later - uncommitted
+     edits move with you."
+
+   Both warnings are informational only - continue after warning.
+   Then run the **baseline test** once per target repository, before the
+   first task, when no core task is ticked yet and Notes has no baseline line
+   (otherwise the tree already carries task edits; say it is skipped). Pick the
+   command as `references/test-commands.md` describes. Record the result as
+   one Notes line - `Baseline (<repo>): <command> - <passed | N failing: names>`
+   - so failures that predate the work stay separate from the task's. A
+   failing baseline is recorded, not fixed; continue.
 4. **Per-task loop.** For each unticked core task, in order:
    1. Announce the task.
    2. Non-code task (no repo tag — typically inform, email, request
@@ -150,8 +192,15 @@ Multiple matches: list them and ask which. No match: STOP and ask.
       must be present with the exact After value, and no file outside the
       task may have new changes (files preflight already reported as dirty
       are exempt unless the task edits them). Report any mismatch.
-   5. Show what changed: files touched and a brief summary of each change.
-   6. STOP and ask: approve, request changes, or skip?
+   5. Run the narrowest relevant check for the files the task changed (the
+      test file or package covering them, or the linter for a config
+      file), as `references/test-commands.md` describes. Compare a failure
+      with the baseline: one the baseline already had is pre-existing; a new
+      one follows the root-cause rule of the Testing phase. No narrower
+      check exists: say so - never invent a command or a result.
+   6. Show what changed: files touched, a brief summary of each change, and
+      the check run with its one-line result.
+   7. STOP and ask: approve, request changes, or skip?
       - Approve → tick a code task's checkbox to `- [x]` in the SB file
         (manual tasks stay unticked); continue.
       - Request changes → revise, show the result, stop again.
@@ -168,6 +217,11 @@ Multiple matches: list them and ask which. No match: STOP and ask.
 6. **Wrap-up.** Update the SB file (checkboxes, Testing table, add learnings
    to Notes). Report a per-repository list of changed files for manual
    review and commit, plus the manual tasks still open.
+   When any code task was approved, offer in one line: "Review the working
+   tree with roj-code-review-pr?" On a yes, chain to `roj-code-review-pr` on
+   the uncommitted changes, with the SB's Acceptance Criteria as the intent
+   it checks against; if the skill is not installed, say so and stop. Never
+   start the review unasked.
 7. **Tour (ask first).** Offer to refresh the tour (see Tour output) so it
    walks the code as implemented, not as planned. Build it only on a yes.
 

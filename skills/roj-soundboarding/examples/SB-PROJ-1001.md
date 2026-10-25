@@ -1,23 +1,6 @@
 # Example Platform / PROJ-1001
 
-> **Goal:** Validate that all Bamboo agents and build plans are compatible and operational after the ACC
-> environment upgrade to Bamboo 12.1.6, with every component on Java 21.
-
----
-
-## ⚠️ Java Version Requirement
-
-Bamboo 12.1.x requires **Java 21 as a minimum** (Java 17 support was dropped in Bamboo 12.0).
-
-| Java Version | Compatible with Bamboo 12.1.x? |
-|---|---|
-| Java 8 | ❌ Will NOT connect to a 12.1.x server |
-| Java 11 | ❌ Will NOT connect to a 12.1.x server |
-| Java 17 | ❌ Support dropped in Bamboo 12.0 |
-| Java 21 | ✅ Required minimum |
-| Java 25 | ✅ Supported — installed as an additional build capability |
-
----
+> Goal: Validate that all Bamboo agents and build plans are compatible and operational in the acceptance (ACC) environment after its upgrade to Bamboo 12.1.6.
 
 ## Acceptance Criteria
 
@@ -33,58 +16,52 @@ Bamboo 12.1.x requires **Java 21 as a minimum** (Java 17 support was dropped in 
 - [ ] If any critical issue is found that is not easy to solve, the responsible team is informed
   - [ ] Inform the release manager that not everything can be tested (ACC is isolated from external systems)
   - [ ] The prepared PR is kept up to date until the new Bamboo version is released to production
-- [ ] All remote agents are confirmed to be running Java 21. *(proposed)*
+- [ ] All remote agents run the Java version confirmed in the first Question. *(proposed)*
 - [ ] `ci-agent-image` and `ci-agent-helm` changes are reviewed and merged. *(proposed)*
 - [ ] A new agent image is built, tagged and published after the repository changes. *(proposed)*
 - [ ] The Helm chart is deployed to ACC with the new image tag and the ACC server URL, and agent connectivity is confirmed. *(proposed)*
 
----
-
 ## Core tasks
 
-- [ ] `plan-specs`: update the Bamboo API dependency in `pom.xml` to the 12.1.6 version.
-- [ ] `ci-agent-image`: apply the agent changes in the table below.
-- [ ] `ci-agent-helm`: set the ACC server URL and the new image tag (table below).
+- [ ] `plan-specs`: update the Bamboo API dependency in `pom.xml` to 12.1.6.
+- [ ] `ci-agent-image`: apply the agent changes in the first table below.
+- [ ] `ci-agent-helm`: set the ACC server URL and the new image tag (second table below).
 - [ ] Run the plan publisher on ACC and confirm all plans deploy.
-- [ ] Validate Bamboo REST API communication — Basic Auth is disabled by default on new instances, so check every call that relies on it.
+- [ ] Validate Bamboo REST API communication: check every call our integrations make (see the authentication Question).
 - [ ] `plan-specs`: add a test plan that calls another plan and reads back its result.
 - [ ] Inform the release manager about the scenarios ACC isolation prevents us from testing.
 
 ### `ci-agent-image`
 
-| # | File/Property | Before | After | Reason |
-|---|---|---|---|---|
-| 1 | `docker/Dockerfile` `BAMBOO_VERSION` | `9.6.9` | **`12.1.6`** | The agent JAR fetched at build time must match the server version; a 9.6.9 agent will not connect to a 12.1.x server. |
-| 2 | `docker/wrapper.conf` `wrapper.java.version.min` | `8` | **`21`** | Stops the wrapper from starting on a JDK that cannot connect. |
-| 3 | `docker/wrapper.conf` `wrapper.java.version.fallback` | `11` | **`21`** | The fallback must not drop to an incompatible JDK. |
-| 4 | `docker/agent.sh` `JAVA_FALLBACK` | `/opt/java/jdk-8/bin/java` | **`/opt/java/jdk-21/bin/java`** | If `/usr/bin/java` is missing at runtime, the old fallback starts the agent on Java 8. |
+| # | File/Property | Location | Before | After | Reason | Source |
+|---|---|---|---|---|---|---|
+| 1 | `BAMBOO_VERSION` | `docker/Dockerfile:12` | `9.6.9` | **`12.1.6`** | The image pins an older agent version than the upgraded server. | Story goal |
+| 2 | `wrapper.java.version.min` | `docker/wrapper.conf:7` | `8` | **`21`** *(proposed)* | The wrapper still allows a JDK 8 start; the target Java version is not confirmed. | Question 1 |
+| 3 | `wrapper.java.version.fallback` | `docker/wrapper.conf:8` | `11` | **`21`** *(proposed)* | Same as row 2 for the fallback. | Question 1 |
+| 4 | `JAVA_FALLBACK` | `docker/agent.sh:5` | `/opt/java/jdk-8/bin/java` | **`/opt/java/jdk-21/bin/java`** *(proposed)* | The fallback path still points at JDK 8. | Question 1 |
 
-> **Already compliant ✅ (checked, no change needed):**
-> - Java 21 is the system default via `alternatives` and `JAVA_HOME`.
-> - `--add-opens` JVM flags for Java 21 module access are already present in `wrapper.conf`.
+> **Already compliant (checked, no change needed):**
+> - `docker/Dockerfile:20` sets `JAVA_HOME` to `/opt/java/jdk-21`.
+> - `docker/wrapper.conf:15-17` already carries the `--add-opens` JVM flags.
 
 ### `ci-agent-helm`
 
-| # | File/Property | Before | After | Reason |
-|---|---|---|---|---|
-| 5 | `values.yaml` `agent_server_url` | production URL | ACC server URL (in `values-acc.yaml`) | Agents under test must not register with the production server. |
-| 6 | `values.yaml` `imagetag` (all 4 pools) | `2026-02-17_13-53` | new image tag | The current tag is the image built against Bamboo 9.6.9. |
-
----
+| # | File/Property | Location | Before | After | Reason | Source |
+|---|---|---|---|---|---|---|
+| 5 | `agent_server_url` | `values.yaml:9` | production URL | ACC server URL (in `values-acc.yaml`) | Agents under test must not register with the production server. | Story goal; Question 2 |
+| 6 | `imagetag` (all 4 pools) | `values.yaml:14,24,34,44` | `2026-02-17_13-53` | new image tag | The current tag is the image built from `ci-agent-image` before this change. | Row 1 |
 
 ## Questions
 
-- Do we add a slide to our sprint review presentation for this story?
+- Which Java version does Bamboo 12.1.6 require on remote agents? Not verified here - check the vendor's release notes. Rows 2-4 assume 21 until then.
 - What is the confirmed ACC server URL for `agent_server_url`? It is not in any checked-out repository.
-- Is Basic Auth still enabled on the upgraded ACC instance for our REST integrations?
+- Does 12.1.6 change the REST authentication our integrations rely on? Not verified here - check the vendor's release notes before the REST validation task.
 - Should we keep a dedicated `values-acc.yaml` so ACC and production Helm values never mix?
-- Repo `plan-publisher` is not cloned locally — investigate before implementation.
+- Repo `plan-publisher` is not cloned locally - investigate before implementation.
 
 ## Notes
 
-- Older JDKs (8, 11, 17) stay registered as executable capabilities for plans that need them; only the agent wrapper must run on Java 21.
-- ACC may still be linked to production repositories. Confirm the linked repository in the build logs; re-saving the configuration fixes the link.
-- ACC is isolated from some external systems, so not every scenario can be tested there.
+- ACC is isolated from some external systems, so not every scenario can be tested there (story).
 - Impacted repositories: `plan-specs`, `ci-agent-image`, `ci-agent-helm`, `plan-publisher` (not cloned).
 
 ## Testing
@@ -95,4 +72,4 @@ Bamboo 12.1.x requires **Java 21 as a minimum** (Java 17 support was dropped in 
 | TC-2 | Run the `plan-specs` unit tests on the new API version | All tests pass | | |
 | TC-3 | Run the new test plan that calls a second plan | The second plan's result is read back | | |
 | TC-4 | Deploy the Helm chart to ACC with the new image | All 4 agent pools show **Online** | | |
-| TC-5 | Inspect an agent build log | The agent reports Java 21 | | |
+| TC-5 | Inspect an agent build log | The agent starts on the Java version confirmed in Question 1 | | |

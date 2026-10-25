@@ -101,6 +101,107 @@ Uploads to the ingest API fail during its nightly restart. Retry up to
 three times with exponential backoff."
 }
 
+sb_work() { # orders service on main, sibling chart checkout, no gateway checkout
+  mkdir -p orders tests
+  cat > Dockerfile <<'EOF'
+FROM python:3.10-slim
+WORKDIR /app
+COPY . .
+RUN pip install .
+CMD ["python", "-m", "orders"]
+EOF
+  cat > pyproject.toml <<'EOF'
+[project]
+name = "orders"
+version = "1.8.0"
+requires-python = ">=3.10"
+EOF
+  printf '' > orders/__init__.py; printf '' > tests/__init__.py
+  cat > orders/pricing.py <<'EOF'
+def total(items):
+    """Sum quantity * unit price over (quantity, price) pairs."""
+    return sum(q * p for q, p in items)
+EOF
+  cat > tests/test_pricing.py <<'EOF'
+import unittest
+
+from orders.pricing import total
+
+
+class TestPricing(unittest.TestCase):
+    def test_total(self):
+        self.assertEqual(total([(2, 5), (1, 3)]), 13)
+EOF
+  cat > tests/test_legacy.py <<'EOF'
+import unittest
+
+
+class TestLegacy(unittest.TestCase):
+    def test_tax_table(self):
+        self.fail("known failure: legacy tax table not migrated")
+EOF
+  cat > PROJ-3001.md <<'EOF'
+# PROJ-3001: Move the orders service to Python 3.12
+
+As a platform engineer, I want the orders service and its deployment on
+Python 3.12, so that we stay on a supported runtime.
+
+## Acceptance criteria
+
+- The orders service image builds on Python 3.12.
+- The `orders-chart` repository deploys the new image tag.
+- The `orders-gateway` repository's client pin works with the new runtime.
+EOF
+  cat > SB-PROJ-3002.md <<'EOF'
+# Orders / PROJ-3002
+
+> Goal: Run the orders service on Python 3.12.
+
+## Acceptance Criteria
+
+- [ ] The orders service image builds on Python 3.12.
+- [ ] The `orders-chart` repository deploys the new image tag.
+
+## Core tasks
+
+- [ ] `orders-service`: raise the Python version in `Dockerfile` and `pyproject.toml`.
+- [ ] `orders-chart`: set the new image tag in `values.yaml`.
+- [ ] Tell the gateway team about the new runtime.
+
+### `orders-service`
+
+| # | File/Property | Location | Before | After | Reason | Source |
+|---|---|---|---|---|---|---|
+| 1 | base image | `Dockerfile:1` | `python:3.10-slim` | **`python:3.12-slim`** | Story: image builds on Python 3.12. | Story |
+| 2 | `requires-python` | `pyproject.toml:4` | `>=3.10` | **`>=3.12`** | Keeps the package metadata in line with the image. | Story |
+
+### `orders-chart`
+
+| # | File/Property | Location | Before | After | Reason | Source |
+|---|---|---|---|---|---|---|
+| 3 | `image.tag` | `values.yaml:4` | `1.8.0` | **`1.9.0`** | The chart must deploy the rebuilt image. | Story |
+
+## Questions
+
+-
+
+## Notes
+
+- Impacted repositories: `orders-service` (the open workspace), `orders-chart`.
+
+## Testing
+
+| Test Case ID | Situation | Expected result | Log | Build result link |
+|--------------|-----------|-----------------|-----|-------------------|
+| TC-1 | Run the orders unit tests | Only the known legacy failure remains | | |
+EOF
+  G add -A; G commit -qm "Orders service, story and SB"; push_all
+  mkdir -p ../orders-chart; git init -q -b main ../orders-chart
+  printf 'apiVersion: v2\nname: orders\nversion: 0.4.0\n' > ../orders-chart/Chart.yaml
+  printf 'replicaCount: 2\nimage:\n  repository: registry.example.com/orders\n  tag: "1.8.0"\n' > ../orders-chart/values.yaml
+  G -C ../orders-chart add -A; G -C ../orders-chart commit -qm "Orders chart"
+}
+
 case "$kind" in
 pyrepo)        init_repo main; py_base; py_retry_feature; push_all ;;
 pyrepo-dirty)  init_repo main; py_base; py_retry_feature; push_all
@@ -430,6 +531,39 @@ EOF
 | TC-1 | Server returns 503 twice, then 200 | Upload succeeds | | |
 EOF
   G add -A; G commit -qm "Add PROJ-2001 story and SB"; push_all ;;
+sb-work)       init_repo main; sb_work ;;
+sb-work-template) init_repo main; sb_work
+  cat > SB-template.md <<'EOF'
+# <Project name> / <TICKET-ID>
+
+> Goal:
+
+## Acceptance Criteria
+
+-
+
+## Core tasks
+
+-
+
+## Rollout
+
+- Change window:
+
+## Questions
+
+- Does the on-call rota need to know before this ships?
+
+## Notes
+
+-
+
+## Testing
+
+| Test Case ID | Situation | Expected result | Log | Build result link |
+|--------------|-----------|-----------------|-----|-------------------|
+EOF
+  G add -A; G commit -qm "Add team SB template"; push_all ;;
 idea-empty)    mkdir -p repo ;;
 idea-brief-2ng) init_repo main
   mkdir -p docs
