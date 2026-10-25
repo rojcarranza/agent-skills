@@ -89,7 +89,7 @@ never edits a repository's `.gitignore`.
 ## Opening the tours
 
 - **VS Code** — install `vsls-contrib.codetour` (already in this repo's
-  [`vscode/extensions.txt`](https://github.com/r0jjames/.dotfiles/blob/main/vscode/extensions.txt)), then command
+  [`vscode/extensions.txt`](https://github.com/rojcarranza/.dotfiles/blob/main/vscode/extensions.txt)), then command
   palette, `CodeTour: Open Tour`. The CodeTour sidebar lists all four.
 - **JetBrains** — no CodeTour plugin exists. Read the `.tour` files as JSON,
   or use `docs/codebase/` as the entry point and jump to the `file:line`
@@ -127,7 +127,7 @@ what is there and asks once.
 
 Any agent, with Node.js:
 
-    npx skills add r0jjames/agent-skills -s roj-tour-codebase
+    npx skills add rojcarranza/agent-skills -s roj-tour-codebase
 
 Or from a clone of this repo (adds the skills it depends on, plus the
 Windows copy fallback):

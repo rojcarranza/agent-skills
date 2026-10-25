@@ -36,7 +36,7 @@ error text. Useful content:
 
 Any agent, with Node.js:
 
-    npx skills add r0jjames/agent-skills -s roj-investigate-issue
+    npx skills add rojcarranza/agent-skills -s roj-investigate-issue
 
 Or from a clone of this repo (adds the skills it depends on, plus the
 Windows copy fallback):

@@ -38,7 +38,7 @@ A clean PR is posted as "No findings." — the skill never invents findings.
 
 ## Automatic runs
 
-In the [dotfiles](https://github.com/r0jjames/.dotfiles) setup a Claude Code
+In the [dotfiles](https://github.com/rojcarranza/.dotfiles) setup a Claude Code
 hook (`pr_review_hook.py`) asks Claude to run this skill right after it opens
 a PR in an allowlisted repository. Without that hook the skill only runs
 when asked.
@@ -47,7 +47,7 @@ when asked.
 
 Any agent, with Node.js:
 
-    npx skills add r0jjames/agent-skills -s roj-review-pr-comment
+    npx skills add rojcarranza/agent-skills -s roj-review-pr-comment
 
 Or from a clone of this repo:
 

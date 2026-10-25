@@ -50,7 +50,7 @@ condensed tables in `SKILL.md` are a last-resort fallback.
 
 Any agent, with Node.js:
 
-    npx skills add r0jjames/agent-skills -s roj-code-review-pr-fast
+    npx skills add rojcarranza/agent-skills -s roj-code-review-pr-fast
 
 Or from a clone of this repo (adds the skills it depends on, plus the
 Windows copy fallback):
