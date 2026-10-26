@@ -72,7 +72,7 @@ tools, is in [docs/workflow.md](docs/workflow.md).
 | Skill | What it does |
 | --- | --- |
 | [`roj-code-review-pr`](skills/roj-code-review-pr/USAGE.md) | Reviews a branch, a teammate's branch or a Bitbucket Data Center PR, without a checkout: `auto` picks a quick chat-only pass or a full review (change summary, severity/confidence-tagged findings, a `-review.md` report) from the size and risk of the diff. Optional intent source (PR text, Jira story, SB acceptance criteria). Loads language/platform rules (Java, Python, Bash, Go, Bamboo, Docker, k8s, Helm) only for stacks the diff touches. Git-only. |
-| [`roj-review-pr-comment`](skills/roj-review-pr-comment/USAGE.md) | Reviews an open GitHub PR with the same method and posts one `COMMENT` review with inline comments via `gh`. The only skill that writes to the PR host. |
+| [`roj-review-pr-comment`](skills/roj-review-pr-comment/USAGE.md) | Reviews a Bitbucket Data Center PR with the same method, fetched by ref with no checkout, and drafts the findings as pasteable `path:line` comments. Posts them through the Bitbucket REST API only when asked and a `BITBUCKET_TOKEN` is set. The only skill that writes to the PR host. |
 | [`roj-explain-logic`](skills/roj-explain-logic/USAGE.md) | Guided walkthrough of a PR, branch, file or function: big picture → execution flow → why → gotchas, with language lenses. Optional explain-and-review mode. |
 | [`roj-explain-feature-changes`](skills/roj-explain-feature-changes/USAGE.md) | Explains your own branch against `develop`/`main` with traced before/after behaviour, then writes PR-ready text and per-change comments. |
 | [`roj-tour-codebase`](skills/roj-tour-codebase/USAGE.md) | Onboarding into an unfamiliar repo: a discovery pass, then a chained four-tour CodeTour series in `.tours/`. |
@@ -199,12 +199,14 @@ Build a fresh one per run, so no run sees another's output:
 
 ```bash
 evals/fixtures/build.sh <fixture.repo> /tmp/run-1          # repo at /tmp/run-1/repo
-evals/fixtures/fake-gh.sh /tmp/run-1 <fixture.gh>          # PR-comment evals only
+python3 evals/fixtures/fake_bitbucket.py /tmp/run-1 <fixture.bitbucket> &   # PR-comment evals only
 ```
 
-The fake `gh` serves PR #123 from that repository and records every call
-and review POST under `/tmp/run-1/gh-state/` instead of reaching GitHub;
-put `/tmp/run-1/bin` first on the run's `PATH` and grade from those files.
+The fake Bitbucket serves PR 7 of `APP/uploader` from that repository on
+127.0.0.1 and prints `BITBUCKET_URL=http://127.0.0.1:<port>`; export that and
+`BITBUCKET_TOKEN=test-token` for the run. It records every request line and
+the comments it accepts under `/tmp/run-1/bb-state/` instead of reaching a
+real server; stop it afterwards and grade from those files.
 
 `test_skills.py` checks that every fixture builds and the files' shape,
 not the scores.

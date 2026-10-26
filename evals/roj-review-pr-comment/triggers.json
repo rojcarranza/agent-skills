@@ -1,10 +1,10 @@
 [
   {
-    "query": "review PR #123 and comment",
+    "query": "review PR 142 and comment",
     "should_trigger": true
   },
   {
-    "query": "post a review on https://github.com/acme/billing/pull/58",
+    "query": "post a review on https://bitbucket.example.com/projects/APP/repos/billing/pull-requests/58/overview",
     "should_trigger": true
   },
   {
@@ -12,23 +12,23 @@
     "should_trigger": true
   },
   {
-    "query": "here's the PR link https://github.com/org/infra-charts/pull/9 - review it",
+    "query": "draft review comments for PR 77 that I can paste into Bitbucket",
     "should_trigger": true
   },
   {
-    "query": "the post-PR hook fired for PR 31, run the automated review",
+    "query": "here's the Bitbucket PR link https://bitbucket.example.com/projects/OPS/repos/infra-charts/pull-requests/9/overview - review it and comment",
     "should_trigger": true
   },
   {
-    "query": "review my teammate's open PR #77 on github and put the findings as review comments",
+    "query": "review my teammate's open PR 31 on bitbucket and put the findings as comments on it",
     "should_trigger": true
   },
   {
-    "query": "leave review comments on the PR for the branch I'm on",
+    "query": "write inline review comments for pull request 402 with file and line, I will paste them",
     "should_trigger": true
   },
   {
-    "query": "do an automated code review on pull request 402 and post it to GitHub",
+    "query": "review PR 12 and post the comments to Bitbucket",
     "should_trigger": true
   },
   {
@@ -36,7 +36,11 @@
     "should_trigger": false
   },
   {
-    "query": "summarize the comments people left on PR #88",
+    "query": "review PR 88, just tell me what is wrong, no comments",
+    "should_trigger": false
+  },
+  {
+    "query": "summarize the comments people left on PR 88",
     "should_trigger": false
   },
   {
@@ -44,7 +48,7 @@
     "should_trigger": false
   },
   {
-    "query": "approve PR 55 if CI is green",
+    "query": "approve PR 55 if the build is green",
     "should_trigger": false
   },
   {
@@ -52,15 +56,19 @@
     "should_trigger": false
   },
   {
-    "query": "explain what PR #12 changes, I don't need comments",
+    "query": "explain what PR 12 changes, I don't need comments",
     "should_trigger": false
   },
   {
-    "query": "why is CI failing on PR 90?",
+    "query": "why is the Bamboo build failing on PR 90?",
     "should_trigger": false
   },
   {
-    "query": "write the description for PR #33",
+    "query": "write the description for PR 33",
+    "should_trigger": false
+  },
+  {
+    "query": "review this GitHub pull request and post the comments",
     "should_trigger": false
   }
 ]

@@ -47,6 +47,7 @@ SHARED = {
         "roj-explain-feature-changes/references",
     ),
     REVIEW + "forge-bitbucket-dc.md": (
+        "roj-review-pr-comment/references",
         "roj-explain-logic/references",
     ),
     REVIEW + "graph-first.md": (
