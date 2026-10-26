@@ -52,14 +52,14 @@ SHARED = {
     ),
     REVIEW + "graph-first.md": (
         "roj-review-pr-comment/references",
-        "roj-tour-codebase/references",
+        "roj-onboard-repo/references",
         "roj-explain-logic/references",
         "roj-explain-feature-changes/references",
         "roj-investigate-issue/references",
         "roj-soundboarding/references",
         "roj-grill-plan/references",
     ),
-    "roj-tour-codebase/references/mermaid.md": (
+    "roj-onboard-repo/references/mermaid.md": (
         "roj-explain-logic/references",
         "roj-explain-feature-changes/references",
     ),

@@ -35,8 +35,8 @@ skills:
   roj-soundboarding:
     source: .//skills/roj-soundboarding
     targets: [copilot]
-  roj-tour-codebase:
-    source: .//skills/roj-tour-codebase
+  roj-onboard-repo:
+    source: .//skills/roj-onboard-repo
     targets: [copilot]
   # Community skills our skills chain to (docs/community-skills.md), all
   # Copilot only: roj-idea-to-project chains to none of them.

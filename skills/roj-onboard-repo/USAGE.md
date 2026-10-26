@@ -1,12 +1,15 @@
-# roj-tour-codebase - usage
+# roj-onboard-repo - usage
 
 Turns a repository you have never worked on into a written onboarding guide in
 `.onboarding/`: Mermaid diagrams of the architecture and one core flow, a code
 walkthrough with `path:line` anchors, a reading order, how to run and test it,
 and a page on reviewing a colleague's PR in that repo.
 
-The guide is the output. Chat carries a short handoff - the explanation
-itself lives in Markdown files you open in the IDE preview.
+The guide is the output, in two forms of the same content: Markdown files you
+can open in the IDE preview and review in Git-style diffs, and one
+self-contained `index.html` with navigation, cards, tables and rendered
+diagrams. Chat carries a short handoff - the explanation itself lives in the
+files.
 
 ## When to use
 
@@ -36,8 +39,8 @@ Explicit invocation differs per agent:
 
 | Agent | Command |
 | --- | --- |
-| Copilot, VS Code | `/roj-tour-codebase` |
-| Copilot, JetBrains | `/skill:roj-tour-codebase` |
+| Copilot, VS Code | `/roj-onboard-repo` |
+| Copilot, JetBrains | `/skill:roj-onboard-repo` |
 
 Both are personal scope once installed, so they reach every project with no
 per-repository seeding.
@@ -53,8 +56,11 @@ per-repository seeding.
 4. Picks the one flow worth walking - the one you named, else the one the
    README exercises, else the most tested, else the deepest - and says which
    rule chose it. There is no plan checkpoint.
-5. Writes the guide, then checks every `path:line` exists and every diagram
-   follows the Mermaid rules before reporting.
+5. Writes the Markdown guide, then builds `index.html` from it with no second
+   investigation.
+6. Checks every `path:line` exists, every diagram follows the Mermaid rules,
+   and the HTML holds the same diagrams, anchors and headings as the Markdown,
+   before reporting.
 
 ## Output
 
@@ -62,12 +68,14 @@ per-repository seeding.
 
 | File | Answers |
 | --- | --- |
+| `index.html` | the whole guide on one page: sidebar over README, flows, modules and PR review, cards, tables, light and dark themes, rendered diagrams, every `path:line` as a visible code reference |
 | `README.md` | what is this, how is it built, where do I start. System map diagram, core flow diagram, run/test table, reading order, walkthrough, glossary, open questions |
 | `flows/NN-<slug>.md` | what happens, step by step, when this runs. One to three flows |
 | `reviewing-prs.md` | a colleague's PR touches X: what do I read and check. Area map, hotspots, silent seams, questions, how to run a test |
 | `modules.md` | what each module owns and what depends on it |
 
-Every file carries the commit it was built from and cites `path:line` for each
+The Markdown is the checked source; `index.html` is generated from it and a
+check fails if the two diverge. Every file carries the commit it was built from and cites `path:line` for each
 claim; what the code does not settle is marked `[?]`.
 
 `.onboarding/` is personal. The run checks whether Git ignores it and, when it
@@ -79,7 +87,17 @@ for you to run. The skill never edits a repository's `.gitignore`.
 
 ## Opening the guide
 
-Open `.onboarding/README.md` in the Markdown preview, not in chat:
+Start with `index.html`, not chat:
+
+- **Lavish** - when `lavish-axi` is on your `PATH`, the run prints
+  `lavish-axi <path>/.onboarding/index.html`; run it to read the page and
+  annotate any claim you doubt.
+- **A browser** - otherwise open the file directly. The page needs network
+  only for the Mermaid script, pinned to one version on `cdn.jsdelivr.net`. If
+  that is blocked or offline, the guide still reads in full and each diagram
+  shows its Mermaid source with a one-line notice.
+
+The Markdown opens in the IDE preview:
 
 - **VS Code** - the built-in Markdown preview renders Mermaid since 1.121. If
   you installed `bierner.markdown-mermaid` and the diagrams are blank, remove
@@ -89,6 +107,9 @@ Open `.onboarding/README.md` in the Markdown preview, not in chat:
   Studio has no Mermaid preview.
 - **GitHub or GitLab** - renders Mermaid natively.
 - **Anywhere else** - paste a block into <https://mermaid.live>.
+
+If you want the page in a browser from the IDE: right-click `index.html`,
+Open in Browser.
 
 Bitbucket Data Center renders no Mermaid, so diagrams stay local and PR
 comments stay plain text.
@@ -130,6 +151,8 @@ The detail lives in `references/` as prose checklists - edit them directly:
 - `flow-tracing.md` - how the core flow is picked, and entry-point signals per
   stack (Java/Spring, Python, Go, Node/TypeScript, Bash, Bamboo,
   Docker/Kubernetes/Helm).
+- `html-page.md` - the `index.html` contract, page skeleton and the check
+  script that compares it with the Markdown.
 - `mermaid.md` - the diagram subset, syntax, pitfalls, the optional parse
   check, viewing. Shared: edit it here, then run
   `python3 tools/sync_shared.py`.

@@ -1,5 +1,5 @@
 {
-  "skill_name": "roj-tour-codebase",
+  "skill_name": "roj-onboard-repo",
   "evals": [
     {
       "id": 1,
@@ -7,7 +7,7 @@
       "fixture": {
         "repo": "pyrepo-clean"
       },
-      "expected_output": "A Markdown onboarding guide in .onboarding/ with a system map and a core-flow diagram, a reading order, a run and test table and a reviewing-prs page; no tours.",
+      "expected_output": "A Markdown onboarding guide in .onboarding/ plus a self-contained index.html with a system map and a core-flow diagram, a reading order, a run and test table and a reviewing-prs page; no tours.",
       "expectations": [
         "Reads the README or manifest by absolute path before writing anything",
         "Writes .onboarding/README.md with at least one flowchart and at least one sequenceDiagram in mermaid fences, and no other diagram type outside flowchart, sequenceDiagram, classDiagram, stateDiagram-v2 and erDiagram",
@@ -17,7 +17,11 @@
         "Does not create a .tours/ directory",
         "Shows no plan checkpoint, lists no defects and gives no improvement advice",
         "Writes nothing outside .onboarding/ and runs no git command that writes",
-        "Offers the .git/info/exclude line for .onboarding/ without running it or editing .gitignore"
+        "Offers the .git/info/exclude line for .onboarding/ without running it or editing .gitignore",
+        "Writes .onboarding/index.html as one self-contained page: inline CSS and JavaScript, a sidebar or top navigation across README, flows, modules and reviewing-prs, cards and tables, and a readable dark and light theme",
+        "index.html holds exactly the same Mermaid diagrams, path:line anchors and headings as the Markdown, built without a second investigation, and shows every path:line as a visible code reference",
+        "index.html loads Mermaid only from a cdn.jsdelivr.net URL pinned to an exact version, never latest, and keeps each diagram's Mermaid source in the page with a one-line notice shown when the script fails to load",
+        "The closing message says how to open index.html: lavish-axi followed by the path when lavish-axi is on PATH, otherwise in a browser, and does not run lavish-axi itself"
       ]
     },
     {
@@ -44,7 +48,8 @@
         "Writes .onboarding/README.md with the system map flowchart and the core flow sequenceDiagram",
         "Writes exactly one flow and does not write .onboarding/modules.md",
         "Every path:line the guide cites exists in the repo",
-        "Does not create a .tours/ directory"
+        "Does not create a .tours/ directory",
+        "index.html holds only the system map and the one flow, matching the Markdown, and no modules section"
       ]
     },
     {
@@ -71,7 +76,7 @@
         "Tries the README or manifest by absolute path and then by the other path forms before giving up",
         "Prints the failing path and the tool's error message verbatim",
         "Prints the three checks: chat in agent mode, IDE project root is the repository root, the agent may read the workspace",
-        "Writes no .onboarding/ or .tours/ file and presents no onboarding content from guesses"
+        "Writes no .onboarding/ (including index.html) or .tours/ file and presents no onboarding content from guesses"
       ]
     },
     {
@@ -100,6 +105,20 @@
         "Completes the run and writes .onboarding/README.md with a flowchart and a sequenceDiagram",
         "Prints Reference unavailable with the name of each reference it could not open",
         "Does not search the disk for the skill's folder or for the reference files"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "onboard me to this repo",
+      "fixture": {
+        "repo": "pyrepo-clean",
+        "condition": "the browser blocks cdn.jsdelivr.net when index.html is opened"
+      },
+      "expected_output": "index.html still reads in full and shows each diagram as Mermaid source with a notice.",
+      "expectations": [
+        "index.html contains every diagram's Mermaid source as a readable code block in the page itself",
+        "A one-line notice tells the reader the diagrams could not load, shown only when the script fails",
+        "Navigation, cards, tables and the path:line code references still show without the script"
       ]
     }
   ]

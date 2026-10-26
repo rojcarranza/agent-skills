@@ -234,7 +234,7 @@ class TestGraphFirst(unittest.TestCase):
     """Skills that read code ask a graphify graph first when the repo has
     one (references/graph-first.md)."""
 
-    USES_GRAPH = ("roj-tour-codebase", "roj-explain-logic",
+    USES_GRAPH = ("roj-onboard-repo", "roj-explain-logic",
                   "roj-explain-feature-changes", "roj-code-review-pr",
                   "roj-review-pr-comment", "roj-investigate-issue",
                   "roj-soundboarding", "roj-grill-plan")
@@ -267,7 +267,7 @@ class TestGraphFirst(unittest.TestCase):
     def test_command_rules_allow_the_graph_queries(self):
         # Skills whose rules list allowed commands must also allow the
         # read-only queries, or the graph step cannot run there.
-        for name in ("roj-tour-codebase", "roj-explain-feature-changes",
+        for name in ("roj-onboard-repo", "roj-explain-feature-changes",
                      "roj-code-review-pr", "roj-review-pr-comment"):
             with self.subTest(name):
                 text = (SKILLS / name / "SKILL.md").read_text("utf-8")
@@ -306,12 +306,12 @@ class TestGraphFirst(unittest.TestCase):
             "`Graph: none found, searched directly`"})
 
 
-class TestTourCodebaseOnboardingGuide(unittest.TestCase):
-    """roj-tour-codebase writes a Markdown guide under .onboarding/ and must
+class TestOnboardRepoGuide(unittest.TestCase):
+    """roj-onboard-repo writes a Markdown guide under .onboarding/ and must
     run when the host cannot expand `~` or open the skill's own folder: a
     JetBrains run once failed every read and still wrote tours."""
 
-    TOUR = SKILLS / "roj-tour-codebase"
+    ONBOARD = SKILLS / "roj-onboard-repo"
     # Home-directory shortcuts, the skill-root variable and a search of the
     # agents' skill folders: each needs a path the host may not resolve.
     LOOKUP_RE = re.compile(
@@ -320,8 +320,8 @@ class TestTourCodebaseOnboardingGuide(unittest.TestCase):
         r"|installed dir", re.I)
 
     def texts(self):
-        yield self.TOUR / "SKILL.md"
-        yield from sorted((self.TOUR / "references").glob("*.md"))
+        yield self.ONBOARD / "SKILL.md"
+        yield from sorted((self.ONBOARD / "references").glob("*.md"))
 
     def test_no_home_or_skill_folder_lookups(self):
         for f in self.texts():
@@ -330,7 +330,7 @@ class TestTourCodebaseOnboardingGuide(unittest.TestCase):
                     self.assertIsNone(self.LOOKUP_RE.search(line), line)
 
     def test_skill_md_is_complete_without_references(self):
-        flat = " ".join((self.TOUR / "SKILL.md").read_text("utf-8").split())
+        flat = " ".join((self.ONBOARD / "SKILL.md").read_text("utf-8").split())
         for needle in (".onboarding/", "Read gate", "stop and write nothing",
                        "Reference unavailable", "check-ignore",
                        "`flowchart TD`", "`sequenceDiagram`",
@@ -339,16 +339,91 @@ class TestTourCodebaseOnboardingGuide(unittest.TestCase):
                 self.assertIn(needle, flat)
 
     def test_tours_are_on_request_only(self):
-        flat = " ".join((self.TOUR / "SKILL.md").read_text("utf-8").split())
+        flat = " ".join((self.ONBOARD / "SKILL.md").read_text("utf-8").split())
         self.assertIn("CodeTour, on request only", flat)
         self.assertIn("No default tours", flat)
         for old in ("01-orientation.tour", "plan checkpoint, then"):
             self.assertNotIn(old, flat)
         for gone in ("tour-plan.md", "step-writing.md"):
-            self.assertFalse((self.TOUR / "references" / gone).exists())
+            self.assertFalse((self.ONBOARD / "references" / gone).exists())
+
+    def script(self, reference, name):
+        """The fenced python block that follows `name` in a reference."""
+        text = (self.ONBOARD / "references" / reference).read_text("utf-8")
+        tail = text[text.index(f"`{name}`:"):]
+        return re.search(r"```python\n(.*?)\n```", tail, re.S).group(1)
+
+    def run_script(self, code, *args):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "check.py"
+            path.write_text(code, encoding="utf-8")
+            return subprocess.run([sys.executable, str(path), *map(str, args)],
+                                  capture_output=True, text=True)
+
+    GUIDE_DIAGRAM = "flowchart TD\n  a[\"x - a.py\"] --> b[\"y\"]"
+
+    def build_guide(self, tmp, html_diagram=None):
+        """A one-file guide plus an index.html built from it."""
+        d = Path(tmp) / ".onboarding"
+        d.mkdir()
+        (Path(tmp) / "a.py").write_text("one\ntwo\nthree\n", "utf-8")
+        (d / "README.md").write_text(
+            "# R\n\n## 2. System map\n\n```mermaid\n" + self.GUIDE_DIAGRAM
+            + "\n```\n\nSee `a.py:2-3`.\n", "utf-8")
+        src = (html_diagram or self.GUIDE_DIAGRAM).replace(
+            "&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        (d / "index.html").write_text(
+            '<html><body><div id="mermaid-banner"></div><h3>2. System map</h3>'
+            '<figure class="diagram"><p class="diagram-note">n</p>'
+            f'<pre class="diagram-src">{src}</pre></figure>'
+            '<code class="ref">a.py:2-3</code>'
+            '<script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/'
+            'mermaid.min.js"></script></body></html>', "utf-8")
+        return d
+
+    def test_html_check_script_catches_divergence(self):
+        code = self.script("html-page.md", "check-html.py")
+        with tempfile.TemporaryDirectory() as tmp:
+            d = self.build_guide(tmp)
+            ok = self.run_script(code, d)
+            self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
+        with tempfile.TemporaryDirectory() as tmp:
+            d = self.build_guide(tmp, self.GUIDE_DIAGRAM + "\n  b --> c")
+            bad = self.run_script(code, d)
+            self.assertEqual(bad.returncode, 1)
+            self.assertIn("diagrams differ", bad.stdout)
+
+    def test_anchor_check_script_catches_bad_anchors(self):
+        code = self.script("templates.md", "check-anchors.py")
+        with tempfile.TemporaryDirectory() as tmp:
+            d = self.build_guide(tmp)
+            self.assertEqual(self.run_script(
+                code, tmp, d / "README.md").returncode, 0)
+            (d / "README.md").write_text("`a.py:9` `missing.py:1`", "utf-8")
+            bad = self.run_script(code, tmp, d / "README.md")
+            self.assertEqual(bad.returncode, 1)
+            self.assertIn("a.py:9", bad.stdout)
+
+    def test_index_html_contract(self):
+        flat = " ".join((self.ONBOARD / "SKILL.md").read_text("utf-8").split())
+        for needle in ("index.html", "references/html-page.md",
+                       "lavish-axi", "cdn.jsdelivr.net/npm/mermaid@",
+                       "never `latest`", "HTML matches Markdown"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, flat)
+        page = (self.ONBOARD / "references" / "html-page.md").read_text("utf-8")
+        urls = set(re.findall(r"https://cdn\.jsdelivr\.net/[^\s\"'),`]+", page))
+        self.assertEqual(len(urls), 1, urls)
+        self.assertRegex(next(iter(urls)), r"/npm/mermaid@\d+\.\d+\.\d+/")
+        for needle in ('integrity="sha384-', 'class="diagram-src"',
+                       'id="mermaid-banner"', 'prefers-color-scheme: dark',
+                       'data-theme="dark"', 'code class="ref"',
+                       "lavish-axi <ROOT>/.onboarding/index.html"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, page)
 
     def test_templates_ship_the_anchor_check(self):
-        text = (self.TOUR / "references" / "templates.md").read_text("utf-8")
+        text = (self.ONBOARD / "references" / "templates.md").read_text("utf-8")
         self.assertIn("check-anchors.py", text)
         self.assertIn("sys.exit(1 if bad else 0)", text)
 
@@ -588,7 +663,7 @@ ROUTES = {
         "stress-test this plan and poke holes in it",
         "resolve the open questions in the SB",
     ],
-    "roj-tour-codebase": [
+    "roj-onboard-repo": [
         "onboard me to this repo",
         "tour this codebase",
         "where do I start in this project I just joined",

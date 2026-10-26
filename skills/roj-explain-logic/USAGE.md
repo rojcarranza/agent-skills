@@ -19,7 +19,7 @@ to ...").
 | Understand a file | `/roj-explain-logic src/foo/bar.py` |
 | Understand a selection | select code → `Explain the logic in this selection step by step` |
 | Understand + flag risks | `/roj-explain-logic explain and review PR #142` |
-| New repo, big picture first | use `roj-tour-codebase` first, then `/roj-explain-logic branch feature/x` |
+| New repo, big picture first | use `roj-onboard-repo` first, then `/roj-explain-logic branch feature/x` |
 | Save as replayable tour | add `then create a code tour` (needs the CodeTour extension in VS Code) |
 | Terse output (save tokens) | add `use caveman mode` |
 

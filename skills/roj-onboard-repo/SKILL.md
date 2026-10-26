@@ -1,6 +1,6 @@
 ---
-name: roj-tour-codebase
-description: Onboard a developer onto an unfamiliar repository with a written guide they open in the IDE - Mermaid diagrams of the architecture and one core flow, a code walkthrough anchored to path:line, a reading order, how to run and test it, and a page on reviewing a colleague's PR in this repo. Use when the user says "onboard me to this repo", "tour this codebase", "teach me how this works", "help me understand this repo", "where do I start", "walk me through the architecture", "draw the architecture and explain the code", or joins a project they have never worked on. Writes .onboarding/ and stops on a failed read instead of guessing; CodeTour files only on request. For a single PR, branch, file or function use roj-explain-logic; for defects use roj-code-review-pr.
+name: roj-onboard-repo
+description: Onboard a developer onto an unfamiliar repository with a written guide they open in the IDE or a browser - Mermaid diagrams of the architecture and one core flow, a code walkthrough anchored to path:line, a reading order, how to run and test it, and a page on reviewing a colleague's PR in this repo. Use when the user says "onboard me to this repo", "tour this codebase", "teach me how this works", "help me understand this repo", "where do I start", "walk me through the architecture", "draw the architecture and explain the code", or joins a project they have never worked on. Writes .onboarding/ as Markdown plus a single-page index.html, and stops on a failed read instead of guessing; CodeTour files only on request. For a single PR, branch, file or function use roj-explain-logic; for defects use roj-code-review-pr.
 license: MIT
 ---
 
@@ -11,9 +11,11 @@ their IDE: what it is, how it is built (diagram), what happens when it runs
 (diagram plus a step-by-step walkthrough of the real code), where to start
 reading, and what to look at when a colleague's PR touches it.
 
-The guide is the deliverable, a set of Markdown files in `<ROOT>/.onboarding/`.
-Chat carries a short handoff, not the walkthrough. CodeTour files are an
-extra, written only when the reader asks.
+The guide is the deliverable: Markdown files in `<ROOT>/.onboarding/` as the
+checked source, and `.onboarding/index.html`, the same content as one
+self-contained page with navigation, cards and rendered diagrams. Chat carries
+a short handoff, not the walkthrough. CodeTour files are an extra, written only
+when the reader asks.
 
 ## Rules for the whole run
 
@@ -162,6 +164,17 @@ per area. Grounded in this repo's code, never generic.
 Diagrams: the five types in `references/mermaid.md`, nothing else. At most 15
 nodes and 25 edges each, at most eight diagrams per run, every label quoted.
 
+**Then `index.html`**, built from the Markdown you just wrote, never from a
+second look at the code (`references/html-page.md` has the skeleton, the
+mapping and the check script). Inline CSS and JavaScript in one file, a sidebar
+over README, flows, modules and reviewing PRs, cards, tables, readable light
+and dark themes. Every `path:line` is a visible `<code class="ref">`. Diagrams
+render from one pinned `cdn.jsdelivr.net/npm/mermaid@<x.y.z>` script (never
+`latest`); each diagram's Mermaid source also sits in the page as a code block,
+which stays visible with a one-line notice when the script fails to load or a
+diagram fails to render. The page holds exactly the Markdown's diagrams,
+anchors and headings, no more and no fewer.
+
 ## Phase 4 - Verify (mandatory, cheap)
 
 Nothing unanchored ships. A failing item is repaired from the ledger or
@@ -176,16 +189,23 @@ dropped.
 3. **Truth.** Every diagram node is a real thing in the ledger and every edge
    is a call, import or message you read. Every flow step cites the line that
    does it.
-4. No defect talk, no improvement advice, no tour files unless asked.
+4. **HTML matches Markdown.** `index.html` holds the same diagrams, `path:line`
+   anchors and headings as the Markdown, loads Mermaid only from the pinned
+   CDN URL, and keeps the source-and-notice fallback. Run the check script in
+   `references/html-page.md`; without it, compare the diagram count and the
+   anchors by hand.
+5. No defect talk, no improvement advice, no tour files unless asked.
 
 ## Phase 5 - Handoff (15 lines or fewer)
 
 In chat, no diagram (chat panels are not known to render Mermaid):
 
-1. The path of `<ROOT>/.onboarding/README.md` and how to open it: VS Code, the
-   built-in Markdown preview; JetBrains, the Markdown preview with the
-   *Mermaid* plugin ticked under Settings, Plugins. Details:
-   `references/mermaid.md`.
+1. The path of `<ROOT>/.onboarding/index.html` and how to open it: in Lavish
+   when `command -v lavish-axi` finds it, as `lavish-axi <path>` (print it,
+   never run it); otherwise in a browser. The Markdown opens in the IDE
+   preview: VS Code built in; JetBrains with the *Mermaid* plugin ticked under
+   Settings, Plugins. Details: `references/mermaid.md`,
+   `references/html-page.md`.
 2. The flow chosen, in one sentence, and the rule that chose it.
 3. The ignore line when `.onboarding/` is not ignored (printed, not run).
 4. Open questions, as numbered `[?]` items.
