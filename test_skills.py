@@ -382,10 +382,10 @@ class TestEvals(unittest.TestCase):
     install carries them. triggers.json feeds scripts/run_eval.py;
     evals.json follows skill-creator's schema, plus a "fixture" naming the
     sandbox repo (evals/fixtures/build.sh) and, for the PR-comment skill,
-    the fake gh mode (evals/fixtures/fake-gh.sh)."""
+    the fake Bitbucket mode (evals/fixtures/fake_bitbucket.py)."""
 
     FIXTURES = ROOT / "evals" / "fixtures"
-    GH_MODES = {"normal", "reviewed", "noauth"}
+    BITBUCKET_MODES = {"normal", "reviewed", "prior"}
     CLAUDE_MODES = {"missing", "present", "outdated"}
     # Fixtures that are a bare folder, for skills that start a project.
     NO_GIT = {"idea-empty"}
@@ -410,8 +410,9 @@ class TestEvals(unittest.TestCase):
             for e in data["evals"]:
                 with self.subTest(evals=d.name, id=e["id"]):
                     self.assertIn(e["fixture"]["repo"], kinds)
-                    if "gh" in e["fixture"]:
-                        self.assertIn(e["fixture"]["gh"], self.GH_MODES)
+                    if "bitbucket" in e["fixture"]:
+                        self.assertIn(e["fixture"]["bitbucket"],
+                                      self.BITBUCKET_MODES)
                     if "claude" in e["fixture"]:
                         self.assertIn(e["fixture"]["claude"],
                                       self.CLAUDE_MODES)
@@ -435,12 +436,6 @@ class TestEvals(unittest.TestCase):
                         self.assertFalse((dest / "repo" / ".git").exists())
                     else:
                         self.assertTrue((dest / "repo" / ".git").is_dir())
-            gh = Path(tmp) / "pyrepo"
-            run = subprocess.run(
-                [BASH, str(self.FIXTURES / "fake-gh.sh"), str(gh),
-                 "normal"], capture_output=True, text=True)
-            self.assertEqual(run.returncode, 0, run.stderr)
-            self.assertTrue((gh / "bin" / "gh").is_file())
             sp = Path(tmp) / "idea-empty"
             run = subprocess.run(
                 [BASH, str(self.FIXTURES / "fake-claude.sh"), str(sp),
@@ -757,3 +752,266 @@ class TestNoStaleAccount(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def load_module(path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class TestReviewPrCommentSkill(unittest.TestCase):
+    """roj-review-pr-comment drafts first and talks to Bitbucket Data Center
+    only; the pieces that make that true are checked here."""
+
+    SKILL = SKILLS / "roj-review-pr-comment"
+
+    def text(self, name):
+        return (self.SKILL / name).read_text("utf-8")
+
+    def tools(self):
+        return re.search(r"^allowed-tools: (.*)$", self.text("SKILL.md"),
+                         re.M).group(1)
+
+    def test_no_github_left(self):
+        for f in sorted([*self.SKILL.glob("*.md"), *self.SKILL.rglob("*.py"),
+                         ROOT / "evals" / "roj-review-pr-comment"
+                         / "evals.json",
+                         ROOT / "evals" / "roj-review-pr-comment"
+                         / "triggers.json"]):
+            body = f.read_text("utf-8")
+            if f.name == "triggers.json":   # one negative names GitHub
+                body = body.replace("review this GitHub pull request and "
+                                    "post the comments", "")
+            with self.subTest(file=f.name):
+                self.assertIsNone(
+                    re.search(r"(?i)github|gh-axi|\bgh\b", body))
+        self.assertFalse((ROOT / "evals" / "fixtures" / "fake-gh.sh").exists())
+
+    def test_reads_the_real_head_with_git_only(self):
+        tools = self.tools()
+        for cmd in ("git fetch origin *", "git show *", "git diff *"):
+            self.assertIn(f"Bash({cmd})", tools)
+        self.assertNotIn("Bash(gh", tools)
+        self.assertNotIn("curl", tools)
+        body = self.text("SKILL.md")
+        self.assertIn("refs/pull-requests/<id>/from", body)
+        self.assertIn("git show <head>:<path>", body)
+
+    def test_draft_first_and_token_rules_are_written_down(self):
+        flat = " ".join(self.text("SKILL.md").split())
+        for needle in ("Draft first", "BITBUCKET_TOKEN", "BITBUCKET_URL",
+                       "Never print, echo, log, store or request the token",
+                       "scripts/bitbucket_pr.py", "Reviewed commit"):
+            with self.subTest(needle):
+                self.assertIn(needle, flat)
+        self.assertIn("--delete-findings", flat)
+
+    def test_description_names_bitbucket_and_the_post_condition(self):
+        fm, _ = frontmatter(self.text("SKILL.md"))
+        self.assertIn("Bitbucket Data Center", fm["description"])
+        self.assertIn("BITBUCKET_TOKEN", fm["description"])
+
+    def test_bitbucket_reference_is_shared_from_the_review_skill(self):
+        owner = (SKILLS / "roj-code-review-pr" / "references"
+                 / "forge-bitbucket-dc.md").read_text("utf-8")
+        self.assertEqual(
+            (self.SKILL / "references" / "forge-bitbucket-dc.md")
+            .read_text("utf-8"), owner)
+
+
+class TestBitbucketPrScript(unittest.TestCase):
+    """scripts/bitbucket_pr.py against the stand-in server the evals use."""
+
+    HEAD = "c" * 40
+    TOKEN = "test-token"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.script = load_module(SKILLS / "roj-review-pr-comment" / "scripts"
+                                 / "bitbucket_pr.py")
+        cls.fake = load_module(ROOT / "evals" / "fixtures"
+                               / "fake_bitbucket.py")
+
+    def serve(self, mode="normal", reject=()):
+        server, state = self.fake.serve(self.HEAD, mode, reject)
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+        env = {"BITBUCKET_URL": f"http://127.0.0.1:{server.server_port}",
+               "BITBUCKET_TOKEN": self.TOKEN}
+        return env, state
+
+    def run_cmd(self, argv, env, stdin=""):
+        import contextlib
+        import io
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code = self.script.main(argv, env=env, out=out,
+                                    stdin=io.StringIO(stdin))
+        self.assertNotIn(self.TOKEN, out.getvalue() + err.getvalue())
+        text = out.getvalue()
+        return code, (json.loads(text) if text.strip() else None), err.getvalue()
+
+    PR = ["--project", "APP", "--repo", "uploader", "--pr", "7"]
+
+    def findings(self, path, **extra):
+        data = {"head": self.HEAD, "summary": "Retry uploads.\n\n1 finding.",
+                "comments": [{"path": "app/uploader.py", "line": 22,
+                              "lineType": "ADDED", "text":
+                              'Says "x" with a \\ and a `tick`\nand \u00e9 \U0001F7E0'}]}
+        data.update(extra)
+        Path(path).write_text(json.dumps(data), encoding="utf-8")
+        return str(path)
+
+    def test_token_status_never_prints_the_token(self):
+        env, _ = self.serve()
+        code, data, _ = self.run_cmd(["token-status"], env)
+        self.assertEqual((code, data["token"]), (0, True))
+        code, data, _ = self.run_cmd(["token-status"], {})
+        self.assertEqual((code, data), (0, {"token": False, "baseUrl": None}))
+
+    def test_info_reads_target_and_head(self):
+        env, _ = self.serve()
+        code, data, _ = self.run_cmd(["info", *self.PR], env)
+        self.assertEqual(code, 0)
+        self.assertEqual((data["target"], data["headSha"]),
+                         ("develop", self.HEAD))
+        self.assertIn("nightly restart", data["description"])
+
+    def test_comments_follow_pages_and_report_reviewed(self):
+        env, state = self.serve("prior")
+        code, data, _ = self.run_cmd(
+            ["comments", *self.PR, "--head", self.HEAD], env)
+        self.assertEqual(code, 0)
+        self.assertGreater(len(state.activities), self.fake.PAGE_CAP)
+        self.assertFalse(data["reviewed"])
+        anchored = [c for c in data["comments"] if c["path"]]
+        self.assertEqual([(c["path"], c["line"]) for c in anchored],
+                         [("app/uploader.py", 20)])
+        self.assertEqual(len(data["comments"]), 3)   # the OPENED one is out
+        env, _ = self.serve("reviewed")
+        _, data, _ = self.run_cmd(["comments", *self.PR, "--head", self.HEAD],
+                                  env)
+        self.assertTrue(data["reviewed"])
+
+    def test_post_builds_anchors_and_a_marked_summary(self):
+        env, state = self.serve()
+        with tempfile.TemporaryDirectory() as tmp:
+            f = self.findings(Path(tmp) / "f.json")
+            code, data, _ = self.run_cmd(
+                ["post", *self.PR, "--findings", f, "--delete-findings"], env)
+            self.assertFalse(Path(f).exists())
+        self.assertEqual((code, data["status"]), (0, "ok"))
+        inline, summary = state.posted
+        self.assertEqual(inline["anchor"], {
+            "path": "app/uploader.py", "line": 22, "lineType": "ADDED",
+            "fileType": "TO"})
+        self.assertEqual(inline["text"], 'Says "x" with a \\ and a `tick`\n'
+                         'and \u00e9 \U0001F7E0')
+        self.assertNotIn("anchor", summary)
+        self.assertTrue(summary["text"].endswith(
+            f"Reviewed commit `{self.HEAD[:12]}`"))
+        self.assertEqual([c for c in state.calls if c.startswith("POST")],
+                         [f"POST {self.fake.BASE}/comments"] * 2)
+
+    def test_post_reads_stdin(self):
+        env, state = self.serve()
+        with tempfile.TemporaryDirectory() as tmp:
+            f = self.findings(Path(tmp) / "f.json")
+            raw = Path(f).read_text("utf-8")
+        code, data, _ = self.run_cmd(["post", *self.PR, "--findings", "-"],
+                                     env, stdin=raw)
+        self.assertEqual((code, len(state.posted)), (0, 2))
+
+    def test_post_skips_a_head_that_is_already_reviewed(self):
+        env, state = self.serve("reviewed")
+        with tempfile.TemporaryDirectory() as tmp:
+            f = self.findings(Path(tmp) / "f.json")
+            code, data, _ = self.run_cmd(["post", *self.PR, "--findings", f],
+                                         env)
+        self.assertEqual((code, data["status"]), (0, "already-reviewed"))
+        self.assertEqual(state.posted, [])
+
+    def test_post_skips_an_identical_comment_and_the_summary_with_it(self):
+        env, state = self.serve("prior")
+        text = state.activities[-1]["comment"]["text"]
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "f.json"
+            Path(f).write_text(json.dumps({
+                "head": self.HEAD, "summary": "s", "comments": [
+                    {"path": "app/uploader.py", "line": 25,
+                     "lineType": "ADDED", "text": text}]}), encoding="utf-8")
+            code, data, _ = self.run_cmd(["post", *self.PR, "--findings",
+                                          str(f)], env)
+        self.assertEqual(code, 0)
+        self.assertEqual(len(data["skipped"]), 1)
+        self.assertEqual((data["posted"], data["summaryId"]), ([], None))
+        self.assertEqual(state.posted, [])
+
+    def test_a_rejected_line_moves_into_the_summary(self):
+        env, state = self.serve(reject=("app/uploader.py:22",))
+        with tempfile.TemporaryDirectory() as tmp:
+            f = self.findings(Path(tmp) / "f.json")
+            code, data, _ = self.run_cmd(["post", *self.PR, "--findings", f],
+                                         env)
+        self.assertEqual((code, data["status"]), (0, "ok"))
+        self.assertEqual(data["failed"][0]["line"], 22)
+        (summary,) = state.posted
+        self.assertIn("`app/uploader.py:22`", summary["text"])
+
+    def test_dry_run_needs_no_token_or_network(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = self.findings(Path(tmp) / "f.json")
+            code, data, _ = self.run_cmd(
+                ["post", *self.PR, "--findings", f, "--dry-run",
+                 "--delete-findings"], {})
+            self.assertTrue(Path(f).exists())
+        self.assertEqual(code, 0)
+        self.assertEqual(len(data["requests"]), 2)
+        self.assertTrue(data["requests"][0]["path"].endswith("/comments"))
+
+    def test_failures_have_their_own_exit_codes(self):
+        env, state = self.serve()
+        with tempfile.TemporaryDirectory() as tmp:
+            f = self.findings(Path(tmp) / "f.json")
+            post = ["post", *self.PR, "--findings", f]
+            self.assertEqual(self.run_cmd(post, {**env, "BITBUCKET_TOKEN": ""})[0], 3)
+            self.assertEqual(self.run_cmd(post, {**env, "BITBUCKET_TOKEN": "bad"})[0], 4)
+            self.assertEqual(self.run_cmd(post, {"BITBUCKET_TOKEN": "t"})[0], 2)
+            self.assertEqual(self.run_cmd(
+                post, {"BITBUCKET_TOKEN": "t",
+                       "BITBUCKET_URL": "http://bitbucket.example.com"})[0], 2)
+            self.assertEqual(self.run_cmd(
+                post, {**env, "BITBUCKET_URL": "http://127.0.0.1:1"})[0], 5)
+            self.assertEqual(self.run_cmd(
+                ["info", "--project", "APP", "--repo", "nope", "--pr", "7"],
+                env)[0], 5)
+            self.assertEqual(self.run_cmd(
+                ["info", "--project", "APP", "--repo", "x", "--pr", "7/x"],
+                env)[0], 2)
+        self.assertEqual(state.posted, [])
+
+    def test_bad_findings_are_input_errors(self):
+        env, state = self.serve()
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, mutate in {
+                    "line type": lambda d: d["comments"][0].update(
+                        lineType="REMOVED"),
+                    "line": lambda d: d["comments"][0].update(line=0),
+                    "text": lambda d: d["comments"][0].update(text=" "),
+                    "head": lambda d: d.update(head="main"),
+                    "summary": lambda d: d.update(summary=""),
+                    "too many": lambda d: d.update(
+                        comments=d["comments"] * 16)}.items():
+                with self.subTest(name):
+                    f = Path(tmp) / "f.json"
+                    self.findings(f)
+                    data = json.loads(f.read_text("utf-8"))
+                    mutate(data)
+                    f.write_text(json.dumps(data), encoding="utf-8")
+                    code, _, err = self.run_cmd(
+                        ["post", *self.PR, "--findings", str(f)], env)
+                    self.assertEqual(code, 2, err)
+        self.assertEqual(state.posted, [])

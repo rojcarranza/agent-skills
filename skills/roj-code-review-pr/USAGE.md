@@ -25,8 +25,8 @@ asks for or pins a model: it runs on whatever the agent already selected
 - A quick sanity check mid-work.
 
 Not for pure comprehension - that is `roj-explain-logic`. Not for diagnosing a
-build that already failed - that is `roj-investigate-issue`. To post a review
-to a GitHub PR, use `roj-review-pr-comment`.
+build that already failed - that is `roj-investigate-issue`. To draft or post
+review comments on a Bitbucket PR, use `roj-review-pr-comment`.
 
 ## Invoking
 
