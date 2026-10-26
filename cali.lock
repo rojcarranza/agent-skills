@@ -104,14 +104,14 @@
       "path": "skills/roj-explain-feature-changes",
       "ref": "",
       "commit": "",
-      "tree": "9d12ea76a01adac9d1beac46c122b3649fb067cb"
+      "tree": "71f4ba776b523348fca1dae157c1ca29f24dd90e"
     },
     "roj-explain-logic": {
       "source": ".",
       "path": "skills/roj-explain-logic",
       "ref": "",
       "commit": "",
-      "tree": "21c14db205e7254bb76ddff13ca224d824d85985"
+      "tree": "81a3f4c7b562005a0f182b4d2d75f0e40053fbd5"
     },
     "roj-grill-plan": {
       "source": ".",
@@ -146,7 +146,7 @@
       "path": "skills/roj-onboard-repo",
       "ref": "",
       "commit": "",
-      "tree": "f98f205b269fb9cea25731d0201084ae077de4ce"
+      "tree": "4b76ba0d89287d7666df5665e3f29233f4c92dc4"
     },
     "roj-review-pr-comment": {
       "source": ".",
