@@ -19,7 +19,7 @@ run, for a chained series.
 
 Upstream gotcha: its `SKILL.md` documents the bundled scripts at
 `~/.agents/skills/code-tour/scripts/`, a path Cali does not create —
-skills land in `~/.claude/skills/` (Copilot: `~/.copilot/skills/`). Resolve
+it lands in `~/.copilot/skills/code-tour/`. Resolve
 `validate_tour.py` from the installed skill directory instead. The community
 copy is deliberately not patched; a re-fetch would overwrite the change.
 
