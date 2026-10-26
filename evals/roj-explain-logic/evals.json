@@ -37,7 +37,8 @@
       "expected_output": "Explanation first, then a separately headed review that catches the dead raise.",
       "expectations": [
         "The review comes after the full explanation, under its own header",
-        "Every finding ties to specific lines",
+        "Reads references/review-method.md and references/cross-cutting.md before writing the review, and uses the lens file for Python",
+        "Every finding ties to specific lines and carries a severity (Blocker, Major, Minor or Nit) and a confidence (Confirmed or Probable)",
         "Flags that `if i == attempts` can never be true, so the last failure returns None instead of raising",
         "States no finding that is factually wrong"
       ]
@@ -52,7 +53,7 @@
       "expectations": [
         "The review comes after the full explanation, under its own header",
         "Says the function has no defects",
-        "Reports no 🔴 or 🟡 finding"
+        "Reports no Blocker, Major or Minor finding"
       ]
     }
   ]

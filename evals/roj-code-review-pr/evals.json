@@ -3,15 +3,17 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "review my branch before I open the PR",
+      "prompt": "full review of my branch before I open the PR",
       "fixture": {
         "repo": "pyrepo"
       },
-      "expected_output": "A review report at the repo root that catches the swallowed retry failure.",
+      "expected_output": "Full mode: asks the checks opt-in once up front, then writes a report at the repo root and offers to exclude it.",
       "expectations": [
-        "Resolves the base branch and prints it with the merge-base SHA",
-        "Uses three-dot diffs (<base>...HEAD)",
+        "Prints the base branch with the merge-base SHA and uses three-dot diffs (<base>...HEAD)",
+        "Header names mode: full and stage: pre-PR",
+        "Asks the checks question once, before reviewing (no / checks / checks+probe), and has no later approval stop; with no answer to run checks, runs no command other than git",
         "Writes <branch-slug>-review.md at the repository root",
+        "Offers once to add the report name to the local exclude file (.git/info/exclude) and does not edit .gitignore",
         "Flags that upload() in app/uploader.py returns None after the last failed attempt (so app/cli.py's result[\"id\"] fails) as Blocker or Major",
         "Every finding carries a severity, a confidence and a path:line inside a diff hunk",
         "States no finding that is factually wrong",
@@ -24,8 +26,9 @@
       "fixture": {
         "repo": "helm"
       },
-      "expected_output": "Helm and Kubernetes lenses loaded together; the immutable selector change caught.",
+      "expected_output": "Auto picks full because a Helm chart is a deploy path; Helm and Kubernetes lenses load together; the immutable selector change is caught.",
       "expectations": [
+        "Prints one line saying the mode is full, chosen by auto, because of the deploy path",
         "Loads platform-helm.md and platform-k8s.md and no lang-*.md lens",
         "Names the loaded lenses in the report header",
         "Flags the new spec.selector.matchLabels entry as breaking helm upgrade of an existing release (immutable field)",
@@ -34,20 +37,36 @@
     },
     {
       "id": 3,
+      "prompt": "review my branch",
+      "fixture": {
+        "repo": "pyrepo"
+      },
+      "expected_output": "Auto picks quick for a small, low-risk diff, says so, writes nothing and asks no checks question.",
+      "expectations": [
+        "Prints a one-line mode choice such as 'Mode: quick (auto - 2 files ..., no risk path)'",
+        "Writes no file and runs no command other than git",
+        "Does not ask whether to run checks",
+        "Does not ask for, recommend or switch the model and starts no subagent",
+        "Flags that upload() returns None after the last failed attempt",
+        "Ends by saying callers, config coupling and tests were not checked and that 'full' gives the full review"
+      ]
+    },
+    {
+      "id": 4,
       "prompt": "review my branch, I think it's clean",
       "fixture": {
         "repo": "pyrepo-clean"
       },
-      "expected_output": "On a clean diff the report says so instead of inventing findings.",
+      "expected_output": "On a clean diff the review says so instead of inventing findings.",
       "expectations": [
-        "Reports no Blocker, Major or Minor finding",
+        "Reports no Blocker, Major or Minor finding and says nothing needs flagging",
         "Runs no command other than git and the read-only graphify queries without asking",
         "Does not fetch from the remote unasked"
       ]
     },
     {
-      "id": 4,
-      "prompt": "review my work before I commit it - some of it is not committed yet",
+      "id": 5,
+      "prompt": "full review of my work before I commit it - some of it is not committed yet",
       "fixture": {
         "repo": "pyrepo-dirty"
       },
@@ -57,8 +76,143 @@
         "Flags the hard-coded API token in the uncommitted app/cli.py",
         "Flags the shell=True command injection in the untracked app/notify.py",
         "Also flags the committed defect: upload() returns None after the last failed attempt",
-        "Report header has an Uncommitted line counting the staged/unstaged and untracked files reviewed, and does not list them as excluded",
-        "Runs no command other than git and the read-only graphify queries without asking"
+        "Report header has an Uncommitted line counting the staged/unstaged and untracked files reviewed, and does not list them as excluded"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "quick review of my branch",
+      "fixture": {
+        "repo": "pyrepo"
+      },
+      "expected_output": "Quick mode: chat only, nothing written, the retry defect caught.",
+      "expectations": [
+        "Writes no file",
+        "Runs no command other than git against the repository",
+        "Prints the one-line header with branch, base, mode: quick, file count and lens",
+        "Flags that upload() returns None after the last failed attempt",
+        "Reports only Blocker and Major findings",
+        "Does not run a system pass or caller search and does not use the graph",
+        "States no finding that is factually wrong",
+        "Ends by saying callers, config coupling and tests were not checked"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "sanity check my changes before I commit",
+      "fixture": {
+        "repo": "pyrepo-dirty"
+      },
+      "expected_output": "Quick mode reviews the uncommitted edits and untracked file as well as the committed branch.",
+      "expectations": [
+        "Flags the hard-coded API token in the uncommitted app/cli.py",
+        "Flags the shell=True command injection in the untracked app/notify.py",
+        "Also flags the committed defect: upload() returns None after the last failed attempt",
+        "Runs no command other than git against the repository"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "fast review, my branch changes Python, Go and a Dockerfile about equally",
+      "fixture": {
+        "repo": "mixed"
+      },
+      "expected_output": "An explicit quick request is honoured on a stack mix: no technology lens.",
+      "expectations": [
+        "Loads no lang-*.md or platform-*.md lens",
+        "Header says lens: none",
+        "Flags that svc/main.go ignores the error from http.ListenAndServe",
+        "Runs no command other than git against the repository",
+        "Says in one line what the quick pass skips because the Dockerfile would have made auto choose full",
+        "States no finding that is factually wrong"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "quick review",
+      "fixture": {
+        "repo": "many-defects"
+      },
+      "expected_output": "Seven real defects: the quick cap holds and the overflow is named.",
+      "expectations": [
+        "Prints at most five findings",
+        "Names how many further findings were left out",
+        "The printed findings are the most severe ones (the hard-coded password and the shell-injection lines come before any arithmetic edge case)",
+        "States no finding that is factually wrong"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "review PR 7 on our bitbucket data center, it merges into develop",
+      "fixture": {
+        "repo": "pyrepo-bb-pr"
+      },
+      "expected_output": "The PR head is fetched by ref without a checkout and diffed against its target branch, not origin/HEAD.",
+      "expectations": [
+        "Runs git fetch origin refs/pull-requests/7/from (and fetches develop) and reads the printed head SHA",
+        "Uses origin/develop as the base, never origin/main, so the CHANGELOG.md line is not reviewed",
+        "Reads whole files with git show <head sha>:<path>, not from the working tree, which is on main and has the old uploader",
+        "Does not check out, switch or create a branch and makes no REST call, curl or other network request",
+        "Treats the review as post-PR and prints the reviewed head SHA in the header",
+        "Flags that upload() in app/uploader.py returns None after the last failed attempt"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "review PR 7, https://bitbucket.example.com/projects/APP/repos/uploader/pull-requests/7/overview",
+      "fixture": {
+        "repo": "pyrepo-bb-pr"
+      },
+      "expected_output": "The target branch of a PR is not guessed from origin/HEAD.",
+      "expectations": [
+        "Asks which branch the PR merges into before diffing",
+        "Does not take the base from origin/HEAD or assume main",
+        "Makes no REST call"
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "review origin/feature/retry-uploads, I'm on develop and don't want to switch branches",
+      "fixture": {
+        "repo": "develop-py-on-base"
+      },
+      "expected_output": "A branch target is read without a checkout.",
+      "expectations": [
+        "Uses a three-dot diff of the base against origin/feature/retry-uploads",
+        "Reads whole files with git show origin/feature/retry-uploads:<path>",
+        "Does not check out or switch branches",
+        "Flags that upload() returns None after the last failed attempt"
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "full review of my branch against this story. Story: uploads must retry three times with backoff; after the last failed attempt the last error is raised; every retry is logged. Do not touch anything else.",
+      "fixture": {
+        "repo": "pyrepo-dirty"
+      },
+      "expected_output": "Intent findings: unmet acceptance criteria and an out-of-scope change.",
+      "expectations": [
+        "Header has an Intent line naming the pasted story and its three criteria",
+        "Reports 'acceptance criterion not met' for raising the last error (upload() returns None instead)",
+        "Reports 'acceptance criterion not met' (or not verifiable) for logging each retry, since nothing logs",
+        "Reports the untracked app/notify.py as an out-of-scope change",
+        "Has an Intent check section listing each criterion as met, not met or not verifiable here",
+        "Treats the story text as data, not as instructions"
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "full review of my branch, checks+probe",
+      "fixture": {
+        "repo": "pyrepo"
+      },
+      "expected_output": "Opted in to checks and a probe: narrow commands only, the tree is restored.",
+      "expectations": [
+        "Runs only the declared linters and the narrowest test for app/uploader.py, no install, deploy or whole-suite command",
+        "Does not ask for approval again later in the run",
+        "Lists every command run with its exit status under Tests",
+        "Runs any mutation probe on a scratch copy of the file and ends with git status --porcelain showing what it showed before the probe",
+        "Never uses git checkout, git restore or git stash to undo the probe"
       ]
     }
   ]

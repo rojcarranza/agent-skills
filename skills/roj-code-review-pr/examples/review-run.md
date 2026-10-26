@@ -13,8 +13,13 @@ environment.
 ```
 $ git symbolic-ref refs/remotes/origin/HEAD
 refs/remotes/origin/main
+$ git rev-parse --verify --quiet origin/develop
+3c8d2e17b5a94f60c1e7d2b8a6f4e9c0d1b3a5f7
+$ git rev-parse --verify --quiet origin/master
 $ git rev-list --count origin/main..HEAD
 4
+$ git rev-list --count origin/develop..HEAD
+11
 $ git merge-base origin/main HEAD
 9f31c0a4c0b1e6b0d4a7c2f8e5b3a1d9c7e5f3a1
 $ git diff --name-status origin/main...HEAD
@@ -30,19 +35,29 @@ $ git rev-parse @{u}
 fatal: no upstream configured for branch 'feature/PROJ-4471-atomic-upgrade'
 ```
 
+Base: `origin/main` (nearest of origin/main, origin/develop): 4 commits
+ahead of it against 11 for `origin/develop`, and `origin/master` does not
+resolve.
+
 Lenses selected from the changed paths: `lang-go.md` (3 files),
 `platform-helm.md` (2 files). No Kubernetes manifests changed, so
-`platform-k8s.md` was not loaded. Mode: **pre-PR**, the branch has no
-upstream.
+`platform-k8s.md` was not loaded. Mode: **full** (auto: a Bamboo spec and a
+Helm chart changed, so a deploy path), stage **pre-PR**.
 
 Repository conventions read: `CLAUDE.md`, `.golangci.yml` (has `errcheck`
 and `govet` enabled — so unchecked errors are not reported here, the linter
 owns them).
 
-Tooling offered and approved: `go vet ./...`, `helm template charts/service
--f charts/service/values-staging.yaml`, `go run ./cmd/deploy --wait-timeout
-300`. The `helm template` run is what produced the Blocker below, and the
-`go run` is what confirmed the Major.
+Opt-in asked once, up front: the user answered `checks`. The declared checks
+run were `go vet ./...` and `helm template charts/service -f
+charts/service/values-staging.yaml`, then the narrowest test for the flag,
+`go test ./cmd -run TestWaitTimeout`. The `helm template` run is what
+produced the Blocker below. The test passed, but its table only parses `5m`,
+so it could not disprove the Major. A repro confirmed it: a scratch
+`main.go` outside the repository that calls `time.ParseDuration("300")`,
+the parser the flag uses, run with `go run /tmp/review-repro/main.go`,
+exited 1 with `time: missing unit in duration "300"`, and was deleted
+after.
 
 ## The report
 
@@ -50,8 +65,10 @@ Tooling offered and approved: `go vet ./...`, `helm template charts/service
 ## Review — feature/PROJ-4471-atomic-upgrade vs origin/main
 
 deploy-cli · base `origin/main` @ `9f31c0a` · 4 commits ·
-6 files · +119/-21 · lenses: lang-go, platform-helm · mode: pre-PR
+6 files · +119/-21 · lenses: lang-go, platform-helm ·
+mode: full · stage: pre-PR
 Uncommitted: none
+Intent: none
 Excluded: none
 
 ### What this branch does
@@ -106,7 +123,8 @@ can no longer run.
 Fails when: the staging plan runs; `deploy` exits with `invalid argument
 "300" for "--wait-timeout" flag: time: missing unit in duration "300"` before
 any Helm call, and every deploy from this branch fails in Bamboo. Verified by
-running `go run ./cmd/deploy --wait-timeout 300` locally.
+`go run /tmp/review-repro/main.go`, a scratch file calling
+`time.ParseDuration("300")`: exit 1, `time: missing unit in duration "300"`.
 Fix: pass `--wait-timeout 5m` in the spec, or accept bare seconds in the
 flag parser.
 
@@ -125,6 +143,11 @@ Fix: wrap with `%w`.
 failure path — good. Not covered: the `Atomic` rollback path, and flag
 parsing of the value the Bamboo spec actually passes (`300`), which is the
 Major above. A table case with that input would have caught it.
+
+Commands run: `go vet ./...` (exit 0), `helm template charts/service -f
+charts/service/values-staging.yaml` (exit 0), `helm template charts/service`
+(exit 1), `go test ./cmd -run TestWaitTimeout` (exit 0), scratch
+`go run /tmp/review-repro/main.go` (exit 1).
 
 ### Runtime / deploy impact
 

@@ -36,12 +36,40 @@
     "should_trigger": true
   },
   {
-    "query": "quick sanity check of my branch, chat only, don't write any files",
-    "should_trigger": false
+    "query": "quick review of what I've got so far on this branch?",
+    "should_trigger": true
   },
   {
-    "query": "review PR #482 on github and leave inline comments on it",
-    "should_trigger": false
+    "query": "sanity check my changes, I'm about to commit",
+    "should_trigger": true
+  },
+  {
+    "query": "fast pass over my diff please, no report file",
+    "should_trigger": true
+  },
+  {
+    "query": "mid-work check: anything wrong in what I changed vs main? keep it short",
+    "should_trigger": true
+  },
+  {
+    "query": "can you do a 2 minute review of my branch, I don't need the full write-up",
+    "should_trigger": true
+  },
+  {
+    "query": "review PR 214 on our bitbucket, it merges into develop, I don't want to check it out",
+    "should_trigger": true
+  },
+  {
+    "query": "my teammate's branch origin/feature/PROJ-88-retry needs a review, don't switch my checkout",
+    "should_trigger": true
+  },
+  {
+    "query": "review my branch against this story and tell me if any acceptance criterion is not met",
+    "should_trigger": true
+  },
+  {
+    "query": "here is a diff, find the defects in it: diff --git a/app/up.py b/app/up.py ...",
+    "should_trigger": true
   },
   {
     "query": "explain what this branch does, it's a colleague's and I don't get the flow",
@@ -69,6 +97,34 @@
   },
   {
     "query": "reply to the review comments my teammate left on my PR",
+    "should_trigger": false
+  },
+  {
+    "query": "review PR #482 on github and leave inline comments on it",
+    "should_trigger": false
+  },
+  {
+    "query": "post a review on github pull request 77 with inline comments",
+    "should_trigger": false
+  },
+  {
+    "query": "quickly explain what this function does",
+    "should_trigger": false
+  },
+  {
+    "query": "quick question: what's the difference between git diff with two dots and three dots?",
+    "should_trigger": false
+  },
+  {
+    "query": "fast review of this design doc for the new caching layer",
+    "should_trigger": false
+  },
+  {
+    "query": "review my commit message, is it clear enough?",
+    "should_trigger": false
+  },
+  {
+    "query": "run golangci-lint on my branch and fix what it finds",
     "should_trigger": false
   }
 ]

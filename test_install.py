@@ -1078,7 +1078,8 @@ class TestLegacyCleanup(TempDirTest):
     def test_stale_names_are_other_target_skills_and_retired_ones(self):
         retired = {"add-educational-comments", "arch-linux-triage",
                    "architecture-blueprint-generator", "centos-linux-triage",
-                   "debian-linux-triage", "fedora-linux-triage"}
+                   "debian-linux-triage", "fedora-linux-triage",
+                   "roj-code-review-pr-fast"}
         # caveman was Copilot only before: no install put it in Claude.
         self.assertEqual(install.stale_skill_names("claude"), {"roj-b"} | retired)
         self.assertEqual(install.stale_skill_names("copilot"), retired)
@@ -1187,7 +1188,8 @@ class TestLegacyCleanup(TempDirTest):
         # nothing shows who put a real folder there: it is only reported.
         for target, name in (("claude", "roj-b"),
                              ("claude", "debian-linux-triage"),
-                             ("copilot", "debian-linux-triage")):
+                             ("copilot", "debian-linux-triage"),
+                             ("copilot", "roj-code-review-pr-fast")):
             for content in (OWNED.format(name), OWNED.format("my-" + name)):
                 with self.subTest(target=target, name=name, content=content):
                     root = self.tmp / "roots" / f"{target}-{len(content)}"

@@ -231,7 +231,7 @@ class TestSelfContained(SkillTest):
 
 class TestGraphFirst(unittest.TestCase):
     """Skills that read code ask a graphify graph first when the repo has
-    one (references/graph-first.md); the fast review stays diff-local."""
+    one (references/graph-first.md)."""
 
     USES_GRAPH = ("roj-tour-codebase", "roj-explain-logic",
                   "roj-explain-feature-changes", "roj-code-review-pr",
@@ -304,10 +304,21 @@ class TestGraphFirst(unittest.TestCase):
             "`Graph: used`", "`Graph: stale, skipped`",
             "`Graph: none found, searched directly`"})
 
-    def test_fast_review_stays_diff_local(self):
-        text = (SKILLS / "roj-code-review-pr-fast" / "SKILL.md").read_text(
-            "utf-8")
-        self.assertIn("`graph-first.md` step does not apply", text)
+
+class TestReviewModes(unittest.TestCase):
+    """roj-code-review-pr absorbed the fast review as its quick mode, and the
+    skills that read a branch diff ship the shared base resolution."""
+
+    def test_fast_skill_is_gone(self):
+        self.assertFalse((SKILLS / "roj-code-review-pr-fast").exists())
+        self.assertFalse((ROOT / "evals" / "roj-code-review-pr-fast").exists())
+
+    def test_diff_reading_skills_ship_base_resolution(self):
+        for name in ("roj-code-review-pr", "roj-explain-logic",
+                     "roj-explain-feature-changes"):
+            with self.subTest(name):
+                self.assertTrue((SKILLS / name / "references" /
+                                 "base-resolution.md").is_file())
 
 
 class TestSoundboarding(unittest.TestCase):
@@ -379,7 +390,7 @@ class TestEvals(unittest.TestCase):
     NO_GIT = {"idea-empty"}
 
     # Skills whose descriptions overlap; each must keep an eval set.
-    REQUIRED = {"roj-code-review-pr", "roj-code-review-pr-fast",
+    REQUIRED = {"roj-code-review-pr",
                 "roj-review-pr-comment", "roj-explain-logic",
                 "roj-explain-feature-changes", "roj-idea-to-project",
                 "roj-soundboarding"}

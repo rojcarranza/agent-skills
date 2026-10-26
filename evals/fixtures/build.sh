@@ -218,6 +218,17 @@ def notify(channel, message):
     subprocess.run(f"slack-cli send {channel} '{message}'", shell=True)
 EOF
   ;;
+pyrepo-bb-pr)  # a Bitbucket Data Center PR: source only under refs/pull-requests/7/from,
+  # target develop (not origin/HEAD, which is main), checkout sitting on main
+  init_repo main; py_base
+  G checkout -qb develop
+  printf '# Changelog\n' > CHANGELOG.md
+  G add -A; G commit -qm "Start the changelog"
+  py_retry_feature; push_all
+  git -C ../origin.git update-ref refs/pull-requests/7/from "$(git rev-parse feature/retry-uploads)"
+  git -C ../origin.git update-ref -d refs/heads/feature/retry-uploads
+  G checkout -q main; G branch -q -D feature/retry-uploads
+  git update-ref -d refs/remotes/origin/feature/retry-uploads ;;
 pyrepo-clean)  init_repo main; py_base
   G checkout -qb feature/slugify
   cat > app/slug.py <<'EOF'

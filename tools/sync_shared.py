@@ -3,7 +3,7 @@
 them, so every skill directory is self-contained.
 
 The Agent Skills spec expects a skill to carry everything it reads: an agent
-installing one skill (``npx skills add ... -s roj-code-review-pr-fast``, a
+installing one skill (``npx skills add ... -s roj-review-pr-comment``, a
 project-scope ``.claude/skills/``, any of the 70+ agents ``skills`` supports)
 gets that directory and nothing else. Edit the owner's copy, then run:
 
@@ -21,13 +21,36 @@ from pathlib import Path
 SKILLS = Path(__file__).resolve().parent.parent / "skills"
 
 # owner (relative to skills/) -> dirs that carry an identical copy. An owner
-# dir shares every *.md in it; an owner file shares just that file.
+# dir shares every *.md in it; an owner file shares just that file; an owner
+# with a `*` shares the files that glob matches (review lenses travel as
+# `lang-*.md` and `platform-*.md`).
+REVIEW = "roj-code-review-pr/references/"
 SHARED = {
-    "roj-code-review-pr/references": (
-        "roj-code-review-pr-fast/references",
+    REVIEW + "review-method.md": (
         "roj-review-pr-comment/references",
+        "roj-explain-logic/references",
     ),
-    "roj-code-review-pr/references/graph-first.md": (
+    REVIEW + "cross-cutting.md": (
+        "roj-review-pr-comment/references",
+        "roj-explain-logic/references",
+    ),
+    REVIEW + "lang-*.md": (
+        "roj-review-pr-comment/references",
+        "roj-explain-logic/references",
+    ),
+    REVIEW + "platform-*.md": (
+        "roj-review-pr-comment/references",
+        "roj-explain-logic/references",
+    ),
+    REVIEW + "base-resolution.md": (
+        "roj-explain-logic/references",
+        "roj-explain-feature-changes/references",
+    ),
+    REVIEW + "forge-bitbucket-dc.md": (
+        "roj-explain-logic/references",
+    ),
+    REVIEW + "graph-first.md": (
+        "roj-review-pr-comment/references",
         "roj-tour-codebase/references",
         "roj-explain-logic/references",
         "roj-explain-feature-changes/references",
@@ -44,6 +67,8 @@ SHARED = {
 
 def sources(owner):
     path = SKILLS / owner
+    if "*" in path.name:
+        return sorted(path.parent.glob(path.name))
     return [path] if path.is_file() else sorted(path.glob("*.md"))
 
 
@@ -61,11 +86,13 @@ def stale():
     out = [dst for src, dst in pairs()
            if not dst.is_file() or not filecmp.cmp(src, dst, shallow=False)]
     for owner, copies in SHARED.items():
-        if (SKILLS / owner).is_file():  # a single file leaves no orphans
+        path = SKILLS / owner
+        if path.is_file():  # a single file leaves no orphans
             continue
+        pattern = path.name if "*" in path.name else "*.md"
         names = {p.name for p in sources(owner)}
         for copy in copies:
-            out += [p for p in sorted((SKILLS / copy).glob("*.md"))
+            out += [p for p in sorted((SKILLS / copy).glob(pattern))
                     if p.name not in names]
     return out
 

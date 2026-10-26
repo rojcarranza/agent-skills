@@ -14,11 +14,11 @@ No improvement suggestions unless asked.
 Priority order:
 
 1. **PR / feature branch**: pull the real diff first — never explain from memory.
-   - Branch: resolve `<base>` — the user's named branch, else
-     `git symbolic-ref refs/remotes/origin/HEAD`, else the first that
-     exists of `origin/main`, `origin/master`, `origin/develop`, then local
-     `main`, `master`, `develop`; nothing resolves, ask. Then `git diff --stat <base>...HEAD` and
-     `git diff <base>...HEAD`.
+   - Branch: resolve `<base>` with `references/base-resolution.md` - the
+     user's named branch, else the nearest candidate; nothing resolves, ask.
+     Then `git diff --stat <base>...HEAD` and `git diff <base>...HEAD`.
+   - Bitbucket Data Center PR (an id or URL): fetch its head without a
+     checkout and read from it, as `references/forge-bitbucket-dc.md` says.
    - GitHub PR: the GitHub MCP server's pull-request tools if one is
      connected, else `gh pr diff <number>`.
 2. **File/function**: read the whole file, not just the snippet.
@@ -119,20 +119,19 @@ exists — resolve `~` to an absolute path (cmd does not expand it) and try
 ## Explain-and-review mode
 
 Only when the user explicitly asks to also review ("explain and review",
-"flag anything risky"). Run a SECOND phase after the full explanation, with
-clearly separated headers — never mix review into the explanation:
+"flag anything risky"). Run a SECOND phase after the full explanation, under
+its own header - never mix review into the explanation.
 
-- **Logic risks**: boundary conditions, inverted conditions, off-by-one,
-  unhandled states.
-- **Error handling**: swallowed exceptions, bare excepts, shell commands
-  failing silently.
-- **Edge cases**: empty/null input, concurrency, retries, timeouts.
-- **Side effects**: partial writes, non-idempotent operations, CI/CD
-  runtime impact.
-
-Rate findings: 🔴 likely bug / 🟡 risky, verify / 🟢 style-level. Tie every
-finding to specific lines with the reason it is risky. Solid code: say so
-plainly — never invent findings.
+The review is the shared review method, not a scale of its own: read
+`references/review-method.md` and `references/cross-cutting.md`, and the
+lenses (`lang-*.md`, `platform-*.md`) the method's *Lens selection* picks for
+the code in scope. Apply its severity (Blocker, Major, Minor, Nit),
+confidence (Confirmed, Probable; Speculative becomes a question), its
+failure-scenario rule, its never-report list and its verification pass, and
+print findings in its format (`path:line`, severity, confidence, "Fails when",
+fix). The callers and tests you already traced for the explanation are the
+system pass. Run no command beyond `git`. Solid code: say so plainly - never
+invent findings.
 
 ## Rules
 

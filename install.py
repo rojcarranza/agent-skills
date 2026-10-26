@@ -257,12 +257,12 @@ def legacy_skill_names():
     return custom_skill_names() | manifest_skill_names(active_only=False)
 
 
-# Community skills earlier versions of cali.yaml installed for both targets,
-# since pruned. Their folders stay behind: cali sync never deletes one.
+# Skills earlier versions of cali.yaml installed, since pruned. Their
+# folders stay behind: cali sync never deletes one.
 RETIRED_SKILLS = (
     "add-educational-comments", "arch-linux-triage",
     "architecture-blueprint-generator", "centos-linux-triage",
-    "debian-linux-triage", "fedora-linux-triage",
+    "debian-linux-triage", "fedora-linux-triage", "roj-code-review-pr-fast",
 )
 # Copilot-only skills no cali.yaml ever installed for Claude: a Claude copy
 # came from somewhere else.

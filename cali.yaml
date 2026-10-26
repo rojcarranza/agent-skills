@@ -12,9 +12,6 @@ skills:
   roj-code-review-pr:
     source: .//skills/roj-code-review-pr
     targets: [copilot]
-  roj-code-review-pr-fast:
-    source: .//skills/roj-code-review-pr-fast
-    targets: [copilot]
   roj-explain-feature-changes:
     source: .//skills/roj-explain-feature-changes
     targets: [copilot]
