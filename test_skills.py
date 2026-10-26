@@ -1010,12 +1010,14 @@ class TestBitbucketPrScript(unittest.TestCase):
                 self.assertEqual(code, 5, err)
 
     def test_a_transport_failure_mid_post_still_reports_what_was_posted(self):
-        for second, expected in ((b"<html>SSO</html>", "JSON object"),
-                                 (None, "cannot reach")):
-            with self.subTest(second=second):
-                self.mid_post_failure(second, expected)
+        for second, status, expected in (
+                (b"<html>SSO</html>", 200, "JSON object"),
+                (None, 200, "cannot reach"),
+                (None, 502, "HTTP 502")):
+            with self.subTest(second=second, status=status):
+                self.mid_post_failure(second, status, expected)
 
-    def mid_post_failure(self, second, expected):
+    def mid_post_failure(self, second, status, expected):
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
         import threading
         posts = []
@@ -1024,8 +1026,8 @@ class TestBitbucketPrScript(unittest.TestCase):
             def log_message(self, *a):
                 pass
 
-            def reply(self, body, cut=False):
-                self.send_response(200)
+            def reply(self, body, cut=False, status=200):
+                self.send_response(status)
                 self.send_header("Content-Length",
                                  str(len(body) + (50 if cut else 0)))
                 self.end_headers()
@@ -1043,7 +1045,8 @@ class TestBitbucketPrScript(unittest.TestCase):
                 if len(posts) == 1:
                     self.reply(b'{"id": 50}')
                 else:
-                    self.reply(second or b'{"id":', cut=second is None)
+                    self.reply(second or b'{"id":', cut=second is None,
+                               status=status)
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), H)
         threading.Thread(target=server.serve_forever, daemon=True).start()

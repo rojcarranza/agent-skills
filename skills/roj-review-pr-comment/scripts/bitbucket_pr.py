@@ -158,7 +158,7 @@ def error_message(err):
     try:
         errors = json.loads(err.read()).get("errors") or []
         return "; ".join(e.get("message", "") for e in errors) or err.reason
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError, OSError, http.client.HTTPException):
         return str(err.reason)
 
 
