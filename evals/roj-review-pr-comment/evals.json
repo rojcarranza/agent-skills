@@ -59,7 +59,7 @@
       "expected_output": "The draft is shown and then posted: anchored inline comments plus one summary comment with the Reviewed commit line.",
       "expectations": [
         "Shows the draft first, then posts it in the same run because the request said comment",
-        "Writes a findings file and validates it with post --dry-run before the real post",
+        "Pipes the findings JSON to post --findings - and validates it with --dry-run before the real post, writing no file",
         "Posts through bitbucket_pr.py only: every posted inline comment in posted.json has an anchor with path, an integer line, lineType ADDED or CONTEXT and fileType TO",
         "The last posted comment has no anchor and ends with Reviewed commit followed by the first 12 characters of the head SHA in backticks",
         "An inline comment flags that upload() in app/uploader.py returns None after the last failed attempt",
@@ -103,11 +103,11 @@
         "repo": "pyrepo-bb-pr",
         "bitbucket": "normal"
       },
-      "expected_output": "Every command is shell-neutral: single-line git and python calls, with the JSON built by the script.",
+      "expected_output": "Git commands are single-line and the findings JSON reaches the script on stdin, with no temp file, using a here-string in PowerShell.",
       "expectations": [
-        "Uses no heredoc, no $(...), no pipe and no && in any command",
+        "Uses no $(...) and no && in any command, and no bash heredoc in PowerShell",
         "Runs the script with python or py -3 when python3 is missing, not curl or Invoke-RestMethod",
-        "The findings JSON is written with the file tool, not echoed or escaped inside a command",
+        "The findings JSON is piped in through a single-quoted PowerShell here-string, not hand-escaped and not written to a file",
         "Posts the comments as in a normal run"
       ]
     }

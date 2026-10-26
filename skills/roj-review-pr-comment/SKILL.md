@@ -39,9 +39,10 @@ Rules for the whole run:
 - Cost: do the review yourself, in this session, on the model the host
   already selected (Copilot Auto). Never ask for, recommend or pin a model,
   and launch no subagents unless the user asks.
-- Shell: run commands as single lines with no `$(...)`, pipes, heredocs or
-  `&&`, so they behave the same in bash, PowerShell and cmd. Run the script
-  with `python3` (macOS, Linux, Git Bash), else `python`, else `py -3`.
+- Shell: run git commands as single lines with no `$(...)` or `&&`. The
+  only multi-line input is the findings JSON piped to the script (step 8).
+  Run the script with `python3` (macOS, Linux, Git Bash), else `python`,
+  else `py -3`.
 - Graph check, first and every run: look for `graphify-out/graph.json` at
   the checkout root. Present: follow `references/graph-first.md`. Absent:
   search directly. Close the final report (step 9) with a Graph line only
@@ -198,20 +199,31 @@ only. Never ask for the token in chat.
 
 ## 8. Post (explicit request or a yes only)
 
-Write the payload with the file tool, never by hand-escaping inside a shell
-command: a JSON file `bitbucket-review-<id>.json` in the system temp
-directory, shaped as `references/bitbucket-rest.md` shows (`head`, `summary`,
-`comments`). Summary and comment texts are exactly what the draft shows. The
-script builds and escapes the requests itself. Validate, then post:
+Build the payload as JSON shaped as `references/bitbucket-rest.md` shows
+(`head`, `summary`, `comments`); summary and comment texts are exactly what
+the draft shows. Pipe it to the script on stdin with `--findings -`; no file
+is written and nothing is escaped by hand, the script builds the requests.
+Validate with `--dry-run`, then post with the same input:
+
+bash (quoted heredoc, so the text is taken literally):
 
 ```
-python3 <skill dir>/scripts/bitbucket_pr.py post --project <KEY> --repo <slug> --pr <id> --findings <file> --dry-run
-python3 <skill dir>/scripts/bitbucket_pr.py post --project <KEY> --repo <slug> --pr <id> --findings <file> --delete-findings
+python3 <skill dir>/scripts/bitbucket_pr.py post --project <KEY> --repo <slug> --pr <id> --findings - --dry-run <<'JSON'
+{ ... }
+JSON
 ```
 
-If the host cannot write to the temp directory, pass the JSON on stdin with
-`--findings -` instead (bash: a quoted heredoc; PowerShell: a single-quoted
-here-string piped in); cmd has no such form, so stay with the draft.
+PowerShell (single-quoted here-string piped in):
+
+```
+@'
+{ ... }
+'@ | python <skill dir>/scripts/bitbucket_pr.py post --project <KEY> --repo <slug> --pr <id> --findings - --dry-run
+```
+
+Drop `--dry-run` for the real post. cmd has no heredoc or here-string: run
+the same command from PowerShell or Git Bash when one is installed, else
+stay with the pasteable draft.
 
 The script skips a comment already on the PR with the same text, posts each
 inline comment, then one PR-level summary comment ending in

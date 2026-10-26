@@ -49,7 +49,7 @@ command prints one JSON document on stdout; errors go to stderr as
 | `token-status` | none | `{"token": true, "baseUrl": "..."}` - whether the variables are set, never the token |
 | `info --project K --repo S --pr N` | GET the PR | `title`, `description` (cut at 4000 characters), `state`, `source`, `target`, `headSha`, `targetSha` |
 | `comments --project K --repo S --pr N [--head SHA]` | GET the PR activities, all pages | `comments`: `id`, `path`, `line`, `text` of every comment; with `--head`, `reviewed`: whether a comment carries ``Reviewed commit `<head12>` `` |
-| `post ... --findings FILE\|- [--dry-run] [--delete-findings]` | GET the activities, POST comments | `status`, `posted`, `skipped`, `failed`, `summaryId`, `error` |
+| `post ... --findings FILE\|- [--dry-run]` | GET the activities, POST comments | `status`, `posted`, `skipped`, `failed`, `summaryId`, `error` |
 
 `--project` is the project key from the URL (`projects/<KEY>`), or `~<NAME>`
 for a personal repository (`users/<name>`). `--dry-run` validates the file and
@@ -69,9 +69,10 @@ prints the requests it would send, with no token and no network.
 ```
 
 `line` is the line number in the new file; `lineType` is `ADDED` or
-`CONTEXT`. At most 15 comments; more is an input error. Write the file with
-the editor tool: the text may hold quotes, backslashes, backticks and
-newlines, and the script, not the shell, turns it into JSON.
+`CONTEXT`. At most 15 comments; more is an input error. Pipe the JSON
+to `--findings -`; no file is written. The text may hold quotes,
+backslashes, backticks and newlines, and the script, not the shell, turns it
+into requests.
 
 ## What is sent
 

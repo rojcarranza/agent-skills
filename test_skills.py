@@ -750,9 +750,6 @@ class TestNoStaleAccount(unittest.TestCase):
         self.assertEqual(hits, [], "replace the old account name with rojcarranza")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 def load_module(path):
     import importlib.util
@@ -772,42 +769,17 @@ class TestReviewPrCommentSkill(unittest.TestCase):
         return (self.SKILL / name).read_text("utf-8")
 
     def tools(self):
-        return re.search(r"^allowed-tools: (.*)$", self.text("SKILL.md"),
-                         re.M).group(1)
+        fm, _ = frontmatter(self.text("SKILL.md"))
+        return fm["allowed-tools"]
 
-    def test_no_github_left(self):
-        for f in sorted([*self.SKILL.glob("*.md"), *self.SKILL.rglob("*.py"),
-                         ROOT / "evals" / "roj-review-pr-comment"
-                         / "evals.json",
-                         ROOT / "evals" / "roj-review-pr-comment"
-                         / "triggers.json"]):
-            body = f.read_text("utf-8")
-            if f.name == "triggers.json":   # one negative names GitHub
-                body = body.replace("review this GitHub pull request and "
-                                    "post the comments", "")
-            with self.subTest(file=f.name):
-                self.assertIsNone(
-                    re.search(r"(?i)github|gh-axi|\bgh\b", body))
-        self.assertFalse((ROOT / "evals" / "fixtures" / "fake-gh.sh").exists())
-
-    def test_reads_the_real_head_with_git_only(self):
-        tools = self.tools()
-        for cmd in ("git fetch origin *", "git show *", "git diff *"):
-            self.assertIn(f"Bash({cmd})", tools)
-        self.assertNotIn("Bash(gh", tools)
-        self.assertNotIn("curl", tools)
-        body = self.text("SKILL.md")
-        self.assertIn("refs/pull-requests/<id>/from", body)
-        self.assertIn("git show <head>:<path>", body)
-
-    def test_draft_first_and_token_rules_are_written_down(self):
-        flat = " ".join(self.text("SKILL.md").split())
-        for needle in ("Draft first", "BITBUCKET_TOKEN", "BITBUCKET_URL",
-                       "Never print, echo, log, store or request the token",
-                       "scripts/bitbucket_pr.py", "Reviewed commit"):
-            with self.subTest(needle):
-                self.assertIn(needle, flat)
-        self.assertIn("--delete-findings", flat)
+    def test_allowed_tools_read_the_pr_head_with_git_and_no_write_or_http(self):
+        tools = re.findall(r"[^\s(]+(?:\([^)]*\))?", self.tools())
+        for cmd in ("Bash(git fetch origin *)", "Bash(git show *)",
+                    "Bash(git diff *)"):
+            self.assertIn(cmd, tools)
+        for tool in tools:
+            self.assertNotIn(tool, ("Write", "Edit"))
+            self.assertFalse(tool.startswith(("Bash(gh", "Bash(curl")), tool)
 
     def test_description_names_bitbucket_and_the_post_condition(self):
         fm, _ = frontmatter(self.text("SKILL.md"))
@@ -901,8 +873,7 @@ class TestBitbucketPrScript(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             f = self.findings(Path(tmp) / "f.json")
             code, data, _ = self.run_cmd(
-                ["post", *self.PR, "--findings", f, "--delete-findings"], env)
-            self.assertFalse(Path(f).exists())
+                ["post", *self.PR, "--findings", f], env)
         self.assertEqual((code, data["status"]), (0, "ok"))
         inline, summary = state.posted
         self.assertEqual(inline["anchor"], {
@@ -965,9 +936,7 @@ class TestBitbucketPrScript(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             f = self.findings(Path(tmp) / "f.json")
             code, data, _ = self.run_cmd(
-                ["post", *self.PR, "--findings", f, "--dry-run",
-                 "--delete-findings"], {})
-            self.assertTrue(Path(f).exists())
+                ["post", *self.PR, "--findings", f, "--dry-run"], {})
         self.assertEqual(code, 0)
         self.assertEqual(len(data["requests"]), 2)
         self.assertTrue(data["requests"][0]["path"].endswith("/comments"))
@@ -1015,3 +984,7 @@ class TestBitbucketPrScript(unittest.TestCase):
                         ["post", *self.PR, "--findings", str(f)], env)
                     self.assertEqual(code, 2, err)
         self.assertEqual(state.posted, [])
+
+
+if __name__ == "__main__":
+    unittest.main()

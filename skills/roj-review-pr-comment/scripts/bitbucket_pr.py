@@ -10,7 +10,6 @@ built with json.dumps; nothing is escaped by hand.
   python bitbucket_pr.py comments --project KEY --repo SLUG --pr ID [--head SHA]
   python bitbucket_pr.py post     --project KEY --repo SLUG --pr ID
                                   --findings FILE|-  [--dry-run]
-                                  [--delete-findings]
 
 Environment (never passed as arguments, never printed):
   BITBUCKET_URL    server root, e.g. https://bitbucket.example.com (plus the
@@ -199,15 +198,13 @@ def cmd_comments(args, env, out):
     out.write("\n")
 
 
-def load_findings(source, stdin, delete=False):
+def load_findings(source, stdin):
     try:
         if source == "-":
             raw = stdin.read()
         else:
             with open(source, encoding="utf-8") as fh:
                 raw = fh.read()
-            if delete:
-                os.remove(source)
         data = json.loads(raw)
     except (OSError, ValueError) as err:
         raise Fail(f"cannot read findings: {err}", EXIT_INPUT) from None
@@ -253,8 +250,7 @@ def summary_body(findings, unanchored):
 
 
 def cmd_post(args, env, out, stdin):
-    findings = load_findings(args.findings, stdin,
-                             args.delete_findings and not args.dry_run)
+    findings = load_findings(args.findings, stdin)
     comments = findings.get("comments", [])
     if args.dry_run:
         path = pr_path(args.project, args.repo, args.pr) + "/comments"
@@ -333,9 +329,6 @@ def parser():
             p.add_argument("--dry-run", action="store_true",
                            help="validate and print the requests; no token "
                            "and no network")
-            p.add_argument("--delete-findings", action="store_true",
-                           help="remove the findings file once it is read, "
-                           "so no shell-specific rm/del is needed")
     return ap
 
 
