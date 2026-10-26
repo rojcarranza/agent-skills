@@ -4,8 +4,9 @@ One complete run, end to end, on a realistic branch. Consult this only when
 the output format needs grounding — it is not loaded by default.
 
 The branch: `feature/PROJ-4471-atomic-upgrade` in the Go deploy CLI. It adds
-a `--wait-timeout` flag, switches the Helm upgrade call to atomic, and bumps
-the chart used by the staging environment.
+a `--wait-timeout` flag and passes it from the staging Bamboo spec, switches
+the Helm upgrade call to atomic, and bumps the chart used by the staging
+environment.
 
 ## Phase trace (what the skill did)
 
@@ -22,8 +23,9 @@ M       internal/helm/client.go
 M       charts/service/Chart.yaml
 M       charts/service/values-staging.yaml
 M       internal/helm/client_test.go
+M       bamboo-specs/deploy.yaml
 $ git diff --stat origin/main...HEAD
- 5 files changed, 118 insertions(+), 21 deletions(-)
+ 6 files changed, 119 insertions(+), 21 deletions(-)
 $ git rev-parse @{u}
 fatal: no upstream configured for branch 'feature/PROJ-4471-atomic-upgrade'
 ```
@@ -38,8 +40,9 @@ and `govet` enabled — so unchecked errors are not reported here, the linter
 owns them).
 
 Tooling offered and approved: `go vet ./...`, `helm template charts/service
--f charts/service/values-staging.yaml`. The `helm template` run is what
-produced the Blocker below.
+-f charts/service/values-staging.yaml`, `go run ./cmd/deploy --wait-timeout
+300`. The `helm template` run is what produced the Blocker below, and the
+`go run` is what confirmed the Major.
 
 ## The report
 
@@ -47,7 +50,8 @@ produced the Blocker below.
 ## Review — feature/PROJ-4471-atomic-upgrade vs origin/main
 
 deploy-cli · base `origin/main` @ `9f31c0a` · 4 commits ·
-5 files · +118/-21 · lenses: lang-go, platform-helm · mode: pre-PR
+6 files · +119/-21 · lenses: lang-go, platform-helm · mode: pre-PR
+Uncommitted: none
 Excluded: none
 
 ### What this branch does
@@ -64,6 +68,8 @@ leaving the release in `pending-upgrade`. The staging chart is bumped to
 - `charts/service/Chart.yaml` — version 0.3.2 → 0.4.0.
 - `charts/service/values-staging.yaml` — adds `probes.startupSeconds`.
 - `internal/helm/client_test.go` — covers the timeout mapping.
+- `bamboo-specs/deploy.yaml` — the staging deploy task passes
+  `--wait-timeout 300`.
 
 Flow: `deploy` parses flags → `helm.Client.Upgrade` builds the action with
 `Atomic: true`, `Wait: true`, `Timeout: <flag>` → on a wait failure Helm
@@ -93,14 +99,16 @@ guard the template with `default 30`.
 #### 🟠 Major
 
 **`cmd/deploy.go:57`** · Confirmed
-`--wait-timeout` defaults to `0`, which Helm treats as "no timeout" rather
-than "fail immediately", so an unhealthy release now blocks the Bamboo job
-until the job's own timeout kills it — and because `Atomic` is set, the
-rollback never runs.
-Fails when: a bad image tag is deployed; before this branch the task failed
-in seconds, now the agent is held for the job's full 60 minutes and the
-release is left in `pending-upgrade`.
-Fix: default to a bounded value (`5 * time.Minute`) and reject `0`.
+The flag is parsed with `time.ParseDuration`, which needs a unit, but
+`bamboo-specs/deploy.yaml:34`, added in this same diff, passes
+`--wait-timeout 300`. A bare `300` is rejected, so the staging deploy task
+can no longer run.
+Fails when: the staging plan runs; `deploy` exits with `invalid argument
+"300" for "--wait-timeout" flag: time: missing unit in duration "300"` before
+any Helm call, and every deploy from this branch fails in Bamboo. Verified by
+running `go run ./cmd/deploy --wait-timeout 300` locally.
+Fix: pass `--wait-timeout 5m` in the spec, or accept bare seconds in the
+flag parser.
 
 #### 🟡 Minor
 
@@ -114,22 +122,23 @@ Fix: wrap with `%w`.
 ### Tests
 
 `client_test.go` covers the timeout-to-exit-code mapping, including the
-failure path — good. Not covered: the `Atomic` rollback path, and the
-`--wait-timeout=0` case, which is the Major above. A table case with a zero
-timeout would have caught it.
+failure path — good. Not covered: the `Atomic` rollback path, and flag
+parsing of the value the Bamboo spec actually passes (`300`), which is the
+Major above. A table case with that input would have caught it.
 
 ### Runtime / deploy impact
 
 Every upgrade now blocks until the release is ready and rolls back on
 failure, so deploy tasks that previously returned in seconds will run for as
 long as the rollout takes. Bamboo task timeouts should be checked against the
-new `--wait-timeout` default. Chart 0.4.0 renames nothing, so existing
+new `--wait-timeout` value. Chart 0.4.0 renames nothing, so existing
 releases upgrade in place.
 
 ### Needs your input
 
-- Does the staging Bamboo deploy task pass `--wait-timeout` explicitly? The
-  spec is not in this repository, so the effective default there is unknown.
+- Does the production Bamboo plan pass `--wait-timeout` in the same form as
+  staging? Only the staging spec is in this repository, so its value there is
+  unknown.
 
 ### Good
 

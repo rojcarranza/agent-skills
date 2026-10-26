@@ -9,7 +9,9 @@ and never posts comments.
 
 ## When to use
 
-- Before pushing a feature branch, or before opening a PR.
+- Before pushing a feature branch, or before opening a PR. Staged, unstaged
+  and untracked files are reviewed with the commits; on the base branch the
+  working tree alone is the review.
 - After opening a PR, to produce findings you can paste as review comments.
 - Any branch touching Java/Maven, Python, Bash, Go, Bamboo specs, Dockerfiles,
   Kubernetes manifests or Helm charts.
@@ -48,7 +50,8 @@ reproducible.
 1. Resolves the base and warns when the diff looks too large to be the right
    one (over 40 commits, or roughly 2000 lines).
 2. Collects the diff with `git diff <base>...HEAD` — three-dot, so work
-   merged into the base since the branch point is never reviewed.
+   merged into the base since the branch point is never reviewed - plus
+   staged, unstaged and untracked work, each such finding marked uncommitted.
 3. Detects the stacks from the **changed files**, not from what the
    repository contains, and loads at most three rule files.
 4. Reads the repository's own conventions (`CLAUDE.md`, `CONTRIBUTING.md`,
@@ -82,8 +85,10 @@ or it is dropped.
 
 ## Pre-PR versus post-PR
 
-Detected from Git: a pushed branch with an upstream and nothing ahead is
-treated as post-PR.
+Detected from Git: a clean feature branch that is pushed, with an upstream
+and nothing ahead, is treated as post-PR. The base branch itself, or any
+staged, unstaged or untracked work other than this skill's own earlier
+report and tour, always means pre-PR.
 
 - **Pre-PR** — drafts a PR description from the change summary, and may offer
   to apply fixes after asking.
