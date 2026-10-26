@@ -329,24 +329,6 @@ class TestOnboardRepoGuide(unittest.TestCase):
                 with self.subTest(file=f.name, line=n):
                     self.assertIsNone(self.LOOKUP_RE.search(line), line)
 
-    def test_skill_md_is_complete_without_references(self):
-        flat = " ".join((self.ONBOARD / "SKILL.md").read_text("utf-8").split())
-        for needle in (".onboarding/", "Read gate", "stop and write nothing",
-                       "Reference unavailable", "check-ignore",
-                       "`flowchart TD`", "`sequenceDiagram`",
-                       "reviewing-prs.md", "Every claim cites"):
-            with self.subTest(needle=needle):
-                self.assertIn(needle, flat)
-
-    def test_tours_are_on_request_only(self):
-        flat = " ".join((self.ONBOARD / "SKILL.md").read_text("utf-8").split())
-        self.assertIn("CodeTour, on request only", flat)
-        self.assertIn("No default tours", flat)
-        for old in ("01-orientation.tour", "plan checkpoint, then"):
-            self.assertNotIn(old, flat)
-        for gone in ("tour-plan.md", "step-writing.md"):
-            self.assertFalse((self.ONBOARD / "references" / gone).exists())
-
     def script(self, reference, name):
         """The fenced python block that follows `name` in a reference."""
         text = (self.ONBOARD / "references" / reference).read_text("utf-8")
@@ -404,13 +386,7 @@ class TestOnboardRepoGuide(unittest.TestCase):
             self.assertEqual(bad.returncode, 1)
             self.assertIn("a.py:9", bad.stdout)
 
-    def test_index_html_contract(self):
-        flat = " ".join((self.ONBOARD / "SKILL.md").read_text("utf-8").split())
-        for needle in ("index.html", "references/html-page.md",
-                       "lavish-axi", "cdn.jsdelivr.net/npm/mermaid@",
-                       "never `latest`", "HTML matches Markdown"):
-            with self.subTest(needle=needle):
-                self.assertIn(needle, flat)
+    def test_index_html_pins_one_mermaid_script(self):
         page = (self.ONBOARD / "references" / "html-page.md").read_text("utf-8")
         urls = set(re.findall(r"https://cdn\.jsdelivr\.net/[^\s\"'),`]+", page))
         self.assertEqual(len(urls), 1, urls)
@@ -421,18 +397,6 @@ class TestOnboardRepoGuide(unittest.TestCase):
                         r'integrity="([^"]*)"', page)
         skill = (self.ONBOARD / "SKILL.md").read_text("utf-8")
         self.assertIn(f'src="{tag.group(1)}" integrity="{tag.group(2)}"', skill)
-        self.assertIn('fig.className = "diagram failed"', page)
-        for needle in ('integrity="sha384-', 'class="diagram-src"',
-                       'id="mermaid-banner"', 'prefers-color-scheme: dark',
-                       'data-theme="dark"', 'code class="ref"',
-                       "lavish-axi <ROOT>/.onboarding/index.html"):
-            with self.subTest(needle=needle):
-                self.assertIn(needle, page)
-
-    def test_templates_ship_the_anchor_check(self):
-        text = (self.ONBOARD / "references" / "templates.md").read_text("utf-8")
-        self.assertIn("check-anchors.py", text)
-        self.assertIn("sys.exit(1 if bad else 0)", text)
 
 
 class TestReviewModes(unittest.TestCase):

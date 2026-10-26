@@ -53,7 +53,9 @@ is a dependency.
 6. **Writes only under `<ROOT>/.onboarding/`**, and `<ROOT>/.tours/` on
    request. Commands beyond file reads are `git`, the
    read-only `graphify` queries in `references/graph-first.md`, and `node`
-   for the Mermaid parse check only with approval. Nothing else runs without
+   for the Mermaid parse check only with approval, and `python3` (or `python`)
+   running the two check scripts from a scratch file outside the repository.
+   The scratch file is not part of the guide. Nothing else runs without
    approval.
 
 Graph check, first and every run: look for `graphify-out/graph.json` as
