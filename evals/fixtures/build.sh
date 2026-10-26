@@ -543,6 +543,70 @@ EOF
 | TC-1 | Server returns 503 twice, then 200 | Upload succeeds | | |
 EOF
   G add -A; G commit -qm "Add PROJ-2001 story and SB"; push_all ;;
+bamboo-fail)   init_repo main; py_base
+  cat >> app/uploader.py <<'EOF'
+
+
+def chunk_payload(items, size):
+    return [items[i:i + size] for i in range(0, len(items), size)]
+EOF
+  cat > tests/test_chunk.py <<'EOF'
+from app.uploader import chunked
+
+
+def test_chunked_splits():
+    assert list(chunked([1, 2, 3], 2)) == [[1, 2], [3]]
+EOF
+  cat > BUILD-4521-problem.md <<'EOF'
+# Bamboo plan DEMO-APP, build 4521 fails in the Test stage
+
+The Test stage runs `pytest -q` on a Linux agent and has been red since
+yesterday's merge. Build log excerpt:
+
+```
+$ pytest -q
+==================================== ERRORS ====================================
+_________________ ERROR collecting tests/test_chunk.py _________________
+ImportError while importing test module 'tests/test_chunk.py'.
+tests/test_chunk.py:1: in <module>
+    from app.uploader import chunked
+E   ImportError: cannot import name 'chunked' from 'app.uploader' (app/uploader.py)
+=========================== short test summary info ============================
+ERROR tests/test_chunk.py
+1 error in 0.12s
+Failing task: Run tests
+```
+EOF
+  G add -A; G commit -qm "Add chunk helper and its test"; push_all ;;
+interview-cv)  init_repo main
+  cat > alex-example-cv.md <<'EOF'
+# Alex Example - DevOps Engineer
+
+## Experience
+
+**DevOps Engineer, Northwind Hosting** (Mar 2021 - Present)
+- Built CI/CD pipelines for a dozen services.
+- Maintained Kubernetes clusters and Helm charts for the platform team.
+- Wrote Python and Bash automation for backups and certificate rotation.
+
+**Systems Administrator, Contoso Labs** (Jan 2019 - Jun 2021)
+- Administered Linux servers and VMware vSphere VMs.
+- Docker image builds for internal tools.
+
+## Skills
+
+Python, Bash, Docker, Kubernetes, Helm, Linux, VMware, Postgres, Azure
+EOF
+  G add -A; G commit -qm "Add candidate CV"; push_all ;;
+monorepo)      init_repo main
+  mkdir -p apps/web apps/api
+  printf 'module web\n\ngo 1.22\n' > apps/web/go.mod
+  printf 'package main\n\nfunc main() {}\n' > apps/web/main.go
+  printf 'module api\n\ngo 1.22\n' > apps/api/go.mod
+  printf 'package main\n\nfunc main() {}\n' > apps/api/main.go
+  printf 'use ./apps/web\nuse ./apps/api\n' > go.work
+  printf '# Monorepo\n' > README.md
+  G add -A; G commit -qm "Add web and api modules"; push_all ;;
 sb-work)       init_repo main; sb_work ;;
 sb-work-template) init_repo main; sb_work
   cat > SB-template.md <<'EOF'

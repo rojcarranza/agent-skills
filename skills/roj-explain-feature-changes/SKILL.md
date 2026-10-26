@@ -22,8 +22,10 @@ feature should be understood (Important Observations in
   checkout, switch, stash, fetch or edit source code unless the user asks.
 - Graph check, first and every run: look for `graphify-out/graph.json` at the
   repository root. Present: follow `references/graph-first.md`. Absent: search
-  directly. Close your final chat message with one line: `Graph: used`,
-  `Graph: stale, skipped` or `Graph: none found, searched directly`.
+  directly. Close your final chat message with a Graph line only when it
+  informs: `Graph: used` or `Graph: stale, skipped` when a graph exists,
+  `Graph: none found, searched directly` only when a large repository
+  (hundreds of source files) has none; otherwise print no Graph line.
 - Write at most two files: the report (phase 6) and, only if the user
   accepts the offer, the tour (phase 8).
 - One plain `git` command per call. No `$(...)`, no pipes, no `grep`,

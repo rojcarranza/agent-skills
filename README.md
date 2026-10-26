@@ -117,7 +117,7 @@ cali.lock         the tree each of them is pinned to (and commit, for community 
 tools/            sync_shared.py — copies shared files into every skill using them
 install.py        runs cali sync, deploys instructions and MCP servers, installs graphify (docs/installer.md)
 test_install.py   installer tests
-test_skills.py    spec + publishing checks for every skill
+test_skills.py    spec, publishing, evals and description-routing checks
 ```
 
 ## Writing or changing a skill
@@ -162,7 +162,9 @@ The no-mistakes gate runs all three on every push (GitHub Actions is off, see
 ### Evals
 
 `evals/<skill>/` holds [skill-creator](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator)
-eval sets, kept outside `skills/` so no install ships them:
+eval sets, kept outside `skills/` so no install ships them. Every skill
+needs both files, and `test_skills.py` also fails when two descriptions
+route one trigger phrase ambiguously:
 
 - `triggers.json` — realistic prompts marked `should_trigger`, mostly
   near-misses aimed at sibling skills, to test the `description`.

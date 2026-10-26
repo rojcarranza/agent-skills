@@ -1,0 +1,50 @@
+[
+  {
+    "query": "prepare the interview for Alex Example, the CV is alex-example-cv.md",
+    "should_trigger": true
+  },
+  {
+    "query": "new candidate, here is the CV, build the interview doc",
+    "should_trigger": true
+  },
+  {
+    "query": "interview prep for this DevOps candidate",
+    "should_trigger": true
+  },
+  {
+    "query": "generate technical interview questions from this CV",
+    "should_trigger": true
+  },
+  {
+    "query": "do the final assessment for the candidate, the doc is filled in",
+    "should_trigger": true
+  },
+  {
+    "query": "make an interview document with a pass/no-pass section for this applicant",
+    "should_trigger": true
+  },
+  {
+    "query": "review my pull request for defects",
+    "should_trigger": false
+  },
+  {
+    "query": "tour this codebase so I can onboard",
+    "should_trigger": false
+  },
+  {
+    "query": "investigate why the pipeline failed",
+    "should_trigger": false
+  },
+  {
+    "query": "write a cover letter for my own job application",
+    "should_trigger": false
+  },
+  {
+    "query": "explain what changed in my branch",
+    "should_trigger": false
+  },
+  {
+    "query": "grill me on this user story",
+    "should_trigger": false
+  }
+]

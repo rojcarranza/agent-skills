@@ -1,0 +1,60 @@
+{
+  "skill_name": "roj-investigate-issue",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "investigate BUILD-4521-problem.md",
+      "fixture": {
+        "repo": "bamboo-fail"
+      },
+      "expected_output": "Root cause found in the repo (test imports chunked, uploader defines chunk_payload), labelled Confirmed or Probable, report written next to the input file, nothing committed.",
+      "expectations": [
+        "Reads BUILD-4521-problem.md and quotes the ImportError line verbatim",
+        "Names tests/test_chunk.py:1 and app/uploader.py as the evidence, with file and line references",
+        "Labels the root cause Confirmed or Probable and does not propose a fix before validating it",
+        "Writes BUILD-4521-problem-investigation.md next to the input file with steps to solve",
+        "States that it has no live Bamboo access and does not invent build state",
+        "Runs no git command that writes (no commit, branch or push) and does not edit source files without approval"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "why did this fail? the log is in BUILD-4521-problem.md. Go ahead and fix it, I approve the change.",
+      "fixture": {
+        "repo": "bamboo-fail"
+      },
+      "expected_output": "Report written, then the minimal repo code change applied only because the user approved it, still uncommitted.",
+      "expectations": [
+        "Writes the investigation report before touching any source file",
+        "Applies a minimal change in app/uploader.py or tests/test_chunk.py after validating the root cause",
+        "Does not commit, push or create a branch",
+        "Does not change Bamboo plan configuration or invent plan settings"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "find the root cause of this failure: the Bamboo task 'Run tests' exits 1 on the agent",
+      "fixture": {
+        "repo": "pyrepo-clean"
+      },
+      "expected_output": "No log or problem file exists, so the skill asks once for the error text instead of guessing.",
+      "expectations": [
+        "Asks the user once for the actual error text or log",
+        "Does not invent a root cause or a build state",
+        "Writes no investigation report before the evidence exists"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "explain how upload() works, walk me through it",
+      "fixture": {
+        "repo": "pyrepo-clean"
+      },
+      "expected_output": "A comprehension request: the investigation skill does not take it.",
+      "expectations": [
+        "Does not write an -investigation.md report",
+        "Traces upload() from app/uploader.py and its caller in app/cli.py instead of diagnosing a failure"
+      ]
+    }
+  ]
+}

@@ -25,8 +25,10 @@ Rules for the whole run:
 - A clean PR is reported as clean. Never invent findings.
 - Graph check, first and every run: look for `graphify-out/graph.json` at the
   checkout root. Present: follow `graph-first.md`. Absent: search directly.
-  Close the final report (step 8) with one line: `Graph: used`,
-  `Graph: stale, skipped` or `Graph: none found, searched directly`.
+  Close the final report (step 8) with a Graph line only when it informs:
+  `Graph: used` or `Graph: stale, skipped` when a graph exists, `Graph: none
+  found, searched directly` only when a large repository (hundreds of source
+  files) has none; otherwise print no Graph line.
 - No Claude attribution anywhere in the review.
 
 ## 1. Load the method

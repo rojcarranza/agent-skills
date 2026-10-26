@@ -5,6 +5,7 @@ frontmatter breaks the spec, so these fail loudly instead.
   python3 -m unittest test_skills -v
 """
 import json
+import math
 import os
 import re
 import shutil
@@ -389,11 +390,9 @@ class TestEvals(unittest.TestCase):
     # Fixtures that are a bare folder, for skills that start a project.
     NO_GIT = {"idea-empty"}
 
-    # Skills whose descriptions overlap; each must keep an eval set.
-    REQUIRED = {"roj-code-review-pr",
-                "roj-review-pr-comment", "roj-explain-logic",
-                "roj-explain-feature-changes", "roj-idea-to-project",
-                "roj-soundboarding"}
+    # Every shipped skill must keep an eval set: a skill without evals
+    # fails test_required_eval_sets_exist.
+    REQUIRED = {d.name for d in skill_dirs()}
 
     def eval_dirs(self):
         return sorted(p for p in (ROOT / "evals").iterdir()
@@ -502,6 +501,145 @@ class TestEvals(unittest.TestCase):
                         self.assertTrue(e["expectations"])
                         for x in e["expectations"]:
                             self.assertIsInstance(x, str)
+
+
+STOPWORDS = frozenset("""a an and any are as at be by do does for from has have
+how i if in into what who why whom is it its my no not of on one or our so that the their them
+then this to use used user users using want when which with you your""".split())
+
+# Trigger phrases a user really types, per skill. Each must route to the
+# owner and not to a sibling: the owner's description must score strictly
+# highest. Add a row when a description changes or two skills start to blur.
+ROUTES = {
+    "roj-code-review-pr": [
+        "review my pull request before I merge",
+        "do a code review of this branch and find defects",
+        "quick review of my uncommitted changes",
+    ],
+    "roj-review-pr-comment": [
+        "review PR 123 and comment on it",
+        "post a review on this PR",
+        "review this GitHub pull request URL and leave inline comments",
+    ],
+    "roj-explain-logic": [
+        "explain this function line by line",
+        "walk me through how this code flow works",
+        "what does this method do and who calls it",
+    ],
+    "roj-explain-feature-changes": [
+        "explain my changes compared to develop",
+        "help me explain this branch to my reviewer",
+        "generate text I can paste into my PR describing what I changed",
+    ],
+    "roj-investigate-issue": [
+        "investigate this issue and find the root cause",
+        "why did this Bamboo pipeline build fail",
+        "validate this bug from the stack trace in the problem file",
+    ],
+    "roj-soundboarding": [
+        "create an SB document for this Jira ticket",
+        "soundboard this user story before I implement it",
+        "implement the story from the SB document",
+    ],
+    "roj-grill-plan": [
+        "grill me on this story",
+        "stress-test this plan and poke holes in it",
+        "resolve the open questions in the SB",
+    ],
+    "roj-tour-codebase": [
+        "onboard me to this repo",
+        "tour this codebase",
+        "where do I start in this project I just joined",
+    ],
+    "roj-interview-prep": [
+        "prepare an interview for this candidate from their CV",
+        "new candidate interview prep",
+        "final assessment of the interviewed candidate",
+    ],
+    "roj-idea-to-project": [
+        "I have an app idea and want to plan it before building",
+        "set up a new empty repo so an agent can build my product idea",
+        "write requirements and architecture for a new app",
+    ],
+}
+
+
+def _stem(word):
+    for suffix in ("ing", "ed", "es", "s"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 4:
+            return word[:-len(suffix)]
+    return word
+
+
+def _tokens(text):
+    return {_stem(w) for w in re.findall(r"[a-z0-9]+", text.lower())
+            if w not in STOPWORDS and len(w) > 1}
+
+
+NEGATIVE_RE = re.compile(r"^(?:Not for|Do NOT|Never|For [^.]*\buse\b)", re.I)
+
+
+def route_units(description):
+    """What a description offers an agent to match on: its quoted trigger
+    phrases and its sentences, minus the ones that point away to a sibling
+    ("Not for ...", "Do NOT use ..."), which would credit the sibling's
+    vocabulary to this skill."""
+    quoted, sentences = [], []
+    for sentence in re.split(r"(?<=[.!?])\s+", description):
+        if not NEGATIVE_RE.match(sentence):
+            quoted += re.findall(r'"([^"]+)"', sentence)
+            sentences.append(re.sub(r'"[^"]*"', " ", sentence))
+    # A sentence left as "Uses the method." once a skill name is cut is a
+    # stub, not a trigger; a quoted phrase is always one.
+    sentences = [re.sub(r"roj-[a-z-]+", " ", s) for s in sentences]
+    return quoted + [s for s in sentences if len(_tokens(s)) >= 3]
+
+
+def route_scores(phrase, descriptions):
+    """Cosine of IDF-weighted words between a phrase and the best unit of
+    each description. A word every description shares says nothing; a word
+    only one has decides. Deterministic, no model call."""
+    units = {n: [_tokens(u) for u in route_units(d)]
+             for n, d in descriptions.items()}
+    owners = {n: set().union(*us) for n, us in units.items()}
+    idf = {w: math.log(len(owners) / sum(w in o for o in owners.values()))
+           for w in set().union(*owners.values())}
+    want = _tokens(phrase)
+    norm = math.sqrt(sum(idf.get(w, 0.0) ** 2 for w in want)) or 1.0
+
+    def cosine(unit):
+        size = math.sqrt(sum(idf[w] ** 2 for w in unit)) or 1.0
+        return sum(idf[w] ** 2 for w in want & unit) / (norm * size)
+    return {n: max(cosine(u) for u in us) for n, us in units.items()}
+
+
+class TestRouting(unittest.TestCase):
+    """Descriptions are all an agent sees when it picks a skill, so two
+    that blur send a request to the wrong one."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.descriptions = {}
+        for d in skill_dirs():
+            fm, _ = frontmatter((d / "SKILL.md").read_text("utf-8"))
+            cls.descriptions[d.name] = fm["description"]
+
+    def test_every_skill_has_routes(self):
+        self.assertEqual(set(ROUTES), set(self.descriptions))
+        for name, phrases in ROUTES.items():
+            with self.subTest(skill=name):
+                self.assertGreaterEqual(len(phrases), 3)
+
+    def test_phrases_route_to_their_skill_and_not_a_sibling(self):
+        for owner, phrases in ROUTES.items():
+            for phrase in phrases:
+                with self.subTest(skill=owner, phrase=phrase):
+                    scores = route_scores(phrase, self.descriptions)
+                    rivals = {n: round(s, 2) for n, s in scores.items()
+                              if n != owner and s >= scores[owner]}
+                    self.assertFalse(
+                        rivals, f"scores {round(scores[owner], 2)} for "
+                        f"{owner}, but {rivals} score as high")
 
 
 class TestPublishable(unittest.TestCase):

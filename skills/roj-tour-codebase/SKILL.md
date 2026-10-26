@@ -32,8 +32,10 @@ at phase 2, `references/flow-tracing.md` when phase 2 picks the core flow,
 and `references/step-writing.md` at phase 3. None of them are needed before
 that. Graph check, first and every run: look for `graphify-out/graph.json` as
 soon as phase 0 has resolved the repository root, before any discovery. Present: load `references/graph-first.md`. Absent:
-discover directly. Close the final chat message with one line: `Graph: used`,
-`Graph: stale, skipped` or `Graph: none found, searched directly`.
+discover directly. Close the final chat message with a Graph line only when it
+informs: `Graph: used` or `Graph: stale, skipped` when a graph exists, `Graph:
+none found, searched directly` only when a large repository (hundreds of
+source files) has none; otherwise print no Graph line.
 
 ## Phase 0 — Scope
 

@@ -57,8 +57,7 @@ written and which template shapes it.
    message with a Graph line only when it informs: `Graph: used` or
    `Graph: stale, skipped` when a graph exists, `Graph: none found, searched
    directly` only when a large repository (hundreds of source files) has none.
-   Otherwise print no Graph line; this replaces the always-print closing rule
-   in that file. The read-only `graphify` queries in that file are allowed
+   Otherwise print no Graph line, as `references/graph-first.md` says. The read-only `graphify` queries in that file are allowed
    alongside the read-only git commands.
 
 ## Flow 1: Create an SB document

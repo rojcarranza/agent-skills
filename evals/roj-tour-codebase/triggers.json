@@ -1,0 +1,50 @@
+[
+  {
+    "query": "onboard me to this repo",
+    "should_trigger": true
+  },
+  {
+    "query": "tour this codebase, I just joined the project",
+    "should_trigger": true
+  },
+  {
+    "query": "teach me how this works, where do I start?",
+    "should_trigger": true
+  },
+  {
+    "query": "help me understand this repo and walk me through the architecture",
+    "should_trigger": true
+  },
+  {
+    "query": "I have never worked on this project, make me a course through it",
+    "should_trigger": true
+  },
+  {
+    "query": "leave a series of CodeTour files so I can replay the architecture in the IDE",
+    "should_trigger": true
+  },
+  {
+    "query": "review this pull request for bugs",
+    "should_trigger": false
+  },
+  {
+    "query": "explain what this one function does line by line",
+    "should_trigger": false
+  },
+  {
+    "query": "explain the changes on my feature branch for my reviewer",
+    "should_trigger": false
+  },
+  {
+    "query": "investigate why the Bamboo build failed",
+    "should_trigger": false
+  },
+  {
+    "query": "grill me on my plan for the uploader",
+    "should_trigger": false
+  },
+  {
+    "query": "generate interview questions from this CV",
+    "should_trigger": false
+  }
+]
