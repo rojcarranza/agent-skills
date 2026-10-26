@@ -893,7 +893,7 @@ class TestBitbucketPrScript(unittest.TestCase):
         self.assertEqual((code, data["status"]), (0, "already-reviewed"))
         self.assertEqual(state.posted, [])
 
-    def test_post_skips_an_identical_comment_and_the_summary_with_it(self):
+    def test_an_identical_comment_is_skipped_but_the_head_still_gets_its_summary(self):
         env, state = self.serve("prior")
         text = state.activities[-1]["comment"]["text"]
         with tempfile.TemporaryDirectory() as tmp:
@@ -905,9 +905,32 @@ class TestBitbucketPrScript(unittest.TestCase):
             code, data, _ = self.run_cmd(["post", *self.PR, "--findings",
                                           str(f)], env)
         self.assertEqual(code, 0)
-        self.assertEqual(len(data["skipped"]), 1)
-        self.assertEqual((data["posted"], data["summaryId"]), ([], None))
-        self.assertEqual(state.posted, [])
+        self.assertEqual((len(data["skipped"]), data["posted"]), (1, []))
+        (summary,) = state.posted
+        self.assertNotIn("anchor", summary)
+        self.assertIn("Nothing new", summary["text"])
+        self.assertTrue(summary["text"].endswith(
+            f"Reviewed commit `{self.HEAD[:12]}`"))
+
+    def test_a_rerun_after_a_failed_summary_completes_the_review(self):
+        env, state = self.serve()
+        state.fail_summary = True
+        with tempfile.TemporaryDirectory() as tmp:
+            f = self.findings(Path(tmp) / "f.json")
+            post = ["post", *self.PR, "--findings", f]
+            code, data, _ = self.run_cmd(post, env)
+            self.assertEqual((code, data["status"]), (5, "partial"))
+            self.assertEqual(len(state.posted), 1)
+            state.fail_summary = False
+            code, data, _ = self.run_cmd(post, env)
+            self.assertEqual((code, data["status"]), (0, "ok"))
+            self.assertEqual(len(data["skipped"]), 1)
+            self.assertEqual(len(state.posted), 2)
+            self.assertTrue(state.posted[1]["text"].endswith(
+                f"Reviewed commit `{self.HEAD[:12]}`"))
+            code, data, _ = self.run_cmd(post, env)
+            self.assertEqual(data["status"], "already-reviewed")
+            self.assertEqual(len(state.posted), 2)
 
     def test_a_rejected_line_moves_into_the_summary(self):
         env, state = self.serve(reject=("app/uploader.py:22",))

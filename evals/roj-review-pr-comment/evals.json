@@ -93,7 +93,7 @@
         "Reads the existing comments with bitbucket_pr.py comments --head",
         "Does not post the upload() returns None finding again, because a comment on app/uploader.py already says it",
         "Says how many findings were already on the PR and skipped",
-        "Posts no comment that repeats the existing one, and posts no summary when every finding was already there"
+        "Posts no comment that repeats the existing one, and still posts the summary with the Reviewed commit line, saying nothing is new, when every finding was already there"
       ]
     },
     {

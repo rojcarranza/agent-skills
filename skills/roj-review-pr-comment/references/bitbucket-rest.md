@@ -100,7 +100,9 @@ endpoint.
   that restates a comment already on the same file (lines move between
   heads, so the line number is not the key), and `post` additionally skips a
   comment whose path and text are identical to an existing one.
-- When every finding is skipped, no summary is posted either.
+- When every finding is skipped, the summary is still posted (it says nothing
+  is new), so the head gets its `Reviewed commit` line; a rerun after a
+  partial post posts the missing summary.
 
 ## Errors and exit codes
 

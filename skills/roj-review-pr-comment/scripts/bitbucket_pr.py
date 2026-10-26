@@ -257,8 +257,12 @@ def inline_body(c):
                        "lineType": c["lineType"], "fileType": "TO"}}
 
 
-def summary_body(findings, unanchored):
+def summary_body(findings, unanchored, skipped=0, posted=0):
     parts = [findings["summary"].strip()]
+    if skipped:
+        parts.append(f"{skipped} finding(s) already on this PR, skipped."
+                     + ("" if posted or unanchored
+                        else " Nothing new on this head."))
     if unanchored:
         parts.append("Findings Bitbucket could not anchor to a line:\n"
                      + "\n".join(f"- `{c['path']}:{c['line']}` - "
@@ -306,12 +310,11 @@ def cmd_post(args, env, out, stdin):
                 break
     status = "failed" if fatal and not posted else "partial" if fatal else "ok"
     summary_id = None
-    all_skipped = comments and not posted and not failed and not fatal
-    if not fatal and not all_skipped:
+    if not fatal:
         try:
             body = summary_body(findings, [
                 {"path": f["path"], "line": f["line"], "text": f["text"]}
-                for f in failed])
+                for f in failed], len(skipped), len(posted))
             summary_id = client.call("POST", client.pr_path + "/comments",
                                      body).get("id")
         except ApiError as err:

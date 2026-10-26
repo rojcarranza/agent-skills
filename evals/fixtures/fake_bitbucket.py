@@ -40,6 +40,7 @@ FILE_TYPES = {"FROM", "TO"}
 class State:
     def __init__(self, head, mode, reject=()):
         self.head, self.mode = head, mode
+        self.fail_summary = False
         self.reject = set(reject)       # "path:line" the server refuses
         self.calls, self.posted, self.next_id = [], [], 100
         self.activities = [
@@ -121,6 +122,8 @@ def handler(state):
             text, anchor = body.get("text"), body.get("anchor")
             if not isinstance(text, str) or not text.strip():
                 return self.error(400, "Comment text is required")
+            if anchor is None and state.fail_summary:
+                return self.error(500, "Internal error")
             if anchor is not None:
                 ok = (isinstance(anchor, dict)
                       and isinstance(anchor.get("path"), str)
