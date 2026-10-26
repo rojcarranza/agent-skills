@@ -24,8 +24,8 @@ is a dependency.
 
 1. **Absolute paths only.** `ROOT` is `git rev-parse --show-toplevel`; with no
    Git repository it is the working directory, and the handoff says so. Every
-   read and write is `<ROOT>/...`. Never a home-directory shortcut, never a
-   path relative to this skill, never a search for the skill's folder. On
+   read and write of the repository is `<ROOT>/...`. Never a home-directory
+   shortcut, never a repository path relative to this skill. On
    Windows Git Bash, if a read fails on `/c/...`, retry once with
    `cygpath -m "$ROOT"` (`C:/...`), then once with the IDE's project-relative
    path.
@@ -34,9 +34,11 @@ is a dependency.
    Print the failing path, the tool's message verbatim, and three checks:
    chat is in agent mode, the IDE project root is the repository root, the
    agent may read the workspace. No guides, no tours, no guesses.
-3. **References are depth, not dependencies.** If a file in `references/`
-   cannot be opened, continue from this file and add `Reference unavailable:
-   <name>` to the handoff. Never search the disk for it.
+3. **References are depth, not dependencies.** Open a file in `references/`
+   at the absolute base directory the host announced when it loaded this skill
+   (`<base>/references/<name>`). If the host announced none, or the file cannot
+   be opened, continue from this file and add `Reference unavailable: <name>`
+   to the handoff. Never search the disk for it.
 4. **No delegation by path.** Do not locate or call another skill through its
    folder. `acquire-codebase-knowledge` and `code-tour` may be invoked **by
    name** when the host lists them, and `code-tour` only for the optional
@@ -174,6 +176,19 @@ render from one pinned `cdn.jsdelivr.net/npm/mermaid@<x.y.z>` script (never
 which stays visible with a one-line notice when the script fails to load or a
 diagram fails to render. The page holds exactly the Markdown's diagrams,
 anchors and headings, no more and no fewer.
+
+When `references/html-page.md` is unavailable, the page still meets this
+minimum: one `<figure class="diagram">` per diagram holding a
+`<div class="diagram-view">`, a hidden-until-failed `<p class="diagram-note">`
+and `<pre class="diagram-src">` with the HTML-escaped Mermaid source; a
+`<div id="mermaid-banner">` shown when `window.mermaid` is missing; and this
+exact script tag before the inline script that calls `mermaid.render`:
+
+```
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js" integrity="sha384-o+g/BxPwhi0C3RK7oQBxQuNimeafQ3GE/ST4iT2BxVI4Wzt60SH4pq9iXVYujjaS" crossorigin="anonymous"></script>
+```
+
+No ES-module import of Mermaid, no other network reference.
 
 ## Phase 4 - Verify (mandatory, cheap)
 

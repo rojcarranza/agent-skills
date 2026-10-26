@@ -415,6 +415,12 @@ class TestOnboardRepoGuide(unittest.TestCase):
         urls = set(re.findall(r"https://cdn\.jsdelivr\.net/[^\s\"'),`]+", page))
         self.assertEqual(len(urls), 1, urls)
         self.assertRegex(next(iter(urls)), r"/npm/mermaid@\d+\.\d+\.\d+/")
+        # SKILL.md carries the same pinned tag, for a run that cannot open
+        # references/html-page.md.
+        tag = re.search(r'<script src="(https://cdn\.jsdelivr\.net[^"]*)"\s+'
+                        r'integrity="([^"]*)"', page)
+        skill = (self.ONBOARD / "SKILL.md").read_text("utf-8")
+        self.assertIn(f'src="{tag.group(1)}" integrity="{tag.group(2)}"', skill)
         for needle in ('integrity="sha384-', 'class="diagram-src"',
                        'id="mermaid-banner"', 'prefers-color-scheme: dark',
                        'data-theme="dark"', 'code class="ref"',
