@@ -53,9 +53,11 @@ run were `go vet ./...` and `helm template charts/service -f
 charts/service/values-staging.yaml`, then the narrowest test for the flag,
 `go test ./cmd -run TestWaitTimeout`. The `helm template` run is what
 produced the Blocker below. The test passed, but its table only parses `5m`,
-so it could not disprove the Major; a throwaway table case with the spec's
-`300`, written in a scratch directory outside the repository and deleted
-after, failed and confirmed it.
+so it could not disprove the Major. A repro confirmed it: a scratch
+`main.go` outside the repository that calls `time.ParseDuration("300")`,
+the parser the flag uses, run with `go run /tmp/review-repro/main.go`,
+exited 1 with `time: missing unit in duration "300"`, and was deleted
+after.
 
 ## The report
 
@@ -121,7 +123,8 @@ can no longer run.
 Fails when: the staging plan runs; `deploy` exits with `invalid argument
 "300" for "--wait-timeout" flag: time: missing unit in duration "300"` before
 any Helm call, and every deploy from this branch fails in Bamboo. Verified by
-a scratch table case parsing `300`, run with `go test`.
+`go run /tmp/review-repro/main.go`, a scratch file calling
+`time.ParseDuration("300")`: exit 1, `time: missing unit in duration "300"`.
 Fix: pass `--wait-timeout 5m` in the spec, or accept bare seconds in the
 flag parser.
 
@@ -144,7 +147,7 @@ Major above. A table case with that input would have caught it.
 Commands run: `go vet ./...` (exit 0), `helm template charts/service -f
 charts/service/values-staging.yaml` (exit 0), `helm template charts/service`
 (exit 1), `go test ./cmd -run TestWaitTimeout` (exit 0), scratch
-`go test -run TestWaitTimeoutBareSeconds` (exit 1).
+`go run /tmp/review-repro/main.go` (exit 1).
 
 ### Runtime / deploy impact
 
