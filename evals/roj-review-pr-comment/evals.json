@@ -110,6 +110,21 @@
         "The findings JSON is piped in through a single-quoted PowerShell here-string, not hand-escaped and not written to a file",
         "Posts the comments as in a normal run"
       ]
+    },
+    {
+      "id": 8,
+      "prompt": "review PR 7 and give me comments I can paste into Bitbucket. It merges into develop.",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-mapped"
+      },
+      "expected_output": "The draft carries one Repo map line under its header, outside every comment, and its comments still anchor to hunks.",
+      "expectations": [
+        "Fetches refs/pull-requests/7/from and develop, reads the printed head SHA, and does not check out, switch or create a branch; uses origin/develop as the base",
+        "Prints a line like 'Repo map: .onboarding @ <sha7> (fresh) - areas: uploads' under the draft header, outside the summary comment block and every inline comment block",
+        "Each inline comment is a path:line heading with its body in its own block, anchored to a line inside the diff hunk, and none cites the guide as its evidence",
+        "A comment flags that upload() in app/uploader.py returns None after the last failed attempt, with a Fails when sentence and a Fix",
+        "Nothing is posted and no REST call is made"
+      ]
     }
   ]
 }

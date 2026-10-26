@@ -82,7 +82,7 @@ Run, in order:
 1. `git status --porcelain` — uncommitted files are not explained. List
    them in the report header, so the reader knows what the PR text leaves
    out. Leave out this skill's own output: `<branch-slug>-changes.md` and
-   anything under `.tours/`.
+   anything under `.tours/`, `.onboarding/` or `.pr-review/`.
 2. `git log <base>..HEAD` — commit subjects and bodies are intent evidence.
 3. `git diff --name-status <base>...HEAD` — added, modified, deleted,
    renamed. A rename is not new code.
@@ -129,6 +129,11 @@ configuration that changes it. Then run its architecture checklist, limited
 to what the diff touches. When `references/graph-first.md` applies, find
 callers and the code that did the job before with `graphify affected` and
 `graphify explain` first, then read those files.
+
+Read the repo map when one exists, as `references/repo-map.md` says, and name
+the areas, flows and dependents the branch touches in the change inventory.
+The code wins when they disagree, and the map is never the evidence for a
+claim.
 
 Stop when you can state the behavior before and after in one or two
 sentences each, with line references.

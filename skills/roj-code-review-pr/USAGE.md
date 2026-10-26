@@ -91,6 +91,19 @@ not met** and **out-of-scope change** findings, and a short *Intent check*
 lists each criterion as met, not met or not verifiable here. Without one,
 commit messages are the only intent evidence and no intent findings are made.
 
+## Repo map (optional)
+
+When the repository has an `.onboarding/` guide (`roj-onboard-repo` writes
+it), a full review reads its system map and `reviewing-prs.md` and prints one
+line in the report header and in chat, such as
+`Repo map: .onboarding @ a1b2c3d (fresh) - areas: uploads`. The guide only
+points the review at the areas, dependents, hotspots and silent seams the
+diff touches; every finding still anchors to a diff line, and the code wins
+when the two disagree. A guide 50 or more commits behind the base, or one that
+names a commit this clone does not have, is used only to name areas. Quick
+mode never reads it, and an untracked `.onboarding/` or `.pr-review/` folder
+is never reviewed as code.
+
 ## Running checks (full mode)
 
 One question, up front: run the repo's own checks to confirm findings?

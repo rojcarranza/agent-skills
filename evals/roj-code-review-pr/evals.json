@@ -214,6 +214,80 @@
         "Runs any mutation probe on a scratch copy of the file and ends with git status --porcelain showing what it showed before the probe",
         "Never uses git checkout, git restore or git stash to undo the probe"
       ]
+    },
+    {
+      "id": 15,
+      "prompt": "full review of PR 7 on our bitbucket data center, it merges into develop",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-mapped"
+      },
+      "expected_output": "Full review that reads the checkout's .onboarding/ map, prints its Repo map line and uses it to name areas, while every finding still anchors to the diff.",
+      "expectations": [
+        "Fetches refs/pull-requests/7/from and develop, reads the printed head SHA, and does not check out, switch or create a branch; uses origin/develop as the base",
+        "Reads .onboarding/README.md and .onboarding/reviewing-prs.md by absolute path, and nothing else in .onboarding/",
+        "Prints a line like 'Repo map: .onboarding @ <sha7> (fresh) - areas: uploads' in the report header and again in the chat summary",
+        "Names the uploads area and its flow from the area map for the changed app/uploader.py, and treats app/cli.py as a dependent to check",
+        "Flags that upload() in app/uploader.py returns None after the last failed attempt, anchored to a line inside the diff hunk",
+        "No finding cites the guide as its evidence (the guide's silent seam about app/cli.py is checked in the code, not quoted as the reason)",
+        "Does not run the area's `python -m pytest` command: the PR is not checked out and no checks were opted in",
+        "Does not edit, refresh or repair anything under .onboarding/"
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "full review of PR 7 on our bitbucket data center, it merges into develop",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-stale"
+      },
+      "expected_output": "A guide 50+ commits behind the base is reported as stale and used only to name areas.",
+      "expectations": [
+        "Runs one git log --oneline --max-count=51 <sha>..<base> (or equivalent) to measure the guide against origin/develop and counts 51 lines",
+        "Prints 'Repo map: .onboarding @ <sha7> (stale, 50+ commits behind) - areas: uploads'",
+        "Names the uploads area from the area map, and carries none of the guide's dependents, silent seams or test commands into the review",
+        "Still flags that upload() returns None after the last failed attempt, from the code"
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "full review of PR 7 on our bitbucket data center, it merges into develop",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-unknown"
+      },
+      "expected_output": "A guide that names a commit this clone does not have is reported as unknown and does not stop the run.",
+      "expectations": [
+        "Prints 'Repo map: .onboarding @ 0123456 (unknown commit) - areas: uploads' and never says the map is fresh",
+        "Does not fetch the missing commit: the only fetches are the target branch and refs/pull-requests/7/from",
+        "Uses the area map to name the area only, and completes the review",
+        "Still flags that upload() returns None after the last failed attempt, from the code"
+      ]
+    },
+    {
+      "id": 18,
+      "prompt": "full review of my work before I commit it - some of it is not committed yet",
+      "fixture": {
+        "repo": "pyrepo-dirty-onboarded"
+      },
+      "expected_output": "An untracked, unexcluded .onboarding/ folder is never reviewed as code and never counted.",
+      "expectations": [
+        "Runs git status --porcelain --untracked-files=all and sees the untracked .onboarding/ files",
+        "Does not read, list, count or review any file under .onboarding/ as new code: the Uncommitted line counts only the edited app/cli.py and the untracked app/notify.py",
+        "Flags the hard-coded API token in the uncommitted app/cli.py and the shell=True command injection in the untracked app/notify.py",
+        "Prints a Repo map line from the guide with (fresh), because the guide names the base branch tip"
+      ]
+    },
+    {
+      "id": 19,
+      "prompt": "quick review of PR 7 on our bitbucket data center, it merges into develop",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-mapped"
+      },
+      "expected_output": "Quick mode is diff-local: it never reads the repo map and prints no Repo map line.",
+      "expectations": [
+        "Prints a header naming mode: quick",
+        "Does not open any file under .onboarding/ and prints no 'Repo map:' line",
+        "Flags that upload() in app/uploader.py returns None after the last failed attempt",
+        "Ends by saying callers, config coupling and tests were not checked and that 'full' gives the full review"
+      ]
     }
   ]
 }
