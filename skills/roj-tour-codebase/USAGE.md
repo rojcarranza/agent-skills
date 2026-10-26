@@ -1,35 +1,36 @@
-# roj-tour-codebase — usage
+# roj-tour-codebase - usage
 
-Turns a repository you have never worked on into a replayable course: four
-chained CodeTour files in `.tours/`, backed by the discovery documents in
-`docs/codebase/` that produced them.
+Turns a repository you have never worked on into a written onboarding guide in
+`.onboarding/`: Mermaid diagrams of the architecture and one core flow, a code
+walkthrough with `path:line` anchors, a reading order, how to run and test it,
+and a page on reviewing a colleague's PR in that repo.
 
-The tours are the output. Chat carries one plan checkpoint and a closing
-summary — the walkthrough itself lives in the IDE, replayed at your pace.
+The guide is the output. Chat carries a short handoff - the explanation
+itself lives in Markdown files you open in the IDE preview.
 
 ## When to use
 
-- Joining a project, inheriting a service, or reviewing a repository you did
-  not write.
+- Joining a project, inheriting a service, or about to review PRs in a
+  repository you did not write.
 - Coming back to something you have not touched in months.
-- Handing a repository to someone else and wanting the walkthrough to outlive
+- Handing a repository to someone else and wanting the explanation to outlive
   the conversation.
 
-Not for a single PR, branch, file or function — that is `roj-explain-logic`. Not
-for documentation without tours — that is `acquire-codebase-knowledge`, which
-this skill calls anyway. Not for finding defects — that is `roj-code-review-pr`.
+Not for a single PR, branch, file or function - that is `roj-explain-logic`. Not
+for finding defects - that is `roj-code-review-pr`.
 
 ## Invoking
 
-Plain English works everywhere — the skill triggers from its description:
+Plain English works everywhere - the skill triggers from its description:
 
     onboard me to this repo
     tour this codebase
     teach me how this project works
     where do I start in this repo
-    tour this codebase, the auth flow      # names the flow tour 03 traces
-    tour this codebase, architecture only  # tours 02 and 03 only
-    tour this codebase, no docs            # nothing written to docs/codebase/
+    draw the architecture and explain the code
+    onboard me, the deploy flow            # names the flow to walk through
+    onboard me, architecture only          # README map and one flow
+    onboard me and leave CodeTour files    # also writes one tour (VS Code only)
 
 Explicit invocation differs per agent:
 
@@ -38,89 +39,107 @@ Explicit invocation differs per agent:
 | Copilot, VS Code | `/roj-tour-codebase` |
 | Copilot, JetBrains | `/skill:roj-tour-codebase` |
 
-Both are personal scope once installed, so they reach every project with
-no per-repository seeding.
+Both are personal scope once installed, so they reach every project with no
+per-repository seeding.
 
 ## What it does
 
-1. Resolves the repository root, and asks which workspace when the repository
-   is a monorepo.
-2. Delegates discovery to `acquire-codebase-knowledge`, which writes the seven
-   documents in `docs/codebase/`. An existing `docs/codebase/` is reused
-   unless you ask for a refresh; a missing skill falls back to its `scan.py`,
-   then to inline discovery.
-3. Makes sure `docs/codebase/ARCHITECTURE.md` has two Mermaid diagrams, a
-   layer `flowchart` and a core-flow `sequenceDiagram`, replacing any ASCII
-   art discovery wrote. With `no docs` the layer diagram shows in the plan
-   instead.
-4. Picks the one flow worth tracing — the one you named, else the one the
-   README exercises, else the one the tests cover hardest.
-5. **Prints the plan and stops.** Four titles, one line each, and the entry
-   point of the flow it will trace. This is the only interactive stop.
-6. Writes the tours through `code-tour` (inline JSON when that skill is
-   absent), then validates every step's `file:line` before reporting.
+1. Resolves the repository root and **reads your README or manifest by
+   absolute path first**. If the read fails it stops, writes nothing and
+   tells you which path failed and the tool's message - no guessed output.
+2. Asks which workspace only when the repository is a monorepo.
+3. Maps the repository into an evidence ledger of files actually read, with
+   Git history for hotspots and a graphify graph when one exists.
+4. Picks the one flow worth walking - the one you named, else the one the
+   README exercises, else the most tested, else the deepest - and says which
+   rule chose it. There is no plan checkpoint.
+5. Writes the guide, then checks every `path:line` exists and every diagram
+   follows the Mermaid rules before reporting.
 
 ## Output
 
-`.tours/`, in replay order:
+`<repo>/.onboarding/`:
 
-| File | Persona | Answers |
-| --- | --- | --- |
-| `01-orientation.tour` | new-joiner | what is this, how do I run it, where does everything live |
-| `02-architecture.tour` | architect | layers, boundaries, dependency direction, configuration |
-| `03-core-flow.tour` | new-joiner | what actually happens when it runs |
-| `04-conventions-and-tests.tour` | contributor | idioms, test layout, how to land a change |
+| File | Answers |
+| --- | --- |
+| `README.md` | what is this, how is it built, where do I start. System map diagram, core flow diagram, run/test table, reading order, walkthrough, glossary, open questions |
+| `flows/NN-<slug>.md` | what happens, step by step, when this runs. One to three flows |
+| `reviewing-prs.md` | a colleague's PR touches X: what do I read and check. Area map, hotspots, silent seams, questions, how to run a test |
+| `modules.md` | what each module owns and what depends on it |
 
-Each tour links to the next through CodeTour's `nextTour` field, so replaying
-`01` walks you through all four. `ref` is set to the current branch.
+Every file carries the commit it was built from and cites `path:line` for each
+claim; what the code does not settle is marked `[?]`.
 
-A small repository (under roughly 15 source files, no cross-file flow)
-collapses to two tours, with the reason stated.
+`.onboarding/` is personal. The run checks whether Git ignores it and, when it
+does not, prints
 
-`.tours/` is in the global Git ignore, so tours stay local. `docs/codebase/`
-is **not** — when documents are written, the run prints
+    echo '.onboarding/' >> .git/info/exclude
 
-    echo 'docs/codebase/' >> .git/info/exclude
+for you to run. The skill never edits a repository's `.gitignore`.
 
-for you to run if you would rather they stayed out of `git status`. The skill
-never edits a repository's `.gitignore`.
+## Opening the guide
 
-## Opening the tours
+Open `.onboarding/README.md` in the Markdown preview, not in chat:
 
-- **VS Code** — install `vsls-contrib.codetour` (already in this repo's
-  [`vscode/extensions.txt`](https://github.com/rojcarranza/.dotfiles/blob/main/vscode/extensions.txt)), then command
-  palette, `CodeTour: Open Tour`. The CodeTour sidebar lists all four.
-- **JetBrains** — no CodeTour plugin exists. Read the `.tour` files as JSON,
-  or use `docs/codebase/` as the entry point and jump to the `file:line`
-  values by hand.
+- **VS Code** - the built-in Markdown preview renders Mermaid since 1.121. If
+  you installed `bierner.markdown-mermaid` and the diagrams are blank, remove
+  it.
+- **JetBrains** - open the file and use the Markdown preview. If a diagram
+  shows as text, tick *Mermaid* under Settings, Plugins, Installed. Android
+  Studio has no Mermaid preview.
+- **GitHub or GitLab** - renders Mermaid natively.
+- **Anywhere else** - paste a block into <https://mermaid.live>.
 
-## Viewing the diagrams
+Bitbucket Data Center renders no Mermaid, so diagrams stay local and PR
+comments stay plain text.
 
-GitHub renders the Mermaid blocks in `docs/codebase/` as they are. In VS Code
-install *Markdown Preview Mermaid Support* (`bierner.markdown-mermaid`); in
-JetBrains enable Mermaid under Settings → Languages & Frameworks → Markdown.
+## Reviewing a colleague's PR afterwards
+
+1. Read `.onboarding/reviewing-prs.md`: it maps changed paths to areas and
+   flows, lists the hotspots and the silent seams to watch.
+2. Understand the PR with that map: `/skill:roj-explain-logic PR <n>` in
+   JetBrains, `/roj-explain-logic PR <n>` in VS Code.
+3. Then `roj-code-review-pr`, and `roj-review-pr-comment` for Bitbucket
+   comments.
+
+## CodeTour
+
+No tours by default. Ask for them ("and leave CodeTour files") or say yes to
+the closing offer, and the run writes one tour of the core flow into `.tours/`
+from the guide's own anchors. CodeTour needs the VS Code extension; JetBrains
+reads the guide instead. `.tours/` is in the global Git ignore.
+
+## If a read fails
+
+The run stops after its first read when your README and manifest cannot be
+opened by absolute path. It prints the path, the tool's message and three
+checks: chat is in agent mode, the IDE project root is the repository root,
+the agent may read the workspace. Fix the cause and run again.
+
+A file in the skill's own `references/` that cannot be opened does not stop
+the run: it continues from `SKILL.md` and the handoff lists `Reference
+unavailable: <name>`.
 
 ## Customising
 
-The rules live in `references/` as prose checklists — edit them directly:
+The detail lives in `references/` as prose checklists - edit them directly:
 
-- `tour-plan.md` — which tours exist, what each covers, step budgets,
-  chaining, the collapse rule.
-- `flow-tracing.md` — how the core flow is picked, and entry-point signals
-  per stack (Java/Spring, Python, Go, Node/TypeScript, Bash, Bamboo,
+- `templates.md` - the file skeletons, budgets and the anchor check script.
+- `walkthrough-writing.md` - what a walkthrough step says, quoting limits,
+  anti-patterns.
+- `flow-tracing.md` - how the core flow is picked, and entry-point signals per
+  stack (Java/Spring, Python, Go, Node/TypeScript, Bash, Bamboo,
   Docker/Kubernetes/Helm).
-- `step-writing.md` — what a step says, quoting limits, anti-patterns.
-- `mermaid.md` — diagram type per job, syntax rules, validation, viewing.
-  Shared: edit it here, then run `python3 tools/sync_shared.py`.
-
-Want a fifth tour, a different persona, or a different flow-picking rule?
-`tour-plan.md` is where that change belongs.
+- `mermaid.md` - the diagram subset, syntax, pitfalls, the optional parse
+  check, viewing. Shared: edit it here, then run
+  `python3 tools/sync_shared.py`.
+- `tours.md` - the optional CodeTour.
 
 ## Re-running
 
-Tours are a snapshot: line numbers drift as the branch moves. Re-run to
-refresh. An existing `.tours/` is never silently overwritten — the run names
-what is there and asks once.
+The guide is a snapshot: line numbers drift as the branch moves. Re-run to
+refresh. An existing `.onboarding/` is never silently overwritten - the run
+asks once.
 
 ## Install
 
@@ -129,8 +148,6 @@ Copilot only. Install it with the rest of this repo: see
 [docs/installer.md](../../docs/installer.md) for flags, `--status` and the
 work VDI.
 
-This skill delegates to two community skills the installer already fetches by
-default, `acquire-codebase-knowledge` and `code-tour`. It runs without them,
-with the fallbacks described above, but installing them is what makes the
-output good — do not use `--skills-only` on a machine where you plan to run
-this skill, unless a proxy leaves you no choice.
+The community skills `acquire-codebase-knowledge` and `code-tour` are not
+required. An existing `docs/codebase/` is read as a lead; `code-tour` is used
+by name only for the optional tour.

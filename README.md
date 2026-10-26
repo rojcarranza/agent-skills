@@ -75,17 +75,18 @@ tools, is in [docs/workflow.md](docs/workflow.md).
 | [`roj-review-pr-comment`](skills/roj-review-pr-comment/USAGE.md) | Reviews a Bitbucket Data Center PR with the same method, fetched by ref with no checkout, and drafts the findings as pasteable `path:line` comments. Posts them through the Bitbucket REST API only when asked and a `BITBUCKET_TOKEN` is set. The only skill that writes to the PR host. |
 | [`roj-explain-logic`](skills/roj-explain-logic/USAGE.md) | Guided walkthrough of a PR, branch, file or function: big picture → execution flow → why → gotchas, with language lenses. Optional explain-and-review mode. |
 | [`roj-explain-feature-changes`](skills/roj-explain-feature-changes/USAGE.md) | Explains your own branch against `develop`/`main` with traced before/after behaviour, then writes PR-ready text and per-change comments. |
-| [`roj-tour-codebase`](skills/roj-tour-codebase/USAGE.md) | Onboarding into an unfamiliar repo: a discovery pass, then a chained four-tour CodeTour series in `.tours/`. |
+| [`roj-tour-codebase`](skills/roj-tour-codebase/USAGE.md) | Onboarding into an unfamiliar repo: a Markdown guide in `.onboarding/` with Mermaid diagrams of the architecture and a core flow, a code walkthrough anchored to `path:line`, a reading order, and a page on reviewing a colleague's PR. Stops on a failed read instead of guessing. CodeTour only on request. |
 | [`roj-investigate-issue`](skills/roj-investigate-issue/USAGE.md) | Problem `.md` in, validated root cause and fix steps out (Bamboo, Java, Python, Bash, Go, Docker, k8s). |
 | [`roj-soundboarding`](skills/roj-soundboarding/USAGE.md) | User story (file, pasted Jira text or Jira key) → code-investigated SB document → task-by-task implementation with review stops. Never touches git. |
 | [`roj-grill-plan`](skills/roj-grill-plan/USAGE.md) | Grills a story, SB document or plan in rounds of questions with recommended answers, looks facts up itself, then writes the decisions back into the file. |
 | [`roj-idea-to-project`](skills/roj-idea-to-project/USAGE.md) | Raw app idea → brief, design, EARS requirements, architecture and ADRs, agent config and a checked Definition of Ready, one approved gate at a time with fresh-context reviews, then a hand-off to Superpowers. Installs Superpowers first when it is missing. Never touches git. |
 | [`roj-interview-prep`](skills/roj-interview-prep/USAGE.md) | DevOps technical-interview document generated from a candidate's CV. |
 
-Diagrams are always Mermaid: `roj-tour-codebase` puts a layer and a
-core-flow diagram in `docs/codebase/ARCHITECTURE.md`, and the explain skills
-draw flows and before/after structure the same way. GitHub renders them; VS
-Code needs `bierner.markdown-mermaid`, JetBrains its Markdown Mermaid option.
+Diagrams are always Mermaid: `roj-tour-codebase` puts a system map and a
+core-flow diagram in `.onboarding/README.md`, and the explain skills draw
+flows and before/after structure the same way. GitHub renders them; VS Code
+1.121 and later renders them in the built-in Markdown preview, JetBrains in
+the Markdown preview with its Mermaid plugin ticked.
 
 Skills that read code ask a [graphify](docs/installer.md#how-our-skills-use-the-graph)
 graph first when the repo has one (`graphify-out/`), and read only the files
@@ -94,7 +95,8 @@ it points at — fewer tokens on large repos. Build one per repo with
 
 Walkthrough skills **offer** a CodeTour at the end of a run and write one
 into `.tours/` only on a yes, chaining to the community `code-tour` skill.
-`roj-tour-codebase` is the exception: its tours are the output.
+`roj-tour-codebase` follows the same rule: its output is the `.onboarding/`
+guide, and a tour is written only when asked.
 
 Community skills these chain to (`code-tour`, `acquire-codebase-knowledge`,
 `write-pr-description`, ...) are described in

@@ -1,214 +1,223 @@
 ---
 name: roj-tour-codebase
-description: Learn an unfamiliar repository by touring it. Use when the user says "onboard me to this repo", "tour this codebase", "teach me how this works", "help me understand this repo", "where do I start", "walk me through the architecture", or joins a project they have never worked on. Runs a discovery pass first, then leaves a chained series of CodeTour files in .tours/ that replay in the IDE at the reader's own pace. For documentation without tours use acquire-codebase-knowledge; for a single PR, branch, file or function use roj-explain-logic.
+description: Onboard a developer onto an unfamiliar repository with a written guide they open in the IDE - Mermaid diagrams of the architecture and one core flow, a code walkthrough anchored to path:line, a reading order, how to run and test it, and a page on reviewing a colleague's PR in this repo. Use when the user says "onboard me to this repo", "tour this codebase", "teach me how this works", "help me understand this repo", "where do I start", "walk me through the architecture", "draw the architecture and explain the code", or joins a project they have never worked on. Writes .onboarding/ and stops on a failed read instead of guessing; CodeTour files only on request. For a single PR, branch, file or function use roj-explain-logic; for defects use roj-code-review-pr.
 license: MIT
 ---
 
-# Tour Codebase
+# Onboard Me To This Repo
 
-Turn a repository the reader does not know into a replayable course: four
-chained CodeTour files, backed by the discovery documents that produced them.
+Turn a repository the reader does not know into one guide they can read in
+their IDE: what it is, how it is built (diagram), what happens when it runs
+(diagram plus a step-by-step walkthrough of the real code), where to start
+reading, and what to look at when a colleague's PR touches it.
 
-The tours are the deliverable. Chat carries one plan checkpoint and a closing
-handoff — not the walkthrough itself.
+The guide is the deliverable, a set of Markdown files in `<ROOT>/.onboarding/`.
+Chat carries a short handoff, not the walkthrough. CodeTour files are an
+extra, written only when the reader asks.
 
-Rules that hold for the whole run:
+## Rules for the whole run
 
-- Every tour step anchors to a real `file:line` that exists at write time.
-  A step that cannot be anchored is dropped, not approximated.
-- Evidence comes from the repository. Never describe a framework's behaviour
-  from memory when the code that implements it is readable.
-- Comprehension, not review. No defects, no improvement suggestions, no
-  refactoring advice unless the reader asks — that is `roj-code-review-pr`.
-- Steps are built from evidence gathered in phases 1 and 2. There is no
-  second investigation pass while writing tours.
-- Nothing outside `.tours/` and `docs/codebase/` is written, and no command
-  beyond `git`, the read-only `graphify` queries in
-  `references/graph-first.md` and the delegated skills' own scripts runs
-  without approval.
+This file is complete without any reference file. References add depth; none
+is a dependency.
 
-Load `references/mermaid.md` at the end of phase 1, `references/tour-plan.md`
-at phase 2, `references/flow-tracing.md` when phase 2 picks the core flow,
-and `references/step-writing.md` at phase 3. None of them are needed before
-that. Graph check, first and every run: look for `graphify-out/graph.json` as
+1. **Absolute paths only.** `ROOT` is `git rev-parse --show-toplevel`; with no
+   Git repository it is the working directory, and the handoff says so. Every
+   read and write is `<ROOT>/...`. Never a home-directory shortcut, never a
+   path relative to this skill, never a search for the skill's folder. On
+   Windows Git Bash, if a read fails on `/c/...`, retry once with
+   `cygpath -m "$ROOT"` (`C:/...`), then once with the IDE's project-relative
+   path.
+2. **Read gate before any write.** First read `README*` or the main manifest
+   by absolute path. If all three path forms fail, **stop and write nothing**.
+   Print the failing path, the tool's message verbatim, and three checks:
+   chat is in agent mode, the IDE project root is the repository root, the
+   agent may read the workspace. No guides, no tours, no guesses.
+3. **References are depth, not dependencies.** If a file in `references/`
+   cannot be opened, continue from this file and add `Reference unavailable:
+   <name>` to the handoff. Never search the disk for it.
+4. **No delegation by path.** Do not locate or call another skill through its
+   folder. `acquire-codebase-knowledge` and `code-tour` may be invoked **by
+   name** when the host lists them, and `code-tour` only for the optional
+   tour. An existing `docs/codebase/` or an overview doc such as
+   `CODEBASE-OVERVIEW*.md` is a lead: read it, cross-check it against the
+   code, cite it.
+5. **Evidence.** Every claim cites a `path:line` that exists. What the code
+   does not settle is marked `[?]` and collected in section 9. Never describe
+   framework behaviour from memory when the code that implements it is
+   readable. Comprehension, not review: no defects, no improvement advice;
+   that is `roj-code-review-pr`.
+6. **Writes only under `<ROOT>/.onboarding/`**, and `<ROOT>/.tours/` on
+   request. Commands beyond file reads are `git`, the
+   read-only `graphify` queries in `references/graph-first.md`, and `node`
+   for the Mermaid parse check only with approval. Nothing else runs without
+   approval.
+
+Graph check, first and every run: look for `graphify-out/graph.json` as
 soon as phase 0 has resolved the repository root, before any discovery. Present: load `references/graph-first.md`. Absent:
 discover directly. Close the final chat message with a Graph line only when it
 informs: `Graph: used` or `Graph: stale, skipped` when a graph exists, `Graph:
 none found, searched directly` only when a large repository (hundreds of
 source files) has none; otherwise print no Graph line.
 
-## Phase 0 — Scope
+## Phase 0 - Scope
 
-Resolve the repository root: `git rev-parse --show-toplevel`. A directory
-that is not a Git repository still works — say so once, and write tours with
-no `ref` field.
-
-Read the argument, if any:
+Resolve `ROOT`, run the read gate (rule 2), then read the argument:
 
 | Argument | Effect |
 | --- | --- |
-| a named area — "tour the auth flow" | phase 2 traces that flow in tour 03 |
-| "architecture only" | tours 02 and 03 only |
-| "no docs" | phase 1 discovers in-session, writes nothing to `docs/codebase/` |
-| none | full run |
+| a named flow - "the deploy flow" | phase 2 traces that flow |
+| `architecture only` | README map and one flow; no `modules.md` |
+| a workspace name | monorepo: scope to it |
+| names tours - "leave CodeTour files" | write the tour after the guide (phase 5) |
+| none | the full guide |
 
-Stop before phase 1 in two cases:
+Stop in these cases:
 
 - **Monorepo.** Several workspaces (`workspaces` in `package.json`,
-  `packages/`, `apps/`, a multi-module `pom.xml`, a Go workspace). Ask which
-  one, once. Never tour all of them in one run.
-- **Nothing to tour.** No source files outside generated output. Say so and
-  stop.
+  `packages/`, `apps/`, a multi-module `pom.xml`, a Go workspace) and no
+  workspace named: ask which one, once, and write nothing before the answer.
+  This is the only question the run asks before writing.
+- **Nothing to tour.** No source files outside generated output. Say so.
+- **Existing `.onboarding/`.** Ask once: refresh (overwrite our own files) or
+  keep and stop.
 
-## Phase 1 — Discovery
-
-Delegate to `acquire-codebase-knowledge`. Invoke it by name when the agent
-lists it as a skill. To reach its files, take the first directory named
-`acquire-codebase-knowledge/` that exists under one of these roots — the
-places Claude Code, Copilot and the `skills` CLI install to:
-
-1. Project: `<repo>/.claude/skills/`, `<repo>/.github/skills/`,
-   `<repo>/.agents/skills/`
-2. Personal: `~/.claude/skills/`, `~/.copilot/skills/`, `~/.agents/skills/`
-3. Claude Code plugin: `~/.claude/plugins/cache/*/*/*/skills/`
-
-When `references/graph-first.md` applies, read `graphify-out/GRAPH_REPORT.md`
-first and hand its communities and most-connected nodes to discovery as the
-starting map; in phase 2, trace the core flow with `graphify path` before
-opening files.
-
-Its output contract stands: `STACK.md`, `STRUCTURE.md`, `ARCHITECTURE.md`,
-`CONVENTIONS.md`, `INTEGRATIONS.md`, `TESTING.md` and `CONCERNS.md` in
-`docs/codebase/`.
-
-- `docs/codebase/` already present — ask once, reuse or refresh. Reuse is the
-  default; stale documents still beat a re-scan the reader did not ask for.
-- Skill not installed — run its `scripts/scan.py` if the directory exists at
-  all, otherwise discover inline: `README`, manifests, entry points,
-  directory layout, test layout, CI configuration. State plainly that no
-  documents were produced.
-- `no docs` argument — discover inline regardless, write nothing.
-
-`.tours/` is covered by the global Git ignore; `docs/codebase/` is not. When
-documents were written and the repository does not already ignore them, print
-this and let the reader decide:
+`.onboarding/` is personal and stays out of Git. Check
+`git check-ignore -q .onboarding/`; when it is not ignored, print this line
+for the reader to run, and never run it or edit `.gitignore`:
 
 ```
-echo 'docs/codebase/' >> .git/info/exclude
+echo '.onboarding/' >> .git/info/exclude
 ```
 
-Never edit the repository's `.gitignore`, and never run that command unasked.
+## Phase 1 - Recon into an evidence ledger
 
-### Architecture diagrams
+Keep a ledger of every file actually read; the guide's footer reports it.
+Read, in this order, stopping when the map and one flow are evidenced:
 
-Load `references/mermaid.md`. `docs/codebase/ARCHITECTURE.md` carries two
-Mermaid diagrams, whoever wrote the rest of the file:
+1. `git ls-files`: top two levels, source-file counts per directory, ignoring
+   generated output (`dist/`, `build/`, `target/`, `out/`, `node_modules/`,
+   `__pycache__/`, `.next/`, vendored trees).
+2. `README*`, manifests (`package.json`, `pyproject.toml`, `pom.xml`,
+   `go.mod`, chart or script entry points), CI files, test layout.
+3. Entry points per stack: `references/flow-tracing.md`.
+4. Hotspots, for the PR page:
+   `git log --since=1.year --name-only --format= | grep -v '^$' | sort | uniq -c | sort -rn | head -20`
+5. With `graphify-out/`, `GRAPH_REPORT.md` first as the starting map.
 
-- **Layers** — a `flowchart TD` of the layers or modules, the direction
-  their dependencies point, and the external systems they reach.
-- **Core flow** — a `sequenceDiagram` of the main path. Phase 2 has not
-  picked tour 03's flow yet, so draw the path the README and the tests
-  exercise most; redraw it after phase 2 if the reader names another.
+README architecture is intent, not fact: cross-check every claim against the
+tree before repeating it. Say what was not read. Load `references/mermaid.md`
+before drawing.
 
-Discovery wrote ASCII art, an indented tree or no diagram at all: replace or
-add the Mermaid version in place and leave the prose alone. Validate per
-`references/mermaid.md`. With `no docs`, nothing is written — show the layer
-diagram in chat at the phase 2 plan checkpoint instead.
+## Phase 2 - Pick the flow (no checkpoint)
 
-Carry into phase 2: the entry points, the layer boundaries, the conventions,
-the test layout, and every `[ASK USER]` item discovery raised.
+Rule order, first that fires wins: the flow the reader named, the README's own
+example, the most-tested path, the deepest path. Infrastructure repos (Bash,
+Helm, Bamboo, Docker) trace the install, deploy or pipeline path. Reject a
+flow that never leaves one file. State the flow and the rule that chose it
+in the guide and in the handoff; the reader redirects afterwards. Detail:
+`references/flow-tracing.md`. Do not stop to ask.
 
-## Phase 2 — Plan the tours
+## Phase 3 - Write the guide
 
-Load `references/tour-plan.md`. Default progression:
-
-| File | Persona | Covers | Steps |
-| --- | --- | --- | --- |
-| `01-orientation.tour` | new-joiner | entry points, how to run it, where things live | 6–10 |
-| `02-architecture.tour` | architect | layers, boundaries, dependency direction, configuration | 8–12 |
-| `03-core-flow.tour` | new-joiner | one real end-to-end path, in execution order | 10–15 |
-| `04-conventions-and-tests.tour` | contributor | idioms, test layout, how to land a change | 6–10 |
-
-Pick the flow for tour 03 with `references/flow-tracing.md`. When several
-paths qualify, take the one the README and the tests exercise most — unless
-the reader named one, which always wins.
-
-Then print the plan and stop:
-
-- the four titles, one line each on what the tour covers,
-- the flow tour 03 will trace, named by its entry point (`file:line`),
-- with `no docs`, the Mermaid layer diagram,
-- anything discovery could not answer that would change the plan.
-
-One confirmation, then phase 3. This is the only interactive stop in the run.
-
-## Phase 3 — Write the tours
-
-Delegate to the `code-tour` skill, resolved the same way as phase 1. Write
-`references/step-writing.md` rules into every step description.
-
-Missing `code-tour`: write the JSON inline. An object with `$schema`,
-`title`, `description`, `ref`, `isPrimary`, `nextTour` and `steps` of
-`{file, line, description}` is all the CodeTour extension needs.
-
-- Files land in `.tours/`, numbered so replay order is visible in the file
-  list.
-- Paths inside a `.tour` file always use forward slashes, on every host.
-- `ref` is the current branch name, so replay resolves against a moving
-  branch rather than a detached commit. No branch, no `ref`.
-
-Validate after **all** tours are written, not one at a time — the validator
-checks `nextTour` against the titles of the other `.tour` files, so an
-early check reports a chain that is merely incomplete.
-
-`code-tour` ships `scripts/validate_tour.py`. Find its `code-tour/`
-directory with the same root list as phase 1 — never assume one install
-location. Run the script from the repository root, since `file` values
-resolve relative to the working directory. Try `python3`, then `python`
-(Windows often has only `python`):
+Every file opens with the header line:
 
 ```
-python3 <code-tour dir>/scripts/validate_tour.py .tours/*.tour
+> Built from commit `<sha>` (<date>, branch `<branch>`). Every claim cites `path:line`.
 ```
 
-Without the script: parse the JSON, confirm every `file` exists and every
-`line` falls inside that file. A failing step is fixed or dropped, never
-shipped. Warnings about opening and closing steps mean a content step is
-missing — add it, do not ignore it.
+(no Git: say `Built without Git history.`). In this order, so a partial run is
+still useful. Skeletons and budgets: `references/templates.md`.
 
-## Phase 4 — Handoff
+| File | Answers | Diagrams |
+| --- | --- | --- |
+| `README.md` | what is this, how is it built, where do I start | system map `flowchart TD`, core flow `sequenceDiagram` |
+| `flows/01-<slug>.md` (1-3 total) | what happens, step by step, when X runs | one `sequenceDiagram`; `stateDiagram-v2` if real states exist |
+| `reviewing-prs.md` | a colleague's PR touches X: what do I read and check | none required |
+| `modules.md` | what does each module own and what depends on it | one `flowchart` per module group; `classDiagram` or `erDiagram` only for real types or tables |
 
-Short. In chat:
+`README.md` sections, in this order: 1. What this is. 2. System map. 3. Run
+it, test it. 4. Reading order. 5. Core flow. 6. Data and state (one line when
+the code has none). 7. Conventions and tests. 8. Glossary. 9. Open questions.
+Footer: the evidence ledger (files read, count, commit).
 
-1. The tour files written, in replay order, with their step counts.
-2. The flow tour 03 traced, one sentence.
-3. Documents written, reused, or skipped, and whether `ARCHITECTURE.md`
-   gained or had its Mermaid diagrams replaced — with the one-line viewing
-   note from `references/mermaid.md`.
-4. Every `[ASK USER]` item from discovery, as numbered questions.
-5. How to open them: VS Code, command palette, `CodeTour: Open Tour`.
-   JetBrains has no CodeTour plugin — there the `.tour` files are read as
-   JSON, and `docs/codebase/` is the better entry point.
+- **System map:** the diagram plus five to eight bullets, each with a path.
+- **Run it, test it:** a table of task, command and source. Commands are
+  quoted from manifests, scripts and CI and are **not executed**.
+- **Reading order:** at most ten entries, `path:line`, why now, what the
+  reader can say afterwards.
+- **Core flow:** the diagram, then a numbered walkthrough. Each step has a
+  `path:line`, says what runs, why it is there and what breaks without it,
+  and quotes at most five lines. Rules: `references/walkthrough-writing.md`.
+- `architecture only` writes the README and one flow, no `modules.md`. A
+  repository under about 15 source files with no cross-file flow gets the
+  README and `reviewing-prs.md` only; say why in one line.
 
-Then offer, without doing any of it: zooming into a step with
-`roj-explain-logic`, or re-running after the branch moves.
+`reviewing-prs.md` is built from the same ledger, with no second
+investigation: an **area map** (`glob | area | flow | depends on it | tests`),
+the **hotspots** with commit counts, **silent seams** (invariants the code
+does not enforce, found while tracing, such as behaviour that depends on
+registration order), **questions to ask by area** and **how to run one test**
+per area. Grounded in this repo's code, never generic.
+
+Diagrams: the five types in `references/mermaid.md`, nothing else. At most 15
+nodes and 25 edges each, at most eight diagrams per run, every label quoted.
+
+## Phase 4 - Verify (mandatory, cheap)
+
+Nothing unanchored ships. A failing item is repaired from the ledger or
+dropped.
+
+1. **Anchors.** Every `path:line` exists and is in range. Run the check script
+   in `references/templates.md`; without it, confirm each cited file with
+   `git ls-files` and its length with `wc -l`.
+2. **Diagrams.** The checklist in `references/mermaid.md`: type from the
+   subset, quoted labels, no reserved IDs, within the limits. The Node parse
+   check is optional and needs approval.
+3. **Truth.** Every diagram node is a real thing in the ledger and every edge
+   is a call, import or message you read. Every flow step cites the line that
+   does it.
+4. No defect talk, no improvement advice, no tour files unless asked.
+
+## Phase 5 - Handoff (15 lines or fewer)
+
+In chat, no diagram (chat panels are not known to render Mermaid):
+
+1. The path of `<ROOT>/.onboarding/README.md` and how to open it: VS Code, the
+   built-in Markdown preview; JetBrains, the Markdown preview with the
+   *Mermaid* plugin ticked under Settings, Plugins. Details:
+   `references/mermaid.md`.
+2. The flow chosen, in one sentence, and the rule that chose it.
+3. The ignore line when `.onboarding/` is not ignored (printed, not run).
+4. Open questions, as numbered `[?]` items.
+5. Files read, and any `Reference unavailable: <name>`.
+6. The next step for reviewing a colleague's PR: read
+   `.onboarding/reviewing-prs.md`, then `/skill:roj-explain-logic PR <n>`
+   (JetBrains) or `/roj-explain-logic PR <n>` (VS Code) to understand it with
+   this map, then `roj-code-review-pr`, then `roj-review-pr-comment` for
+   Bitbucket comments.
+7. The Graph line, per the graph check above.
+8. One offer, unless the reader already named tours: "Want a CodeTour of the
+   core flow (VS Code only)?"
+
+## CodeTour, on request only
+
+No default tours. On a yes, or when the request named tours: one tour of 6-12
+steps built from the anchors in `flows/01-*.md`, with no second investigation,
+written to `<ROOT>/.tours/` and validated for real anchors. Invoke `code-tour`
+by name if the host lists it; otherwise write the JSON inline. Rules:
+`references/tours.md`.
 
 ## Gotchas
 
-**Generated output is never toured.** `dist/`, `build/`, `target/`, `out/`,
-`node_modules/`, `__pycache__/`, `.next/`, vendored trees. A tour step
-pointing at compiled code teaches the compiler, not the codebase.
-
-**README architecture is intent, not fact.** Cross-check every claim against
-the directory tree before a step repeats it.
-
-**Line numbers drift.** Tours are a snapshot. `ref` pins the branch, and the
-handoff says a re-run refreshes them — do not promise they survive a rebase.
+**Line numbers drift.** The header names the commit. Say a re-run refreshes
+the guide; do not promise anchors survive a rebase.
 
 **Framework magic needs its wiring shown.** Dependency injection, decorators,
 route registration and code generation move control in ways no single file
-shows. Anchor the step at the registration site, not at the annotation.
+shows. Anchor at the registration site, not at the annotation.
 
-**Small repositories do not need four tours.** Under roughly 15 source files
-with no cross-file flow, collapse to two — orientation plus flow, then
-conventions — and say why in one line.
+**Generated output is never walked through.** A step in compiled code teaches
+the compiler, not the codebase.
+
+**Evidence over memory.** A claim you cannot anchor is either dropped or
+marked `[?]`, never approximated.

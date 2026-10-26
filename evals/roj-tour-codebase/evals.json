@@ -7,14 +7,17 @@
       "fixture": {
         "repo": "pyrepo-clean"
       },
-      "expected_output": "Discovery, a plan checkpoint, then chained tours in .tours/ whose steps anchor to real lines; nothing else written except docs/codebase/.",
+      "expected_output": "A Markdown onboarding guide in .onboarding/ with a system map and a core-flow diagram, a reading order, a run and test table and a reviewing-prs page; no tours.",
       "expectations": [
-        "Runs discovery first and writes or reuses documents under docs/codebase/ only",
-        "Shows one plan checkpoint in chat before writing the tours",
-        "Writes chained CodeTour JSON files under .tours/, and every step has a file and a line that exists in the repo",
-        "Does not list defects or suggest improvements",
-        "Writes nothing outside .tours/ and docs/codebase/ and runs no git command that writes",
-        "Offers the .git/info/exclude line for docs/codebase/ without running it or editing .gitignore"
+        "Reads the README or manifest by absolute path before writing anything",
+        "Writes .onboarding/README.md with at least one flowchart and at least one sequenceDiagram in mermaid fences, and no other diagram type outside flowchart, sequenceDiagram, classDiagram, stateDiagram-v2 and erDiagram",
+        "README.md has a reading order of at most ten path:line entries and a run and test table whose commands are quoted, not executed",
+        "Writes .onboarding/reviewing-prs.md with an area map, hotspots and questions by area",
+        "Every path:line the guide cites exists in the repo and is in range",
+        "Does not create a .tours/ directory",
+        "Shows no plan checkpoint, lists no defects and gives no improvement advice",
+        "Writes nothing outside .onboarding/ and runs no git command that writes",
+        "Offers the .git/info/exclude line for .onboarding/ without running it or editing .gitignore"
       ]
     },
     {
@@ -23,24 +26,25 @@
       "fixture": {
         "repo": "monorepo"
       },
-      "expected_output": "Several workspaces: the skill asks which one, once, and stops before discovery.",
+      "expected_output": "Several workspaces: the skill asks which one, once, and writes nothing before the answer.",
       "expectations": [
         "Recognises apps/web and apps/api as separate workspaces",
-        "Asks which workspace to tour, once, and does not tour both",
-        "Writes no .tours/ or docs/codebase/ file before the answer"
+        "Asks which workspace to cover, once, and does not cover both",
+        "Writes no .onboarding/ or .tours/ file before the answer"
       ]
     },
     {
       "id": 3,
-      "prompt": "onboard me to this repo, no docs please",
+      "prompt": "onboard me, architecture only",
       "fixture": {
         "repo": "pyrepo-clean"
       },
-      "expected_output": "Inline discovery with no documents written; tours only.",
+      "expected_output": "The README with its system map and one flow; no modules page.",
       "expectations": [
-        "Does not create docs/codebase/",
-        "Still writes tours under .tours/ with steps anchored to real file:line references",
-        "States that no discovery documents were produced"
+        "Writes .onboarding/README.md with the system map flowchart and the core flow sequenceDiagram",
+        "Writes exactly one flow and does not write .onboarding/modules.md",
+        "Every path:line the guide cites exists in the repo",
+        "Does not create a .tours/ directory"
       ]
     },
     {
@@ -49,10 +53,53 @@
       "fixture": {
         "repo": "pyrepo-clean"
       },
-      "expected_output": "A review request: the tour skill does not take it.",
+      "expected_output": "A review request: the onboarding skill does not take it.",
       "expectations": [
-        "Does not create a .tours/ directory",
-        "Does not present the work as a tour or onboarding course"
+        "Does not create a .onboarding/ or .tours/ directory",
+        "Does not present the work as an onboarding guide or tour"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "onboard me to this repo",
+      "fixture": {
+        "repo": "pyrepo-clean",
+        "condition": "every read of the repository's README and manifest fails with a permission error, by absolute path and by project-relative path"
+      },
+      "expected_output": "The run stops after the read gate: it names the failing path and the tool's message, writes nothing and guesses nothing.",
+      "expectations": [
+        "Tries the README or manifest by absolute path and then by the other path forms before giving up",
+        "Prints the failing path and the tool's error message verbatim",
+        "Prints the three checks: chat in agent mode, IDE project root is the repository root, the agent may read the workspace",
+        "Writes no .onboarding/ or .tours/ file and presents no onboarding content from guesses"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "onboard me and leave CodeTour files",
+      "fixture": {
+        "repo": "pyrepo-clean"
+      },
+      "expected_output": "The guide plus one CodeTour of the core flow built from the guide's anchors.",
+      "expectations": [
+        "Writes the .onboarding/ guide first",
+        "Writes one tour of 6 to 12 steps under .tours/ whose steps reuse anchors from .onboarding/flows/ or the README core flow",
+        "Every step of the tour has a file and a line that exists in the repo",
+        "Does not offer a tour again at the end"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "onboard me",
+      "fixture": {
+        "repo": "pyrepo-clean",
+        "condition": "the skill's references/ folder cannot be opened"
+      },
+      "expected_output": "The guide is still written from SKILL.md alone, and the handoff lists the unavailable reference.",
+      "expectations": [
+        "Completes the run and writes .onboarding/README.md with a flowchart and a sequenceDiagram",
+        "Prints Reference unavailable with the name of each reference it could not open",
+        "Does not search the disk for the skill's folder or for the reference files"
       ]
     }
   ]

@@ -1,6 +1,6 @@
 # Flow tracing
 
-Loaded at phase 2, to pick and walk the one path tour 03 traces.
+Loaded at phase 2, to pick and walk the core flow of the guide.
 
 ## Contents
 
@@ -13,7 +13,7 @@ Loaded at phase 2, to pick and walk the one path tour 03 traces.
 
 In order. First rule that fires wins.
 
-1. The reader named it ("tour the auth flow"). Trace that, even if a bigger
+1. The reader named it ("the auth flow"). Trace that, even if a bigger
    one exists.
 2. The path the README's own example exercises. A repository's quickstart is
    the flow its authors consider central.
@@ -21,8 +21,12 @@ In order. First rule that fires wins.
    entry point; the winner is the flow the team maintains hardest.
 4. The path from the process entry point that reaches the most layers.
 
-State the rule that fired in the phase 2 plan, with the entry point as
-`file:line`. A reader who disagrees corrects it at the one checkpoint.
+State the rule that fired in the guide and in the handoff, with the entry
+point as `path:line`. A reader who disagrees names another flow and the run
+is repeated for it. There is no checkpoint.
+
+Infrastructure repositories (Bash, Helm, Bamboo, Docker) have no request path:
+trace the install, deploy or pipeline run instead.
 
 Reject a flow when it never leaves one file — that is a function, not a
 flow. Fall back to the next candidate.
@@ -31,7 +35,7 @@ flow. Fall back to the next candidate.
 
 Execution order, always. The reader follows control, not the file tree.
 
-For each step: what arrives here, what this code does to it, what leaves.
+For each walkthrough step: what arrives here, what this code does to it, what leaves.
 Stop stepping when the path exits the process (response returned, file
 written, exit code set, message published).
 
@@ -39,7 +43,7 @@ Cross a boundary explicitly. When control moves from one layer to the next,
 say which boundary was crossed and what guarantees hold on the far side.
 
 Do not step into: logging, metrics, generic error wrappers, dependency
-injection plumbing that the architecture tour already showed, and helpers
+injection plumbing that the system map already showed, and helpers
 whose name fully describes them. Name them in the passing step instead.
 
 ## Entry-point signals per stack
@@ -125,7 +129,7 @@ Entry: `ENTRYPOINT` or `CMD` in the Dockerfile; for a chart, `values.yaml`.
 
 Path: values → template → rendered workload → the container's entrypoint →
 the application's own entry point. Cross into the application flow only when
-the tour is about the deployment; otherwise stop at the entrypoint and say
+the guide is about the deployment; otherwise stop at the entrypoint and say
 which application flow it starts.
 
 Watch for: init containers, `command` overrides in the manifest that ignore
@@ -136,5 +140,5 @@ probes that restart the workload.
 
 A repository whose flow crosses stacks (a shell installer that calls Python,
 a chart that deploys a Java service) is traced as one flow with the boundary
-called out. Do not split it into two tours — the boundary is the most
-valuable step in the tour.
+called out. Do not split it into two flows - the boundary is the most
+valuable step in the walkthrough.

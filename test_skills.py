@@ -306,6 +306,53 @@ class TestGraphFirst(unittest.TestCase):
             "`Graph: none found, searched directly`"})
 
 
+class TestTourCodebaseOnboardingGuide(unittest.TestCase):
+    """roj-tour-codebase writes a Markdown guide under .onboarding/ and must
+    run when the host cannot expand `~` or open the skill's own folder: a
+    JetBrains run once failed every read and still wrote tours."""
+
+    TOUR = SKILLS / "roj-tour-codebase"
+    # Home-directory shortcuts, the skill-root variable and a search of the
+    # agents' skill folders: each needs a path the host may not resolve.
+    LOOKUP_RE = re.compile(
+        r"~[/\\]|\$SKILL_ROOT|\$\{SKILL_ROOT\}|\$HOME|%USERPROFILE%"
+        r"|\.(?:claude|copilot|agents)/skills|skill folder|skill directory"
+        r"|installed dir", re.I)
+
+    def texts(self):
+        yield self.TOUR / "SKILL.md"
+        yield from sorted((self.TOUR / "references").glob("*.md"))
+
+    def test_no_home_or_skill_folder_lookups(self):
+        for f in self.texts():
+            for n, line in enumerate(f.read_text("utf-8").splitlines(), 1):
+                with self.subTest(file=f.name, line=n):
+                    self.assertIsNone(self.LOOKUP_RE.search(line), line)
+
+    def test_skill_md_is_complete_without_references(self):
+        flat = " ".join((self.TOUR / "SKILL.md").read_text("utf-8").split())
+        for needle in (".onboarding/", "Read gate", "stop and write nothing",
+                       "Reference unavailable", "check-ignore",
+                       "`flowchart TD`", "`sequenceDiagram`",
+                       "reviewing-prs.md", "Every claim cites"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, flat)
+
+    def test_tours_are_on_request_only(self):
+        flat = " ".join((self.TOUR / "SKILL.md").read_text("utf-8").split())
+        self.assertIn("CodeTour, on request only", flat)
+        self.assertIn("No default tours", flat)
+        for old in ("01-orientation.tour", "plan checkpoint, then"):
+            self.assertNotIn(old, flat)
+        for gone in ("tour-plan.md", "step-writing.md"):
+            self.assertFalse((self.TOUR / "references" / gone).exists())
+
+    def test_templates_ship_the_anchor_check(self):
+        text = (self.TOUR / "references" / "templates.md").read_text("utf-8")
+        self.assertIn("check-anchors.py", text)
+        self.assertIn("sys.exit(1 if bad else 0)", text)
+
+
 class TestReviewModes(unittest.TestCase):
     """roj-code-review-pr absorbed the fast review as its quick mode, and the
     skills that read a branch diff ship the shared base resolution."""
@@ -545,6 +592,7 @@ ROUTES = {
         "onboard me to this repo",
         "tour this codebase",
         "where do I start in this project I just joined",
+        "draw the architecture and explain the code before I review PRs",
     ],
     "roj-interview-prep": [
         "prepare an interview for this candidate from their CV",
