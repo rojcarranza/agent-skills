@@ -27,6 +27,7 @@ Exit codes: 0 ok, 2 bad input or configuration, 3 no token, 4 token
 rejected, 5 server or network error.
 """
 import argparse
+import http.client
 import json
 import os
 import re
@@ -128,7 +129,8 @@ class Client:
                            "redirect; the token is not sent elsewhere",
                            EXIT_SERVER) from None
             raise ApiError(err.code, error_message(err)) from None
-        except (urllib.error.URLError, OSError) as err:
+        except (urllib.error.URLError, OSError,
+                http.client.HTTPException) as err:
             raise Fail(f"cannot reach {self.root}: "
                        f"{getattr(err, 'reason', err)}", EXIT_SERVER) from None
         try:

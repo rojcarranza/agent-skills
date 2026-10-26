@@ -1010,6 +1010,12 @@ class TestBitbucketPrScript(unittest.TestCase):
                 self.assertEqual(code, 5, err)
 
     def test_a_transport_failure_mid_post_still_reports_what_was_posted(self):
+        for second, expected in ((b"<html>SSO</html>", "JSON object"),
+                                 (None, "cannot reach")):
+            with self.subTest(second=second):
+                self.mid_post_failure(second, expected)
+
+    def mid_post_failure(self, second, expected):
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
         import threading
         posts = []
@@ -1018,11 +1024,15 @@ class TestBitbucketPrScript(unittest.TestCase):
             def log_message(self, *a):
                 pass
 
-            def reply(self, body):
+            def reply(self, body, cut=False):
                 self.send_response(200)
-                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Content-Length",
+                                 str(len(body) + (50 if cut else 0)))
                 self.end_headers()
                 self.wfile.write(body)
+                if cut:
+                    self.wfile.flush()
+                    self.close_connection = True
 
             def do_GET(self):
                 self.reply(b'{"values": [], "isLastPage": true}')
@@ -1030,8 +1040,10 @@ class TestBitbucketPrScript(unittest.TestCase):
             def do_POST(self):
                 self.rfile.read(int(self.headers["Content-Length"]))
                 posts.append(1)
-                self.reply(b'{"id": 50}' if len(posts) == 1
-                           else b"<html>SSO</html>")
+                if len(posts) == 1:
+                    self.reply(b'{"id": 50}')
+                else:
+                    self.reply(second or b'{"id":', cut=second is None)
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), H)
         threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -1050,7 +1062,7 @@ class TestBitbucketPrScript(unittest.TestCase):
         self.assertEqual(code, 5, err)
         self.assertEqual(out["status"], "partial")
         self.assertEqual([p["line"] for p in out["posted"]], [22])
-        self.assertIn("JSON object", out["error"])
+        self.assertIn(expected, out["error"])
         self.assertEqual(len(posts), 2)
 
     def test_failures_have_their_own_exit_codes(self):
