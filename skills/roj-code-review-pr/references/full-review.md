@@ -38,8 +38,9 @@ generated files (`*.pb.go`, `*_generated.go`), lockfiles, binaries.
    run `git diff --stat HEAD` and `git diff -U15 HEAD` (staged and unstaged
    edits), and read every untracked file it lists (`??`) as new code, except
    this skill's own output from an earlier run (`<branch-slug>-review.md`,
-   `pr-<id>-review.md` and `.tours/review-*.tour`), which is neither listed nor
-   reviewed. Add these files and lines to the header counts and mark each
+   `pr-<id>-review.md` and `.tours/review-*.tour`) and the agent output
+   folders `.onboarding/`, `.pr-review/`, `.mermaidiff/` and `.tours/`, which
+   are neither listed, reviewed nor counted. Add these files and lines to the header counts and mark each
    finding that anchors to one as uncommitted. On the base branch itself (no
    commits past the base), the working tree alone is the review: say so in the
    header instead of calling the branch clean.
@@ -71,6 +72,12 @@ them with `git show <head>:<path>`.
 **If the repository's own configuration already enforces something, do not
 comment on it.** The linter will. Where a convention conflicts with a rule
 file, the convention wins and the report names it.
+
+Then read the repo map as `repo-map.md` says: find `.onboarding/`, measure
+its freshness against `<base>`, match the changed paths to its area map and
+put its one-line result in the report header. Its dependents, hotspots and
+silent seams feed the system pass in step 5; they are places to look, never
+evidence. Quick mode skips all of this.
 
 ## 4. Opt in to running checks
 
@@ -151,8 +158,8 @@ Follow the output skeleton in `review-method.md`.
   it; the path is the output of `git rev-parse --git-path info/exclude`. Append
   to it only on a yes, and never edit `.gitignore`. The user may ask for chat
   only instead: print the whole report and write nothing.
-- **Chat.** The verdict, one line per finding (`severity path:line - defect`)
-  and the report path. Not the whole report twice.
+- **Chat.** The verdict, one line per finding (`severity path:line - defect`),
+  the `Repo map:` line and the report path. Not the whole report twice.
 - **Pre-PR** adds a drafted PR description built from the change summary, and
   may offer to apply fixes - after asking.
 - **Post-PR** shapes findings as pasteable review comments, one `path:line`

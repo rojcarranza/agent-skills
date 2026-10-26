@@ -55,6 +55,22 @@
         "Says the function has no defects",
         "Reports no Blocker, Major or Minor finding"
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "explain PR 7 on our bitbucket data center, it merges into develop",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-mapped"
+      },
+      "expected_output": "A walkthrough of the fetched PR head that places the change in the repo map's areas, with every step citing code.",
+      "expectations": [
+        "Fetches refs/pull-requests/7/from and develop, reads the printed head SHA, and does not check out, switch or create a branch; reads the diff and whole files from the fetched head, not from the working tree",
+        "Reads .onboarding/README.md and .onboarding/reviewing-prs.md and prints 'Repo map: .onboarding @ <sha7> (fresh) - areas: uploads'",
+        "The big picture names the uploads area and its flow, and says app/cli.py depends on it",
+        "Walks the retry flow in run order, each step citing a path:line in the code",
+        "No step cites the guide as its evidence, and where the guide and the code differ the code wins",
+        "Makes no improvement suggestions and does not edit anything under .onboarding/"
+      ]
     }
   ]
 }

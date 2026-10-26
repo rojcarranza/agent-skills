@@ -48,7 +48,9 @@ never guessed from `origin/HEAD`.
 ## What happens
 
 1. Loads the review method and the Bitbucket rules from this skill's own
-   `references/`.
+   `references/`, and the checkout's `.onboarding/` repo map when there is
+   one: a single `Repo map:` line under the draft header, never part of a
+   posted comment.
 2. Resolves the PR. With a token it also reads the title, description and
    latest commit (the description becomes the intent source) and the
    comments already on the PR.

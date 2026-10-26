@@ -49,7 +49,8 @@ explained and reviewed against the same base. If none exists, the skill asks.
 3. Builds a change inventory and ranks changes by behavioral impact.
 4. Traces each new or changed symbol: callers (`git grep -n`), callees,
    inputs, outputs, the code it replaced (`git show <merge-base>:<path>`),
-   tests and configuration.
+   tests and configuration. With an `.onboarding/` guide it also names the
+   areas, flows and dependents the branch touches.
 5. Labels intent as confirmed, likely or unknown, from commit messages,
    ticket IDs, tests and naming.
 6. Writes the report and a CodeTour.

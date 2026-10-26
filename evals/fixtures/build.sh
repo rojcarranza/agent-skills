@@ -203,9 +203,7 @@ EOF
   G -C ../orders-chart add -A; G -C ../orders-chart commit -qm "Orders chart"
 }
 
-case "$kind" in
-pyrepo)        init_repo main; py_base; py_retry_feature; push_all ;;
-pyrepo-dirty)  init_repo main; py_base; py_retry_feature; push_all
+py_dirty() { # an uncommitted token and an untracked shell=True helper
   cat >> app/cli.py <<'EOF'
 
 API_TOKEN = "ghp_live_9f8a7b6c5d4e3f2a1b0c"
@@ -217,18 +215,135 @@ import subprocess
 def notify(channel, message):
     subprocess.run(f"slack-cli send {channel} '{message}'", shell=True)
 EOF
-  ;;
-pyrepo-bb-pr)  # a Bitbucket Data Center PR: source only under refs/pull-requests/7/from,
-  # target develop (not origin/HEAD, which is main), checkout sitting on main
+}
+
+bb_pr() { # a Bitbucket Data Center PR: source only under refs/pull-requests/7/from,
+  # target develop (not origin/HEAD, which is main), checkout sitting on main.
+  # $1 = filler commits on develop between the initial commit and the PR (default 0)
   init_repo main; py_base
   G checkout -qb develop
   printf '# Changelog\n' > CHANGELOG.md
   G add -A; G commit -qm "Start the changelog"
+  for ((i = 1; i <= ${1:-0}; i++)); do G commit -q --allow-empty -m "Housekeeping $i"; done
   py_retry_feature; push_all
   git -C ../origin.git update-ref refs/pull-requests/7/from "$(git rev-parse feature/retry-uploads)"
   git -C ../origin.git update-ref -d refs/heads/feature/retry-uploads
   G checkout -q main; G branch -q -D feature/retry-uploads
-  git update-ref -d refs/remotes/origin/feature/retry-uploads ;;
+  git update-ref -d refs/remotes/origin/feature/retry-uploads
+}
+
+onboarding_map() { # $1 = the commit the guide says it was built from. Written
+  # untracked, as a real .onboarding/ is, with the files a PR skill reads.
+  mkdir -p .onboarding/flows
+  local guide review flow
+  IFS= read -r -d '' guide <<'EOF' || true
+# uploader - onboarding guide
+
+> Built from commit `@SHA@` (2026-10-01, branch `develop`). Every claim cites `path:line`.
+> Evidence: 3 of 3 source files read; `[?]` marks what the code does not settle.
+
+## 1. What this is
+
+A small upload client: `app/cli.py:5` reads two arguments and calls `upload`
+in `app/uploader.py:4`, which POSTs a JSON payload and returns the parsed
+response.
+
+## 2. System map
+
+```mermaid
+flowchart TD
+  cli["app/cli.py - command line entry"]
+  up["app/uploader.py - POST and parse"]
+  ext[("ingest API")]
+  cli --> up
+  up --> ext
+```
+
+- `app/cli.py` - the only caller of `upload`.
+- `app/uploader.py` - owns the HTTP call; `app/cli.py` depends on it.
+
+## 5. Core flow: upload from the command line
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as cli
+  participant U as uploader
+  participant A as ingest API
+  C->>U: upload(url, payload)
+  U->>A: POST payload as JSON
+  A-->>U: response
+  U-->>C: parsed JSON
+```
+
+1. **Call.** `app/cli.py:6` passes the URL and the name.
+2. **Post.** `app/uploader.py:7` sends the request with a 10 second timeout.
+3. **Print.** `app/cli.py:7` prints the id from the response.
+EOF
+  IFS= read -r -d '' review <<'EOF' || true
+# Reviewing a PR in uploader
+
+> Built from commit `@SHA@` (2026-10-01, branch `develop`). Read `README.md`
+> sections 2 and 5 first.
+
+## Area map
+
+| Glob | Area | Flow | Depends on it | Tests |
+| --- | --- | --- | --- | --- |
+| `app/uploader.py` | uploads | `flows/01-upload.md` | `app/cli.py` | `tests/test_uploader.py` |
+| `app/cli.py` | command line | `flows/01-upload.md` | none | none |
+| `requirements.txt` | dependencies | none | `app/uploader.py` | none |
+
+With `git diff --name-only <base>...<head>` in hand, one lookup names the
+areas and flows a PR touches.
+
+## Hotspots (most changed files, last 12 months)
+
+| File | Commits | Why read twice |
+| --- | --- | --- |
+| `app/uploader.py` | 1 | the only module that talks to the network |
+
+## Silent seams
+
+- `app/cli.py:7` - prints `result["id"]` and relies on `upload()` always
+  returning a dict.
+
+## Questions to ask, by area
+
+- uploads: what does the caller see when every attempt fails?
+
+## Run one test, by area
+
+| Area | Command | Source |
+| --- | --- | --- |
+| uploads | `python -m pytest tests/test_uploader.py` | `tests/test_uploader.py:1` |
+EOF
+  IFS= read -r -d '' flow <<'EOF' || true
+# Flow: upload from the command line
+
+> Built from commit `@SHA@` (2026-10-01, branch `develop`). Every claim cites `path:line`.
+
+Entry: `app/cli.py:5`. Triggered by a person running the command. Ends when the
+id is printed.
+EOF
+  printf '%s\n' "${guide//@SHA@/$1}" > .onboarding/README.md
+  printf '%s\n' "${review//@SHA@/$1}" > .onboarding/reviewing-prs.md
+  printf '%s\n' "${flow//@SHA@/$1}" > .onboarding/flows/01-upload.md
+}
+
+case "$kind" in
+pyrepo)        init_repo main; py_base; py_retry_feature; push_all ;;
+pyrepo-dirty)  init_repo main; py_base; py_retry_feature; push_all; py_dirty ;;
+pyrepo-dirty-onboarded)  # the dirty checkout plus an untracked, unexcluded .onboarding/
+  init_repo main; py_base; py_retry_feature; push_all; py_dirty
+  onboarding_map "$(git rev-parse main)" ;;
+pyrepo-bb-pr)  bb_pr ;;
+pyrepo-bb-pr-mapped)  # the PR above plus a guide built from the target branch tip
+  bb_pr; onboarding_map "$(git rev-parse develop)" ;;
+pyrepo-bb-pr-stale)  # the guide is 50+ commits behind the target branch
+  bb_pr 55; onboarding_map "$(git rev-parse main)" ;;
+pyrepo-bb-pr-unknown)  # the guide names a commit this clone does not have
+  bb_pr; onboarding_map 0123456789abcdef0123456789abcdef01234567 ;;
 pyrepo-clean)  init_repo main; py_base
   G checkout -qb feature/slugify
   cat > app/slug.py <<'EOF'

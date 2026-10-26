@@ -93,6 +93,12 @@ graph first when the repo has one (`graphify-out/`), and read only the files
 it points at — fewer tokens on large repos. Build one per repo with
 `graphify update .` (code only, no LLM).
 
+The PR skills (`roj-explain-logic`, `roj-code-review-pr`,
+`roj-review-pr-comment`, `roj-explain-feature-changes`) also read the
+`.onboarding/` map `roj-onboard-repo` writes, when one exists: they name the
+areas, dependents and silent seams a change touches. The map only orients;
+every finding and explanation step still cites the code.
+
 Walkthrough skills **offer** a CodeTour at the end of a run and write one
 into `.tours/` only on a yes, chaining to the community `code-tour` skill.
 `roj-onboard-repo` follows the same rule: its output is the `.onboarding/`
