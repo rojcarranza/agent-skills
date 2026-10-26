@@ -104,14 +104,14 @@
       "path": "skills/roj-explain-feature-changes",
       "ref": "",
       "commit": "",
-      "tree": "44b84ecfa5be06cfff5bbe6e6bd98ef408f11233"
+      "tree": "9d12ea76a01adac9d1beac46c122b3649fb067cb"
     },
     "roj-explain-logic": {
       "source": ".",
       "path": "skills/roj-explain-logic",
       "ref": "",
       "commit": "",
-      "tree": "7e80e2c09ead331a05c3387ab6b3975f89a63898"
+      "tree": "b78ea5cbaf6e52260e9cda3a97f0d92a3b7c5225"
     },
     "roj-grill-plan": {
       "source": ".",
@@ -160,7 +160,7 @@
       "path": "skills/roj-tour-codebase",
       "ref": "",
       "commit": "",
-      "tree": "13e5c1b2fb57eef5e202d5b816faf0c54ff1cf24"
+      "tree": "42b70917d620ff0699913a470d8cb0e799720822"
     },
     "security-and-hardening": {
       "source": "https://github.com/addyosmani/agent-skills",
