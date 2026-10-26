@@ -36,13 +36,6 @@ No argument reviews the PR for the current branch.
 
 A clean PR is posted as "No findings." — the skill never invents findings.
 
-## Automatic runs
-
-In the [dotfiles](https://github.com/rojcarranza/.dotfiles) setup a Claude Code
-hook (`pr_review_hook.py`) asks Claude to run this skill right after it opens
-a PR in an allowlisted repository. Without that hook the skill only runs
-when asked.
-
 ## Install
 
 Copilot only. Install it with the rest of this repo: see
