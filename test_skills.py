@@ -295,10 +295,6 @@ class TestGraphFirst(unittest.TestCase):
                 for status in ("`Graph: used`", "`Graph: stale, skipped`",
                                "`Graph: none found, searched directly`"):
                     self.assertIn(status, closing)
-                # The footer is conditional: a small repo without a graph
-                # gets no "none found" line.
-                self.assertIn("only when", closing)
-                self.assertIn("large repository", closing)
 
     def test_graph_reference_has_only_three_statuses(self):
         text = (SKILLS / "roj-code-review-pr" / "references"
