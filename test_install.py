@@ -1047,6 +1047,8 @@ class TestLegacyCleanup(TempDirTest):
              "ref": "a" * 40, "active": True, "targets": None},
             {"name": "caveman", "source": "https://x/caveman//skills/caveman",
              "ref": "b" * 40, "active": True, "targets": ("copilot",)},
+            {"name": "roj-b", "source": "github:o/r//skills/roj-b",
+             "ref": None, "active": True, "targets": ("copilot",)},
             {"name": "pdf", "source": "github:a/s//skills/pdf@" + "c" * 40,
              "ref": "c" * 40, "active": False, "targets": None}]
         # Every move lands in the temp dir, never the real ~/.agent-skills-backups.
@@ -1077,18 +1079,19 @@ class TestLegacyCleanup(TempDirTest):
         retired = {"add-educational-comments", "arch-linux-triage",
                    "architecture-blueprint-generator", "centos-linux-triage",
                    "debian-linux-triage", "fedora-linux-triage"}
-        self.assertEqual(install.stale_skill_names("claude"), {"caveman"} | retired)
+        # caveman was Copilot only before: no install put it in Claude.
+        self.assertEqual(install.stale_skill_names("claude"), {"roj-b"} | retired)
         self.assertEqual(install.stale_skill_names("copilot"), retired)
 
     def test_legacy_names_are_custom_plus_manifest(self):
         self.assertEqual(install.legacy_skill_names(),
-                         {"roj-a", "code-tour", "caveman", "pdf"})
+                         {"roj-a", "code-tour", "caveman", "roj-b", "pdf"})
 
     def test_managed_names_follow_active_deps_and_targets(self):
         self.assertEqual(install.managed_skill_names("claude"),
                          {"roj-a", "code-tour"})
         self.assertEqual(install.managed_skill_names("copilot"),
-                         {"roj-a", "code-tour", "caveman"})
+                         {"roj-a", "code-tour", "caveman", "roj-b"})
 
     def test_symlink_into_clone_always_removed(self):
         root = self.tmp / "claude"
@@ -1185,57 +1188,89 @@ class TestLegacyCleanup(TempDirTest):
         for state in ("ok", "modified"):
             with self.subTest(state=state):
                 root = self.tmp / f"claude-{state}"
-                self.make_skill(f"claude-{state}", name="caveman",
-                                content=OWNED.format("caveman") + "edit\n")
+                self.make_skill(f"claude-{state}", name="roj-b",
+                                content=OWNED.format("roj-b") + "edit\n")
                 results, err = self.cleanup(
-                    "claude", root, cali_rows=rows(state, "caveman"))
-                self.assertFalse((root / "caveman").exists())
-                kept = self.backups / "claude" / "caveman"
+                    "claude", root, cali_rows=rows(state, "roj-b"))
+                self.assertFalse((root / "roj-b").exists())
+                kept = self.backups / "claude" / "roj-b"
                 self.assertEqual((kept / "SKILL.md").read_text(encoding="utf-8"),
-                                 OWNED.format("caveman") + "edit\n")
-                self.assertEqual(results, [("claude", "caveman",
+                                 OWNED.format("roj-b") + "edit\n")
+                self.assertEqual(results, [("claude", "roj-b",
                                             f"moved to {kept} (not installed for claude)")])
                 self.assertEqual(err, "")
                 shutil.rmtree(self.backups)
 
-    def test_retired_skill_moved_aside_for_every_target(self):
+    def test_stale_copy_without_install_record_kept_with_warning(self):
+        # A matching SKILL.md name alone does not show who installed it.
+        for i, cali_rows in enumerate(
+                (None, self.NOT_INSTALLED, rows("base-lost", "roj-b"))):
+            with self.subTest(cali_rows=cali_rows):
+                root = self.tmp / f"claude-{i}"
+                self.make_skill(f"claude-{i}", name="roj-b",
+                                content=OWNED.format("roj-b"))
+                results, err = self.cleanup("claude", root, cali_rows=cali_rows)
+                self.assertTrue((root / "roj-b" / "SKILL.md").is_file())
+                self.assertEqual(results, [])
+                self.assertIn("roj-b is left over", err)
+                self.assertEqual(err.count("[ warn ]"), 1)
+                self.assertFalse(self.backups.exists())
+
+    def test_copilot_only_skill_copy_kept_for_claude(self):
+        self.make_skill("claude", name="caveman", content=OWNED.format("caveman"))
+        results, err = self.cleanup("claude", self.tmp / "claude",
+                                    cali_rows=rows("ok", "caveman"))
+        self.assertTrue((self.tmp / "claude" / "caveman").is_dir())
+        self.assertEqual(results, [])
+        self.assertIn("Cali does not manage caveman for claude", err)
+        self.assertFalse(self.backups.exists())
+
+    def test_retired_skill_moved_aside_only_with_a_cali_row(self):
         for target in ("claude", "copilot"):
             with self.subTest(target=target):
+                root = self.tmp / target
                 self.make_skill(target, name="debian-linux-triage",
                                 content=OWNED.format("debian-linux-triage"))
-                results, _ = self.cleanup(target, self.tmp / target, cali_rows=None)
-                self.assertFalse((self.tmp / target / "debian-linux-triage").exists())
+                results, err = self.cleanup(target, root, cali_rows=None)
+                self.assertTrue((root / "debian-linux-triage").is_dir())
+                self.assertEqual(results, [])
+                self.assertIn("debian-linux-triage is left over", err)
+                results, _ = self.cleanup(
+                    target, root, cali_rows=rows("ok", "debian-linux-triage"))
+                self.assertFalse((root / "debian-linux-triage").exists())
                 self.assertTrue((self.backups / target / "debian-linux-triage"
                                  / "SKILL.md").is_file())
                 self.assertEqual(len(results), 1)
 
     def test_link_of_a_stale_skill_moved_aside(self):
         root = self.tmp / "claude"
-        self.link(root / "caveman", self.tmp / "gone" / "caveman")
-        results, _ = self.cleanup("claude", root)
-        self.assertFalse((root / "caveman").is_symlink())
-        self.assertTrue((self.backups / "claude" / "caveman").is_symlink())
+        self.link(root / "roj-b", self.tmp / "gone" / "roj-b")
+        results, _ = self.cleanup("claude", root, cali_rows=None)
+        self.assertFalse((root / "roj-b").is_symlink())
+        self.assertTrue((self.backups / "claude" / "roj-b").is_symlink())
         self.assertEqual(len(results), 1)
 
     def test_stale_skill_with_a_foreign_skill_md_kept(self):
-        self.make_skill("claude", name="caveman", content=OWNED.format("my-caveman"))
+        self.make_skill("claude", name="roj-b", content=OWNED.format("my-roj-b"))
         results, err = self.cleanup("claude", self.tmp / "claude")
-        self.assertTrue((self.tmp / "claude" / "caveman").is_dir())
+        self.assertTrue((self.tmp / "claude" / "roj-b").is_dir())
         self.assertEqual((results, err), ([], ""))
 
     def test_unknown_folders_never_touched_for_claude(self):
         for name in ("no-mistakes", "synced"):
             self.make_skill("claude", name=name, content=OWNED.format(name))
-        results, err = self.cleanup("claude", self.tmp / "claude")
+        results, err = self.cleanup("claude", self.tmp / "claude",
+                                    cali_rows=rows("ok", "no-mistakes", "synced"))
         self.assertEqual((results, err), ([], ""))
         for name in ("no-mistakes", "synced"):
             self.assertTrue((self.tmp / "claude" / name / "SKILL.md").is_file())
         self.assertFalse(self.backups.exists())
 
     def test_dry_run_moves_no_stale_skill(self):
-        self.make_skill("claude", name="caveman", content=OWNED.format("caveman"))
-        results, _ = self.cleanup("claude", self.tmp / "claude", dry_run=True)
-        self.assertTrue((self.tmp / "claude" / "caveman").is_dir())
+        self.make_skill("claude", name="roj-b", content=OWNED.format("roj-b"))
+        results, _ = self.cleanup("claude", self.tmp / "claude", dry_run=True,
+                                  cali_rows=rows("ok", "roj-b"))
+        self.assertTrue((self.tmp / "claude" / "roj-b").is_dir())
         self.assertFalse(self.backups.exists())
         self.assertTrue(results[0][2].startswith("moved to "))
 
@@ -1809,10 +1844,15 @@ class TestMain(TempDirTest):
         self.make_skill("home/claude", name="code-tour",
                         content=OWNED.format("code-tour"))
         rules = self.write_shipped_rules()
-        _, _, _, err = self.run_main(["--status", "--target", "claude"])
+        installed = rows("ok", "code-tour")
+        _, _, _, err = self.run_main(["--status", "--target", "claude"],
+                                     cali_rows=installed)
         self.assertIn("code-tour left by an older install", err)
         self.assertIn("personal.md left by an older install", err)
-        _, _, out, _ = self.run_main(["--dry-run", "--target", "claude"])
+        _, _, _, err = self.run_main(["--status", "--target", "claude"])
+        self.assertIn("code-tour is left over", err)
+        _, _, out, _ = self.run_main(["--dry-run", "--target", "claude"],
+                                     cali_rows=installed)
         self.assertIn("code-tour", out)
         self.assertIn("personal.md", out)
         self.assertTrue((home / "claude" / "code-tour").is_dir())

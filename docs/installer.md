@@ -142,14 +142,18 @@ skills in `cali.yaml` for that target.
   `~/.apm/apm.lock.yaml` lists them; anything else there (other tools use
   that folder) is left alone.
 
-- A skill Cali no longer installs for that agent is moved to the same
-  backup folder, whether Cali or an older installer put it there: a
-  Copilot-only skill in
+- A skill Cali no longer installs for that agent - a Copilot-only skill in
   `~/.claude/skills` (every one but `roj-idea-to-project`), and the pruned
-  community skills (`RETIRED_SKILLS` in `install.py`) in either agent. Only
-  a link into a checkout of this repo, a dangling link, or a copy whose
-  `SKILL.md` declares that name moves; a folder with any other name, such
-  as `no-mistakes`, is never touched.
+  community skills (`RETIRED_SKILLS` in `install.py`) in either agent - is
+  moved to the same backup folder only when something records that it was
+  installed for that agent: a link an older installer made (into a checkout
+  of this repo, or dangling), or a `cali status` row for that skill and
+  agent. A matching `SKILL.md` name alone is not enough: such a copy is
+  kept, and the run and `--status` warn that it is left over, so delete it
+  by hand if it is stale. Skills that were always Copilot only
+  (`NEVER_CLAUDE_SKILLS`: `caveman`, `debugging-and-error-recovery`) are
+  never stale in `~/.claude/skills`. A folder with any other name, such as
+  `no-mistakes`, is never touched.
 - `~/.claude/rules/personal.md`, which earlier versions deployed for
   Claude, is moved to `<backup>/claude/personal.md` when its body is a
   version this repo shipped. An edited copy or a link is kept with a
