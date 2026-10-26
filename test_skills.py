@@ -310,6 +310,43 @@ class TestGraphFirst(unittest.TestCase):
         self.assertIn("`graph-first.md` step does not apply", text)
 
 
+class TestSoundboarding(unittest.TestCase):
+    """The example SB is what the model copies: it must hold the template's
+    sections and no others, and its tables must carry the evidence columns."""
+
+    SB = SKILLS / "roj-soundboarding"
+
+    @staticmethod
+    def headings(text):
+        return re.findall(r"(?m)^## (.+)$", text)
+
+    def test_example_has_only_the_template_sections(self):
+        template = (self.SB / "assets" / "SB-template.md").read_text("utf-8")
+        example = (self.SB / "examples" / "SB-PROJ-1001.md").read_text("utf-8")
+        self.assertEqual(self.headings(example), self.headings(template))
+
+    def test_bundled_template_has_no_standing_question(self):
+        template = (self.SB / "assets" / "SB-template.md").read_text("utf-8")
+        section = re.search(r"(?ms)^## Questions\n(.*?)(?=^## |\Z)",
+                            template)
+        self.assertIsNotNone(section)
+        bullets = [l[1:].strip() for l in section.group(1).splitlines()
+                   if l.startswith("-")]
+        self.assertEqual([b for b in bullets if b], [])
+
+    def test_before_after_tables_carry_location_and_source(self):
+        header = ("| # | File/Property | Location | Before | After | Reason "
+                  "| Source |")
+        example = (self.SB / "examples" / "SB-PROJ-1001.md").read_text("utf-8")
+        self.assertIn(header, example)
+        rows = [l for l in example.splitlines()
+                if re.match(r"\| \d+ \|", l)]
+        self.assertTrue(rows)
+        for row in rows:
+            with self.subTest(row=row[:40]):
+                self.assertRegex(row, r"`[^`]+:\d+(?:[-,]\d+)*`")
+
+
 def git_bash():
     """bash for the eval fixtures. On Windows, Git Bash next to git: a bare
     `bash` there can resolve to System32's WSL launcher."""
@@ -344,7 +381,8 @@ class TestEvals(unittest.TestCase):
     # Skills whose descriptions overlap; each must keep an eval set.
     REQUIRED = {"roj-code-review-pr", "roj-code-review-pr-fast",
                 "roj-review-pr-comment", "roj-explain-logic",
-                "roj-explain-feature-changes", "roj-idea-to-project"}
+                "roj-explain-feature-changes", "roj-idea-to-project",
+                "roj-soundboarding"}
 
     def eval_dirs(self):
         return sorted(p for p in (ROOT / "evals").iterdir()

@@ -12,7 +12,7 @@
 
 ## Questions
 
-- Do we add a slide to our sprint review presentation for this story?
+-
 
 ## Notes
 

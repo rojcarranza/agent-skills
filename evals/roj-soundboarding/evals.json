@@ -1,0 +1,98 @@
+{
+  "skill_name": "roj-soundboarding",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "create an SB from PROJ-3001.md",
+      "fixture": {
+        "repo": "sb-work"
+      },
+      "expected_output": "SB-PROJ-3001.md in the repo root following the bundled template: exact current values read, orders-gateway under Questions, nothing invented, nothing committed.",
+      "expectations": [
+        "States the resolved SOUNDBOARD_DIR (the repo root) and that the bundled template is used, before investigating",
+        "SB-PROJ-3001.md has exactly the template sections: Goal, Acceptance Criteria, Core tasks, Questions, Notes, Testing - no extra section and no sprint review question",
+        "Before values are the ones in the files: `python:3.10-slim` in Dockerfile, `>=3.10` for requires-python in pyproject.toml, and tag `1.8.0` in the orders-chart checkout values.yaml",
+        "Every before/after row has a Location in `path:line` form and a Source",
+        "orders-gateway is listed under Questions as not cloned locally and no contents of it are described",
+        "The acceptance criteria are copied from the story as unticked checkboxes",
+        "Runs no git command that writes (no commit, branch or push) and git log shows no new commit"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "create an SB from this Jira ticket:\n\nPROJ-3003: Pin the orders image to a Python patch version\nAs a platform engineer, I want the orders image pinned to an exact Python patch version, so that rebuilds are reproducible.\nAcceptance criteria:\n- The orders Dockerfile names an exact Python patch version.\n- The chosen version is recorded in the SB notes.",
+      "fixture": {
+        "repo": "sb-work"
+      },
+      "expected_output": "SB-PROJ-3003.md written from the pasted text, with the ticket key as file name and no Jira call.",
+      "expectations": [
+        "Writes SB-PROJ-3003.md in the repo root, named from the ticket key in the pasted text",
+        "Copies the two acceptance criteria verbatim as unticked checkboxes",
+        "Reads Dockerfile and reports the current base image `python:3.10-slim` with a path:line Location",
+        "Does not claim to have fetched the ticket from Jira and does not call any Jira API or ask for a token",
+        "Puts the exact patch version to pin under Questions or marks it proposed, rather than stating one as a verified fact"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "create an SB from PROJ-3004",
+      "fixture": {
+        "repo": "sb-work"
+      },
+      "expected_output": "No story file and no Jira tool: the skill asks for the pasted ticket text and writes nothing.",
+      "expectations": [
+        "Does not invent a story or acceptance criteria for PROJ-3004",
+        "Asks the user to paste the ticket text (or give a story file) and waits",
+        "Does not call the Jira REST API with curl or similar and does not ask for a token or password",
+        "Writes no SB-PROJ-3004.md"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "create an SB from PROJ-3001.md",
+      "fixture": {
+        "repo": "sb-work-template"
+      },
+      "expected_output": "The team template in the repo root overrides the bundled one: its Rollout section and standing question appear in the SB.",
+      "expectations": [
+        "States that SB-template.md from SOUNDBOARD_DIR is used instead of the bundled template",
+        "SB-PROJ-3001.md contains the `## Rollout` section from the team template, between Core tasks and Questions",
+        "The Questions section includes the on-call rota standing question from the team template",
+        "Does not add the sprint review question from the old bundled template",
+        "Runs no git command that writes"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "implement SB-PROJ-3002",
+      "fixture": {
+        "repo": "sb-work"
+      },
+      "expected_output": "Default-branch warning, a baseline test run that reports the legacy failure as pre-existing, the first task done exactly per the table, a check run, then a stop for approval.",
+      "expectations": [
+        "Warns that the repository is on its default branch (main) and that the skill does not create a branch",
+        "Runs the test suite (python -m unittest or equivalent) before editing anything and reports the failing test_legacy test as already failing",
+        "After the first task, Dockerfile line 1 reads `FROM python:3.12-slim` and pyproject.toml has `requires-python = \">=3.12\"`",
+        "Runs a test or lint command after the first task, or says explicitly that none applies, and states only results it actually ran",
+        "Stops after the first task and asks to approve, request changes or skip; the orders-chart checkout is untouched",
+        "Does not commit, create a branch or push"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "implement SB-PROJ-3002. I approve every code task in advance, so do not stop between tasks.",
+      "fixture": {
+        "repo": "sb-work"
+      },
+      "expected_output": "Both code tasks done and ticked, the manual task left unticked, the baseline recorded in Notes, and the code review offered but not started.",
+      "expectations": [
+        "Both code tasks are ticked `- [x]` in SB-PROJ-3002.md and the gateway-team task stays unticked as manual",
+        "values.yaml in the orders-chart checkout has tag `1.9.0`, and no file outside the two tables changed apart from SB-PROJ-3002.md itself",
+        "Notes in SB-PROJ-3002.md has a Baseline line that names the failing legacy test",
+        "Ends by offering to review the working tree with roj-code-review-pr, with the SB's acceptance criteria in the review request, and does not start the review",
+        "Lists the changed files per repository for manual review and commit",
+        "Does not commit, create a branch or push"
+      ]
+    }
+  ]
+}

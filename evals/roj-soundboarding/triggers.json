@@ -1,0 +1,66 @@
+[
+  {
+    "query": "create an SB from PROJ-3001.md",
+    "should_trigger": true
+  },
+  {
+    "query": "implement SB-PROJ-3002",
+    "should_trigger": true
+  },
+  {
+    "query": "plan this ticket: PROJ-3004 - move the orders service to Python 3.12, and tell me which files in each repo have to change",
+    "should_trigger": true
+  },
+  {
+    "query": "break this story into tasks for the orders service and the helm chart, using what's actually in the repos",
+    "should_trigger": true
+  },
+  {
+    "query": "break this ticket into tasks: PROJ-3007 - bump the orders chart to the 1.9.0 image and check the service side too",
+    "should_trigger": true
+  },
+  {
+    "query": "refine this story against the code before sprint planning: PROJ-3005",
+    "should_trigger": true
+  },
+  {
+    "query": "here is the Jira ticket text for PROJ-3006, turn it into a soundboarding document with investigated core tasks",
+    "should_trigger": true
+  },
+  {
+    "query": "create and implement PROJ-3001.md, I don't need a team refinement round",
+    "should_trigger": true
+  },
+  {
+    "query": "grill me on SB-PROJ-3001.md before we implement it",
+    "should_trigger": false
+  },
+  {
+    "query": "why does the Bamboo build for the orders plan fail in the test stage? here is the log",
+    "should_trigger": false
+  },
+  {
+    "query": "review my branch for bugs before I open the Bitbucket PR",
+    "should_trigger": false
+  },
+  {
+    "query": "explain what orders/pricing.py does",
+    "should_trigger": false
+  },
+  {
+    "query": "give me a tour of this repository, I just joined the team",
+    "should_trigger": false
+  },
+  {
+    "query": "write a user story with acceptance criteria for adding retries to the uploader",
+    "should_trigger": false
+  },
+  {
+    "query": "create a Jira ticket for the flaky pricing test",
+    "should_trigger": false
+  },
+  {
+    "query": "I have an idea for a plant watering app, help me plan the project",
+    "should_trigger": false
+  }
+]
