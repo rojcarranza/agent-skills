@@ -259,7 +259,7 @@ disk. Skills only run the read-only graphify queries (allowed alongside
 `git` in their command rules and `allowed-tools`); they never update or
 create the graph, and suggest `graphify update .` when it is stale. The graph only says where to
 look: findings and quotes still come from reading the lines.
-`roj-code-review-pr-fast` stays diff-local and never uses it. No skill
+`roj-code-review-pr` in quick mode stays diff-local and never uses it. No skill
 creates `graphify-out/` unasked. Per repo, `graphify update .` builds a
 code-only graph in seconds without an LLM (this repo: about 1,500 nodes);
 `/graphify .` also maps docs and spends tokens doing it. Re-run

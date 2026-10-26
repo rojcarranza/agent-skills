@@ -35,8 +35,11 @@ Explicit invocation:
 Examples: `/roj-explain-feature-changes`, `/roj-explain-feature-changes develop`,
 `/skill:roj-explain-feature-changes main`.
 
-Base branch without an argument: `develop` (`origin/develop`, then local),
-then `main` (`origin/main`, then local). If neither exists, the skill asks.
+Base branch without an argument: the nearest of `origin/HEAD`'s branch,
+`origin/develop`, `origin/main` and `origin/master` (then their local forms),
+meaning the one with the fewest commits between it and your branch - the same
+rule the review and walkthrough skills in this repo use, so one branch is
+explained and reviewed against the same base. If none exists, the skill asks.
 
 ## What it does
 

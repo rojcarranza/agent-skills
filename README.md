@@ -71,8 +71,7 @@ tools, is in [docs/workflow.md](docs/workflow.md).
 
 | Skill | What it does |
 | --- | --- |
-| [`roj-code-review-pr`](skills/roj-code-review-pr/USAGE.md) | Reviews the current feature branch before or after a PR: change summary, severity/confidence-tagged findings and a `-review.md` report. Loads language/platform rules (Java, Python, Bash, Go, Bamboo, Docker, k8s, Helm) only for stacks the diff touches. Git-only. |
-| [`roj-code-review-pr-fast`](skills/roj-code-review-pr-fast/USAGE.md) | Chat-only quick pass over the same diff, `git` calls only, nothing written. |
+| [`roj-code-review-pr`](skills/roj-code-review-pr/USAGE.md) | Reviews a branch, a teammate's branch or a Bitbucket Data Center PR, without a checkout: `auto` picks a quick chat-only pass or a full review (change summary, severity/confidence-tagged findings, a `-review.md` report) from the size and risk of the diff. Optional intent source (PR text, Jira story, SB acceptance criteria). Loads language/platform rules (Java, Python, Bash, Go, Bamboo, Docker, k8s, Helm) only for stacks the diff touches. Git-only. |
 | [`roj-review-pr-comment`](skills/roj-review-pr-comment/USAGE.md) | Reviews an open GitHub PR with the same method and posts one `COMMENT` review with inline comments via `gh`. The only skill that writes to the PR host. |
 | [`roj-explain-logic`](skills/roj-explain-logic/USAGE.md) | Guided walkthrough of a PR, branch, file or function: big picture → execution flow → why → gotchas, with language lenses. Optional explain-and-review mode. |
 | [`roj-explain-feature-changes`](skills/roj-explain-feature-changes/USAGE.md) | Explains your own branch against `develop`/`main` with traced before/after behaviour, then writes PR-ready text and per-change comments. |

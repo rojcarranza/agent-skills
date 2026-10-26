@@ -99,13 +99,6 @@
       "commit": "",
       "tree": "66ad317f0fa3321086c60f191fca7b1fe85454f4"
     },
-    "roj-code-review-pr-fast": {
-      "source": ".",
-      "path": "skills/roj-code-review-pr-fast",
-      "ref": "",
-      "commit": "",
-      "tree": "5f5fa6713bd49f0a78eb5e0839aa9649617d0508"
-    },
     "roj-explain-feature-changes": {
       "source": ".",
       "path": "skills/roj-explain-feature-changes",

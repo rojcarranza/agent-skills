@@ -32,17 +32,19 @@ fatal: no upstream configured for branch 'feature/PROJ-4471-atomic-upgrade'
 
 Lenses selected from the changed paths: `lang-go.md` (3 files),
 `platform-helm.md` (2 files). No Kubernetes manifests changed, so
-`platform-k8s.md` was not loaded. Mode: **pre-PR**, the branch has no
-upstream.
+`platform-k8s.md` was not loaded. Mode: **full** (auto: a Bamboo spec and a
+Helm chart changed, so a deploy path), stage **pre-PR**.
 
 Repository conventions read: `CLAUDE.md`, `.golangci.yml` (has `errcheck`
 and `govet` enabled — so unchecked errors are not reported here, the linter
 owns them).
 
-Tooling offered and approved: `go vet ./...`, `helm template charts/service
--f charts/service/values-staging.yaml`, `go run ./cmd/deploy --wait-timeout
-300`. The `helm template` run is what produced the Blocker below, and the
-`go run` is what confirmed the Major.
+Opt-in asked once, up front: the user answered `checks`. The declared checks
+run were `go vet ./...`, `helm template charts/service -f
+charts/service/values-staging.yaml` and the narrowest command that
+exercises the flag, `go run ./cmd/deploy --wait-timeout 300`. The `helm
+template` run is what produced the Blocker below, and the `go run` is what
+confirmed the Major.
 
 ## The report
 
@@ -50,8 +52,10 @@ Tooling offered and approved: `go vet ./...`, `helm template charts/service
 ## Review — feature/PROJ-4471-atomic-upgrade vs origin/main
 
 deploy-cli · base `origin/main` @ `9f31c0a` · 4 commits ·
-6 files · +119/-21 · lenses: lang-go, platform-helm · mode: pre-PR
+6 files · +119/-21 · lenses: lang-go, platform-helm ·
+mode: full · stage: pre-PR
 Uncommitted: none
+Intent: none
 Excluded: none
 
 ### What this branch does

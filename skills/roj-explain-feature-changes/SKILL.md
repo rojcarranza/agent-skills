@@ -57,14 +57,10 @@ fallback.
 
 ## Phase 1 — Resolve the base branch
 
-First hit wins:
-
-1. The user's argument (`/roj-explain-feature-changes release/2.4`).
-2. `develop`: use `origin/develop` if
-   `git rev-parse --verify --quiet origin/develop` prints a SHA, else local
-   `develop` if `git rev-parse --verify --quiet develop` does.
-3. `main`: the same check for `origin/main`, then local `main`.
-4. Nothing resolves: ask which branch to compare against. Never guess.
+Follow `references/base-resolution.md`: the user's argument
+(`/roj-explain-feature-changes release/2.4`), else the nearest of
+`origin/HEAD`'s branch, `develop`, `main` and `master`. Nothing resolves: ask
+which branch to compare against. Never guess.
 
 Run `git branch --show-current`. If it prints the base branch itself — for a
 remote base such as `origin/develop`, also its local name `develop` — or

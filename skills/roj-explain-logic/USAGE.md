@@ -15,7 +15,7 @@ to ...").
 | Goal | Request |
 |---|---|
 | Understand a feature branch | `/roj-explain-logic the changes in this branch vs main` |
-| Understand a PR | `/roj-explain-logic PR #142` |
+| Understand a PR | `/roj-explain-logic PR #142` (a Bitbucket Data Center PR id or URL is fetched without a checkout) |
 | Understand a file | `/roj-explain-logic src/foo/bar.py` |
 | Understand a selection | select code → `Explain the logic in this selection step by step` |
 | Understand + flag risks | `/roj-explain-logic explain and review PR #142` |
@@ -27,5 +27,7 @@ to ...").
 
 `/roj-explain-logic explain and review PR #142` pulls the real diff, reads
 surrounding code, callers, and tests, explains the change step by step, then
-a clearly separated review phase rates findings 🔴 likely bug / 🟡 risky /
-🟢 style.
+a clearly separated review phase applies the shared review method of
+`roj-code-review-pr`: findings carry a severity (Blocker / Major / Minor /
+Nit) and a confidence (Confirmed / Probable), and a Major or Blocker states
+the concrete input that fails.
