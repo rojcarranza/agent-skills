@@ -7,7 +7,7 @@ moving parts come with a Mermaid diagram (`references/mermaid.md`).
 
 ## Commands per platform
 
-Claude Code and VS Code Copilot: `/roj-explain-logic <request>`. JetBrains
+VS Code Copilot: `/roj-explain-logic <request>`. JetBrains
 Copilot: `/skill:roj-explain-logic <request>`. Plain English triggers it
 everywhere; if it does not, name it once ("Use the roj-explain-logic skill
 to ...").

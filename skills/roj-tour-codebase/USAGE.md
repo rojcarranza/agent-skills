@@ -35,11 +35,10 @@ Explicit invocation differs per agent:
 
 | Agent | Command |
 | --- | --- |
-| Claude Code (terminal, VS Code, JetBrains) | `/roj-tour-codebase`, or plain English |
 | Copilot, VS Code | `/roj-tour-codebase` |
 | Copilot, JetBrains | `/skill:roj-tour-codebase` |
 
-All three are personal scope once installed, so they reach every project with
+Both are personal scope once installed, so they reach every project with
 no per-repository seeding.
 
 ## What it does
@@ -125,24 +124,10 @@ what is there and asks once.
 
 ## Install
 
-Any agent, with Node.js:
-
-    npx skills add rojcarranza/agent-skills -s roj-tour-codebase
-
-Or from a clone of this repo (adds the skills it depends on, plus the
-Windows copy fallback):
-
-    python3 install.py --target claude    # mac / Claude Code
-    python3 install.py --target copilot   # work / GitHub Copilot
-    python3 install.py --target both
-
-On the Windows VDI use `python` rather than `python3`. Copilot installs to
-`~/.copilot/skills/` (under `%USERPROFILE%` on Windows), which is personal
-scope: the skill reaches every project, in both VS Code and JetBrains
-agent-mode chat, with no `.github/skills` seeding.
-
-Copilot receives copies, not symlinks — re-run the installer after editing any
-reference file. `--status` shows what is installed where.
+Copilot only. Install it with the rest of this repo: see
+[Install](../../README.md#install) in the README, and
+[docs/installer.md](../../docs/installer.md) for flags, `--status` and the
+work VDI.
 
 This skill delegates to two community skills the installer already fetches by
 default, `acquire-codebase-knowledge` and `code-tour`. It runs without them,

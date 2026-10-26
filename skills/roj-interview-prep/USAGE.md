@@ -14,34 +14,20 @@ assessment. Never touches git — you review and commit manually.
 
 ## Install
 
-Any agent, with Node.js:
+Copilot only. Install it with the rest of this repo: see
+[Install](../../README.md#install) in the README, and
+[docs/installer.md](../../docs/installer.md) for flags, `--status` and the
+work VDI.
 
-    npx skills add rojcarranza/agent-skills -s roj-interview-prep
-
-Or from a clone of this repo (adds the skills it depends on, plus the
-Windows copy fallback):
-
-    python3 install.py --target claude    # mac / Claude Code
-    python3 install.py --target copilot   # work / GitHub Copilot
-    python3 install.py --target both
-
-Claude gets a symlink (edit the repo, changes are live); Copilot gets a copy
-(re-run install after edits).
-
-## Run — Claude Code (mac, inside the vault)
-
-    cd <your-notes-vault>/technical-interviews
-    claude
-    > prepare interview for <candidate name>
-
-Vault mode auto-detected: CV read from `CVs/`, doc written to
-`Candidates/DevOps Interview - <Candidate Name>.md`.
-
-## Run — Copilot (work)
+## Run
 
 Open any folder, invoke the skill (`/skills list` to confirm it's
 installed), then: "prepare interview for <name>, CV at <path>, output to
 <dir>". Standalone mode uses the bundled calibration and frame.
+
+Run from `<your-notes-vault>/technical-interviews` and vault mode is
+auto-detected: CV read from `CVs/`, doc written to
+`Candidates/DevOps Interview - <Candidate Name>.md`.
 
 ## After the interview
 
@@ -51,5 +37,4 @@ Fill the Comment fields and the Pass verdict in the doc, then:
 ## Editing the baseline
 
 Baseline questions live in `references/base-questions.md` in the dotfiles
-repo. Edit there, commit, re-run install for Copilot (Claude symlink picks
-it up automatically).
+repo. Edit there, commit, then re-run the installer.

@@ -21,7 +21,7 @@ installed.
 
 ## Commands per platform
 
-Claude Code and VS Code Copilot: `/roj-grill-plan <request>`. JetBrains
+VS Code Copilot: `/roj-grill-plan <request>`. JetBrains
 Copilot: `/skill:roj-grill-plan <request>`. Plain English works everywhere.
 
 | Goal | Request |

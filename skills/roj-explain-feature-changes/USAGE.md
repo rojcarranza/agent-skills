@@ -30,7 +30,6 @@ Explicit invocation:
 
 | Agent | VS Code | IntelliJ / PyCharm / GoLand |
 | --- | --- | --- |
-| Claude Code | `/roj-explain-feature-changes [base]` | `/roj-explain-feature-changes [base]` |
 | Copilot | `/roj-explain-feature-changes [base]` | `/skill:roj-explain-feature-changes [base]` |
 
 Examples: `/roj-explain-feature-changes`, `/roj-explain-feature-changes develop`,

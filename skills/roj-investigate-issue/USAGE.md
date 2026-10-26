@@ -34,15 +34,10 @@ error text. Useful content:
 
 ## Install
 
-Any agent, with Node.js:
-
-    npx skills add rojcarranza/agent-skills -s roj-investigate-issue
-
-Or from a clone of this repo (adds the skills it depends on, plus the
-Windows copy fallback):
-
-    python3 install.py --target claude    # mac / Claude Code
-    python3 install.py --target copilot   # work / GitHub Copilot
+Copilot only. Install it with the rest of this repo: see
+[Install](../../README.md#install) in the README, and
+[docs/installer.md](../../docs/installer.md) for flags, `--status` and the
+work VDI.
 
 The installer also fetches the chained helper skills:
 `debugging-and-error-recovery` (addyosmani/agent-skills) and
@@ -57,12 +52,6 @@ Open the repo the build runs against, then:
 
 or paste the problem text directly and say "investigate this issue and
 write the report next to docs/issues/PROJ-123.md".
-
-## Run — Claude Code
-
-    cd <repo>
-    claude
-    > investigate docs/issues/PROJ-123.md
 
 ## Output
 
