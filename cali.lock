@@ -111,7 +111,7 @@
       "path": "skills/roj-explain-logic",
       "ref": "",
       "commit": "",
-      "tree": "b78ea5cbaf6e52260e9cda3a97f0d92a3b7c5225"
+      "tree": "21c14db205e7254bb76ddff13ca224d824d85985"
     },
     "roj-grill-plan": {
       "source": ".",
@@ -141,6 +141,13 @@
       "commit": "",
       "tree": "e18cc2b59bdd2927c769a6365902d75c498d46b6"
     },
+    "roj-onboard-repo": {
+      "source": ".",
+      "path": "skills/roj-onboard-repo",
+      "ref": "",
+      "commit": "",
+      "tree": "66ab10f883d3734143ab806cd215d733951aa05e"
+    },
     "roj-review-pr-comment": {
       "source": ".",
       "path": "skills/roj-review-pr-comment",
@@ -154,13 +161,6 @@
       "ref": "",
       "commit": "",
       "tree": "6b030bc510e60d4644f6c07bfb9f65b86a706a9f"
-    },
-    "roj-tour-codebase": {
-      "source": ".",
-      "path": "skills/roj-tour-codebase",
-      "ref": "",
-      "commit": "",
-      "tree": "42b70917d620ff0699913a470d8cb0e799720822"
     },
     "security-and-hardening": {
       "source": "https://github.com/addyosmani/agent-skills",
