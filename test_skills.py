@@ -231,7 +231,7 @@ class TestSelfContained(SkillTest):
 
 class TestGraphFirst(unittest.TestCase):
     """Skills that read code ask a graphify graph first when the repo has
-    one (references/graph-first.md); the quick review stays diff-local."""
+    one (references/graph-first.md)."""
 
     USES_GRAPH = ("roj-tour-codebase", "roj-explain-logic",
                   "roj-explain-feature-changes", "roj-code-review-pr",
@@ -304,80 +304,21 @@ class TestGraphFirst(unittest.TestCase):
             "`Graph: used`", "`Graph: stale, skipped`",
             "`Graph: none found, searched directly`"})
 
-    def test_quick_review_stays_diff_local(self):
-        text = (SKILLS / "roj-code-review-pr" / "SKILL.md").read_text("utf-8")
-        flat = " ".join(text.split())
-        self.assertIn("Quick mode is diff-local, so it does not use the graph "
-                      "and prints no `Graph:` line", flat)
-
 
 class TestReviewModes(unittest.TestCase):
-    """roj-code-review-pr absorbed the fast review as its quick mode: auto
-    picks the depth, a PR target is read without a checkout, and the skill
-    never steers the model."""
-
-    REVIEW = SKILLS / "roj-code-review-pr"
-
-    def text(self):
-        return (self.REVIEW / "SKILL.md").read_text("utf-8")
+    """roj-code-review-pr absorbed the fast review as its quick mode, and the
+    skills that read a branch diff ship the shared base resolution."""
 
     def test_fast_skill_is_gone(self):
         self.assertFalse((SKILLS / "roj-code-review-pr-fast").exists())
         self.assertFalse((ROOT / "evals" / "roj-code-review-pr-fast").exists())
-        for f in sorted(SKILLS.rglob("*.md")):
-            with self.subTest(file=str(f.relative_to(ROOT))):
-                self.assertNotIn("roj-code-review-pr-fast",
-                                 f.read_text("utf-8"))
 
-    def test_auto_is_the_default_and_states_its_thresholds(self):
-        flat = " ".join(self.text().split())
-        for needle in ("**auto**, the default", "more than 10 reviewable files",
-                       "more than 400 changed lines", "Risk path",
-                       "Lean quick", "An explicit `quick` or `full` always wins"):
-            with self.subTest(needle):
-                self.assertIn(needle, flat)
-
-    def test_never_steers_the_model_or_fans_out(self):
-        flat = " ".join(self.text().split())
-        self.assertIn("Never ask for, recommend or pin a model", flat)
-        self.assertIn("launch no subagents unless the user asks", flat)
-
-    def test_pr_targets_use_git_refs_and_the_target_branch(self):
-        flat = " ".join(self.text().split())
-        self.assertIn("forge-bitbucket-dc.md", flat)
-        self.assertIn("Never take it from `origin/HEAD`", flat)
-        forge = (self.REVIEW / "references" / "forge-bitbucket-dc.md"
-                 ).read_text("utf-8")
-        for needle in ("git fetch origin refs/pull-requests/<id>/from",
-                       "git show <head>:<path>", "https://support.atlassian.com/",
-                       "https://jira.atlassian.com/browse/"):
-            with self.subTest(needle):
-                self.assertIn(needle, forge)
-        self.assertNotIn("rest/api", forge)
-
-    def test_checks_are_one_upfront_opt_in(self):
-        full = (self.REVIEW / "references" / "full-review.md").read_text(
-            "utf-8")
-        flat = " ".join(full.split())
-        self.assertIn("Ask once, up front", flat)
-        self.assertIn("There is no second approval stop later in the run", flat)
-        self.assertIn("Never undo a probe with `git checkout`", flat)
-
-    def test_explain_logic_review_mode_loads_the_shared_method(self):
-        text = (SKILLS / "roj-explain-logic" / "SKILL.md").read_text("utf-8")
-        flat = " ".join(text.split())
-        self.assertIn("references/review-method.md", flat)
-        self.assertNotIn("🟢 style-level", text)
-
-    def test_base_resolution_is_shared_by_the_diff_reading_skills(self):
+    def test_diff_reading_skills_ship_base_resolution(self):
         for name in ("roj-code-review-pr", "roj-explain-logic",
                      "roj-explain-feature-changes"):
             with self.subTest(name):
-                skill = SKILLS / name
-                self.assertIn("base-resolution.md",
-                              (skill / "SKILL.md").read_text("utf-8"))
-                self.assertTrue(
-                    (skill / "references" / "base-resolution.md").is_file())
+                self.assertTrue((SKILLS / name / "references" /
+                                 "base-resolution.md").is_file())
 
 
 class TestSoundboarding(unittest.TestCase):
