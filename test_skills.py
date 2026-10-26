@@ -514,7 +514,7 @@ ROUTES = {
     "roj-review-pr-comment": [
         "review PR 123 and comment on it",
         "post a review on this PR",
-        "review this GitHub pull request URL and leave inline comments",
+        "review this Bitbucket pull request URL and leave inline comments",
     ],
     "roj-explain-logic": [
         "explain this function line by line",

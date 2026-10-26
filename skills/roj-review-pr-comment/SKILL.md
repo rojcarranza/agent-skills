@@ -247,4 +247,4 @@ Failures, and what to do (details in `references/bitbucket-rest.md`):
 
 One or two lines in chat: `<head12>` reviewed, finding counts, and either
 "nothing posted" or the number of comments posted and the PR URL, then the
-`Graph:` line.
+`Graph:` line when the rule above prints one.
