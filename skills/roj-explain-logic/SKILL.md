@@ -89,10 +89,8 @@ Never jump straight to line-by-line.
 | caveman | user asks terse/brief/save tokens: apply it to the output |
 
 Chain: acquire-codebase-knowledge → this skill → code-tour (last hop only on
-a yes). `context-map`, `architecture-blueprint-generator` and
-`add-educational-comments` are cherry-picks that are normally not installed —
-if one is present, use it for scope mapping, architecture refresh and
-post-walkthrough commenting respectively.
+a yes). `context-map` is an optional companion — if it is present, use it
+for scope mapping.
 
 ## Tour output (ask first)
 

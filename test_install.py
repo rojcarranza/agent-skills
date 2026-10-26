@@ -214,7 +214,15 @@ class TestRetirePrompts(TempDirTest):
 
 class ExternalTest(TempDirTest):
     """Externals delegate to a CLI, so every test here fakes both the CLI
-    lookup and the subprocess call — nothing may reach a real install."""
+    lookup and the subprocess call — nothing may reach a real install.
+    install.log(), ok() and warn() print, so both streams are captured."""
+
+    def setUp(self):
+        super().setUp()
+        for stream in ("stdout", "stderr"):
+            patcher = mock.patch(f"sys.{stream}", io.StringIO())
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def fake_external(self, **overrides):
         ext = {
@@ -447,6 +455,8 @@ class TestCliPathHint(ExternalTest):
                            return_value=self.tmp / "agents"), \
                 mock.patch("install.instruction_path",
                            return_value=self.tmp / "instr.md"), \
+                mock.patch("install.claude_rules_path",
+                           return_value=self.tmp / "rules.md"), \
                 mock.patch("install.target_root", return_value=dest), \
                 mock.patch("install.shutil.which", return_value=None), \
                 contextlib.redirect_stdout(io.StringIO()), \
@@ -644,11 +654,14 @@ class TestRequiresInvariants(unittest.TestCase):
 
     def test_requirements_are_live_for_every_target(self):
         deps = {d["name"]: d for d in install.manifest_deps() if d["active"]}
+        both = {"claude", "copilot"}
         for skill, needs in install.REQUIRES.items():
             for dep in needs:
                 with self.subTest(skill=skill, dep=dep):
                     self.assertIn(dep, deps)
-                    self.assertIsNone(deps[dep]["targets"])
+                    self.assertLessEqual(
+                        set(deps[skill]["targets"] or both),
+                        set(deps[dep]["targets"] or both))
 
 
 class TestExplainFeatureChangesSkill(unittest.TestCase):
@@ -702,8 +715,6 @@ class TestSkillDependencies(unittest.TestCase):
         r"(?<![\w>-])`?([a-z][a-z0-9]*(?:[-:][a-z0-9]+)+)`?\s+skill\b"
         r"|\bskill\s+`([a-z][a-z0-9:-]+)`")
     BACKTICKED = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`")
-    # `<distro>-linux-triage`: one installable skill per placeholder value.
-    TEMPLATED = re.compile(r"`<[a-z]+>(-[a-z0-9-]+)`")
 
     def referenced(self):
         """{name: {custom skill, ...}} for outside-looking skill names."""
@@ -727,7 +738,6 @@ class TestSkillDependencies(unittest.TestCase):
                          for m in self.NAMED_SKILL.finditer(line)]
                 if re.search(r"skill|chain", line, re.I):
                     names += self.BACKTICKED.findall(line)
-                names += ["*" + s for s in self.TEMPLATED.findall(line)]
                 for name in names:
                     found.setdefault(name, set()).add(skill)
         return found
@@ -741,14 +751,9 @@ class TestSkillDependencies(unittest.TestCase):
             if name in self.NOT_SKILLS:
                 continue
             with self.subTest(name=name, used_by=sorted(users)):
-                if name.startswith("*"):
-                    self.assertTrue(
-                        any(n.endswith(name[1:]) for n in installable),
-                        f"no installable skill matches {name}")
-                else:
-                    self.assertIn(name, installable,
-                                  "add it to cali.yaml, "
-                                  "or list it in PLUGIN_PROVIDED/NOT_SKILLS")
+                self.assertIn(name, installable,
+                              "add it to cali.yaml, "
+                              "or list it in PLUGIN_PROVIDED/NOT_SKILLS")
 
     def test_scanner_still_sees_the_known_chains(self):
         # Guards the scanner itself: if a regex stops matching, the test
@@ -756,8 +761,7 @@ class TestSkillDependencies(unittest.TestCase):
         found = self.referenced()
         for name in ("code-tour", "context-map", "caveman",
                      "acquire-codebase-knowledge", "write-pr-description",
-                     "debugging-and-error-recovery", "find-skills",
-                     "*-linux-triage"):
+                     "debugging-and-error-recovery", "find-skills"):
             with self.subTest(name):
                 self.assertIn(name, found)
 
@@ -842,6 +846,13 @@ skills:
         self.assertEqual((parsed[0]["source"], parsed[0]["ref"]),
                          ("github:x/y//skills/tool",
                           "2e08b9177c07bb7249a8a2d1a6758e5db281d002"))
+
+    def test_only_roj_idea_to_project_installs_for_claude(self):
+        # Copilot is the work agent; roj-idea-to-project alone serves both.
+        self.assertEqual(install.managed_skill_names("claude"),
+                         {"roj-idea-to-project"})
+        self.assertLessEqual(install.custom_skill_names(),
+                             install.managed_skill_names("copilot"))
 
     def test_repo_manifest_matches_its_lock(self):
         # cali sync --frozen would pass: every live skill is locked, nothing else.
@@ -1036,6 +1047,8 @@ class TestLegacyCleanup(TempDirTest):
              "ref": "a" * 40, "active": True, "targets": None},
             {"name": "caveman", "source": "https://x/caveman//skills/caveman",
              "ref": "b" * 40, "active": True, "targets": ("copilot",)},
+            {"name": "roj-b", "source": "github:o/r//skills/roj-b",
+             "ref": None, "active": True, "targets": ("copilot",)},
             {"name": "pdf", "source": "github:a/s//skills/pdf@" + "c" * 40,
              "ref": "c" * 40, "active": False, "targets": None}]
         # Every move lands in the temp dir, never the real ~/.agent-skills-backups.
@@ -1062,15 +1075,23 @@ class TestLegacyCleanup(TempDirTest):
         except OSError:
             self.skipTest("symlinks unsupported here")
 
+    def test_stale_names_are_other_target_skills_and_retired_ones(self):
+        retired = {"add-educational-comments", "arch-linux-triage",
+                   "architecture-blueprint-generator", "centos-linux-triage",
+                   "debian-linux-triage", "fedora-linux-triage"}
+        # caveman was Copilot only before: no install put it in Claude.
+        self.assertEqual(install.stale_skill_names("claude"), {"roj-b"} | retired)
+        self.assertEqual(install.stale_skill_names("copilot"), retired)
+
     def test_legacy_names_are_custom_plus_manifest(self):
         self.assertEqual(install.legacy_skill_names(),
-                         {"roj-a", "code-tour", "caveman", "pdf"})
+                         {"roj-a", "code-tour", "caveman", "roj-b", "pdf"})
 
     def test_managed_names_follow_active_deps_and_targets(self):
         self.assertEqual(install.managed_skill_names("claude"),
                          {"roj-a", "code-tour"})
         self.assertEqual(install.managed_skill_names("copilot"),
-                         {"roj-a", "code-tour", "caveman"})
+                         {"roj-a", "code-tour", "caveman", "roj-b"})
 
     def test_symlink_into_clone_always_removed(self):
         root = self.tmp / "claude"
@@ -1161,12 +1182,62 @@ class TestLegacyCleanup(TempDirTest):
         self.assertIn("uncomment it in cali.yaml", err)
         self.assertEqual(err.count("[ warn ]"), 1)
 
+    def test_stale_copy_kept_and_listed_with_its_path(self):
+        # cali status drops a host's row once cali.yaml drops the host, so
+        # nothing shows who put a real folder there: it is only reported.
+        for target, name in (("claude", "roj-b"),
+                             ("claude", "debian-linux-triage"),
+                             ("copilot", "debian-linux-triage")):
+            for content in (OWNED.format(name), OWNED.format("my-" + name)):
+                with self.subTest(target=target, name=name, content=content):
+                    root = self.tmp / "roots" / f"{target}-{len(content)}"
+                    shutil.rmtree(root, ignore_errors=True)
+                    self.make_skill(f"roots/{target}-{len(content)}", name=name,
+                                    content=content)
+                    results, err = self.cleanup(target, root,
+                                                cali_rows=rows("ok", name))
+                    self.assertTrue((root / name / "SKILL.md").is_file())
+                    self.assertEqual(results, [])
+                    self.assertIn(f"{root / name} is left over", err)
+                    self.assertIn("delete it if it is stale", err)
+                    self.assertEqual(err.count("[ warn ]"), 1)
+                    self.assertFalse(self.backups.exists())
+
     def test_copilot_only_skill_copy_kept_for_claude(self):
         self.make_skill("claude", name="caveman", content=OWNED.format("caveman"))
         results, err = self.cleanup("claude", self.tmp / "claude")
         self.assertTrue((self.tmp / "claude" / "caveman").is_dir())
         self.assertEqual(results, [])
         self.assertIn("Cali does not manage caveman for claude", err)
+        self.assertFalse(self.backups.exists())
+
+    def test_link_of_a_stale_skill_moved_aside(self):
+        root = self.tmp / "claude"
+        self.link(root / "roj-b", self.tmp / "gone" / "roj-b")
+        results, _ = self.cleanup("claude", root, cali_rows=None)
+        self.assertFalse((root / "roj-b").is_symlink())
+        kept = self.backups / "claude" / "roj-b"
+        self.assertTrue(kept.is_symlink())
+        self.assertEqual(results, [("claude", "roj-b",
+                                    f"moved to {kept} (not installed for claude)")])
+
+    def test_unknown_folders_never_touched_for_claude(self):
+        for name in ("no-mistakes", "synced"):
+            self.make_skill("claude", name=name, content=OWNED.format(name))
+        results, err = self.cleanup("claude", self.tmp / "claude",
+                                    cali_rows=rows("ok", "no-mistakes", "synced"))
+        self.assertEqual((results, err), ([], ""))
+        for name in ("no-mistakes", "synced"):
+            self.assertTrue((self.tmp / "claude" / name / "SKILL.md").is_file())
+        self.assertFalse(self.backups.exists())
+
+    def test_dry_run_moves_no_stale_link(self):
+        root = self.tmp / "claude"
+        self.link(root / "roj-b", self.tmp / "gone" / "roj-b")
+        results, _ = self.cleanup("claude", root, dry_run=True)
+        self.assertTrue((root / "roj-b").is_symlink())
+        self.assertFalse(self.backups.exists())
+        self.assertTrue(results[0][2].startswith("moved to "))
 
     def test_copilot_only_skill_copy_removed_for_copilot(self):
         self.make_skill("copilot", name="caveman", content=OWNED.format("caveman"))
@@ -1295,7 +1366,6 @@ class TestApmLeftovers(TempDirTest):
 
 class TestInstructions(TempDirTest):
     SRC = '---\napplyTo: "**"\ndescription: Mine.\n---\n\n# Rules\n'
-    CLAUDE = '---\npaths:\n  - "**"\n---\n\n# Rules\n'
 
     def setUp(self):
         super().setUp()
@@ -1305,7 +1375,7 @@ class TestInstructions(TempDirTest):
         self.dest = {
             "copilot": self.tmp / "home" / ".copilot" / "instructions"
                        / "personal.instructions.md",
-            "claude": self.tmp / "home" / ".claude" / "rules" / "personal.md"}
+            "claude": None}
         for p in (mock.patch("install.INSTRUCTIONS_SRC", self.src),
                   mock.patch("install.instruction_path",
                              side_effect=lambda t: self.dest[t]),
@@ -1320,42 +1390,25 @@ class TestInstructions(TempDirTest):
             results = install.install_instructions(target, dry_run)
         return results, err.getvalue()
 
-    def test_render_for_claude_matches_what_apm_wrote(self):
-        self.assertEqual(install.render_instructions(self.SRC, "claude"),
-                         self.CLAUDE)
-        self.assertEqual(install.render_instructions(self.SRC, "copilot"),
-                         self.SRC)
-
-    def test_render_without_front_matter_is_unchanged(self):
-        self.assertEqual(install.render_instructions("# x\n", "claude"), "# x\n")
-
-    def test_render_without_apply_to_drops_front_matter(self):
-        self.assertEqual(install.render_instructions(
-            "---\ndescription: d\n---\n# x\n", "claude"), "# x\n")
-
-    def test_repo_file_renders_for_claude(self):
-        text = install.render_instructions(
-            install.INSTRUCTIONS_SRC.read_text(encoding="utf-8"), "claude")
-        self.assertTrue(text.startswith('---\npaths:\n  - "**"\n---\n'))
+    def test_claude_gets_no_instructions(self):
+        results, err = self.deploy("claude")
+        self.assertEqual((results, err), ([], ""))
 
     def test_installed_when_absent(self):
-        for target, want in (("copilot", self.SRC), ("claude", self.CLAUDE)):
-            with self.subTest(target=target):
-                results, _ = self.deploy(target)
-                self.assertEqual(self.dest[target].read_text(), want)
-                self.assertEqual(results, [(target, self.dest[target].name,
-                                            "installed")])
+        results, _ = self.deploy("copilot")
+        self.assertEqual(self.dest["copilot"].read_text(), self.SRC)
+        self.assertEqual(results, [("copilot", self.dest["copilot"].name,
+                                    "installed")])
 
     def test_up_to_date_is_silent(self):
-        self.deploy("claude")
-        self.assertEqual(self.deploy("claude"), ([], ""))
+        self.deploy("copilot")
+        self.assertEqual(self.deploy("copilot"), ([], ""))
 
     def test_older_shipped_version_is_updated(self):
-        self.dest["claude"].parent.mkdir(parents=True)
-        self.dest["claude"].write_text(install.render_instructions(
-            "old rules\n", "claude"))
-        results, _ = self.deploy("claude")
-        self.assertEqual(self.dest["claude"].read_text(), self.CLAUDE)
+        self.dest["copilot"].parent.mkdir(parents=True)
+        self.dest["copilot"].write_text("old rules\n")
+        results, _ = self.deploy("copilot")
+        self.assertEqual(self.dest["copilot"].read_text(), self.SRC)
         self.assertEqual(results[0][2], "updated")
 
     def test_edited_copy_kept_with_warning(self):
@@ -1397,9 +1450,83 @@ class TestInstructions(TempDirTest):
         self.assertIn("other than the dotfiles repo", err)
 
     def test_dry_run_writes_nothing(self):
-        results, _ = self.deploy("claude", dry_run=True)
-        self.assertFalse(self.dest["claude"].exists())
+        results, _ = self.deploy("copilot", dry_run=True)
+        self.assertFalse(self.dest["copilot"].exists())
         self.assertEqual(results[0][2], "installed")
+
+
+class TestRetireClaudeRules(TempDirTest):
+    SRC = '---\napplyTo: "**"\ndescription: Mine.\n---\n\n# Rules\n'
+    # What earlier versions deployed: applyTo turned into paths, description
+    # dropped.
+    DEPLOYED = '---\npaths:\n  - "**"\n---\n\n# Rules\n'
+
+    def setUp(self):
+        super().setUp()
+        self.rules = self.tmp / "home" / ".claude" / "rules" / "personal.md"
+        self.rules.parent.mkdir(parents=True)
+        self.backups = self.tmp / "backups"
+        for p in (mock.patch("install.claude_rules_path", return_value=self.rules),
+                  mock.patch("install.backup_dir", return_value=self.backups),
+                  mock.patch("install.shipped_instructions",
+                             return_value={self.SRC, "old rules\n"})):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def retire(self, dry_run=False):
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            results = install.retire_claude_rules(dry_run)
+        return results, err.getvalue()
+
+    def test_shipped_versions_moved_aside(self):
+        for text in (self.DEPLOYED, "\n# Rules\n", "old rules\n"):
+            with self.subTest(text=text):
+                self.rules.write_text(text)
+                results, err = self.retire()
+                kept = self.backups / "claude" / "personal.md"
+                self.assertFalse(self.rules.exists())
+                self.assertEqual(kept.read_text(), text)
+                self.assertEqual(results, [("claude", "personal.md",
+                                            f"moved to {kept} (Claude gets none)")])
+                self.assertEqual(err, "")
+                shutil.rmtree(self.backups)
+
+    def test_edited_copy_kept_with_warning(self):
+        self.rules.write_text(self.DEPLOYED + "my rule\n")
+        results, err = self.retire()
+        self.assertEqual(self.rules.read_text(), self.DEPLOYED + "my rule\n")
+        self.assertEqual(results, [])
+        self.assertIn("differs from every version", err)
+        self.assertFalse(self.backups.exists())
+
+    def test_link_kept_with_warning(self):
+        mine = self.tmp / "mine.md"
+        mine.write_text(self.DEPLOYED)
+        try:
+            self.rules.symlink_to(mine)
+        except OSError:
+            self.skipTest("symlinks unsupported here")
+        results, err = self.retire()
+        self.assertTrue(self.rules.is_symlink())
+        self.assertEqual(results, [])
+        self.assertIn("is a link", err)
+
+    def test_dry_run_moves_nothing(self):
+        self.rules.write_text(self.DEPLOYED)
+        results, _ = self.retire(dry_run=True)
+        self.assertTrue(self.rules.is_file())
+        self.assertFalse(self.backups.exists())
+        self.assertEqual(len(results), 1)
+
+    def test_missing_file_is_fine(self):
+        self.assertEqual(self.retire(), ([], ""))
+
+    def test_real_path(self):
+        mock.patch.stopall()
+        with mock.patch("install.Path.home", return_value=Path("/h")):
+            self.assertEqual(install.claude_rules_path(),
+                             Path("/h/.claude/rules/personal.md"))
 
 
 
@@ -1411,8 +1538,7 @@ class TestInstructionSources(unittest.TestCase):
 
     def test_real_paths(self):
         with mock.patch("install.Path.home", return_value=Path("/h")):
-            self.assertEqual(install.instruction_path("claude"),
-                             Path("/h/.claude/rules/personal.md"))
+            self.assertIsNone(install.instruction_path("claude"))
             self.assertEqual(install.instruction_path("copilot"),
                              Path("/h/.copilot/instructions/personal.instructions.md"))
 
@@ -1443,11 +1569,14 @@ class TestMain(TempDirTest):
                 mock.patch("install.target_root",
                            side_effect=lambda t: home / t),
                 mock.patch("install.instruction_path",
-                           side_effect=lambda t: home / "instr" / f"{t}.md"),
+                           side_effect=lambda t: None if t == "claude"
+                           else home / "instr" / f"{t}.md"),
                 mock.patch("install.mcp_config_path",
                            side_effect=lambda t: home / f"mcp-{t}.json"),
                 mock.patch("install.claude_commands_dir",
                            return_value=home / "commands"),
+                mock.patch("install.claude_rules_path",
+                           return_value=home / "rules" / "personal.md"),
                 mock.patch("install.backup_dir", return_value=home / "backups"),
                 mock.patch("install.find_cli",
                            side_effect=lambda n: cali if n == "cali" else None),
@@ -1480,9 +1609,10 @@ class TestMain(TempDirTest):
         home = self.tmp / "home"
         self.assertEqual(code, 0)
         self.assertEqual(calls, [self.cali("sync")])
+        self.assertTrue((home / "instr" / "copilot.md").is_file())
+        self.assertFalse((home / "instr" / "claude.md").exists())
         for t in ("claude", "copilot"):
             with self.subTest(target=t):
-                self.assertTrue((home / "instr" / f"{t}.md").is_file())
                 servers = json.loads((home / f"mcp-{t}.json").read_text())
                 self.assertIn("github-mcp-server", servers["mcpServers"])
 
@@ -1569,10 +1699,11 @@ class TestMain(TempDirTest):
         self.assertIn("--skills-only", out)
 
     def test_copy_cali_installed_survives_install(self):
-        self.make_skill("home/claude", name="code-tour",
-                        content=OWNED.format("code-tour"))
-        self.run_main(["--target", "claude"], cali_rows=rows("ok", "code-tour"))
-        self.assertTrue((self.tmp / "home" / "claude" / "code-tour").is_dir())
+        self.make_skill("home/claude", name="roj-idea-to-project",
+                        content=OWNED.format("roj-idea-to-project"))
+        self.run_main(["--target", "claude"],
+                      cali_rows=rows("ok", "roj-idea-to-project"))
+        self.assertTrue((self.tmp / "home" / "claude" / "roj-idea-to-project").is_dir())
 
     def test_copy_cali_did_not_install_is_cleared_before_sync(self):
         self.make_skill("home/copilot", name="code-tour",
@@ -1632,8 +1763,8 @@ class TestMain(TempDirTest):
         self.assertTrue(dest.is_symlink())
 
     def test_status_warns_about_undeployed_instructions(self):
-        _, _, _, err = self.run_main(["--status", "--target", "claude"])
-        self.assertIn("claude.md is not deployed or out of date — re-run "
+        _, _, _, err = self.run_main(["--status", "--target", "copilot"])
+        self.assertIn("copilot.md is not deployed or out of date — re-run "
                       "install.py", err)
         self.assertFalse((self.tmp / "home" / "instr").exists())
 
@@ -1649,6 +1780,46 @@ class TestMain(TempDirTest):
     def test_wsl_hint_printed(self):
         _, _, out, _ = self.run_main([], wsl=True)
         self.assertIn("run install.py from Git Bash too", out)
+
+    def write_shipped_rules(self):
+        rules = self.tmp / "home" / "rules" / "personal.md"
+        rules.parent.mkdir(parents=True)
+        rules.write_text(install.INSTRUCTIONS_SRC.read_text(encoding="utf-8"))
+        return rules
+
+    def test_claude_leftovers_listed_rules_moved_and_unknown_kept(self):
+        home = self.tmp / "home"
+        self.make_skill("home/claude", name="roj-explain-logic",
+                        content=OWNED.format("roj-explain-logic"))
+        self.make_skill("home/claude", name="no-mistakes",
+                        content=OWNED.format("no-mistakes"))
+        rules = self.write_shipped_rules()
+        code, _, _, err = self.run_main(["--target", "claude"])
+        self.assertEqual(code, 0)
+        left = home / "claude" / "roj-explain-logic"
+        self.assertTrue((left / "SKILL.md").is_file())
+        self.assertIn(f"{left} is left over", err)
+        self.assertFalse((home / "backups" / "claude" / "roj-explain-logic").exists())
+        self.assertFalse(rules.exists())
+        self.assertTrue((home / "backups" / "claude" / "personal.md").is_file())
+        self.assertTrue((home / "claude" / "no-mistakes" / "SKILL.md").is_file())
+        self.assertNotIn("no-mistakes", err)
+
+    def test_status_and_dry_run_report_claude_leftovers_without_moving(self):
+        home = self.tmp / "home"
+        self.make_skill("home/claude", name="code-tour",
+                        content=OWNED.format("code-tour"))
+        rules = self.write_shipped_rules()
+        left = home / "claude" / "code-tour"
+        _, _, _, err = self.run_main(["--status", "--target", "claude"])
+        self.assertIn(f"{left} is left over", err)
+        self.assertIn("personal.md left by an older install", err)
+        _, _, out, err = self.run_main(["--dry-run", "--target", "claude"])
+        self.assertIn(f"{left} is left over", err)
+        self.assertIn("personal.md", out)
+        self.assertTrue((left / "SKILL.md").is_file())
+        self.assertTrue(rules.is_file())
+        self.assertFalse((home / "backups").exists())
 
     def test_status_flags_leftover_links(self):
         root = self.tmp / "home" / "claude"

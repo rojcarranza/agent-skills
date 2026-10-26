@@ -20,7 +20,6 @@ Dockerfiles, Kubernetes manifests or Helm charts are involved.
 
 | Agent | Command |
 | --- | --- |
-| Claude Code (terminal, VS Code, JetBrains) | `/roj-code-review-pr-fast`, or plain English |
 | Copilot, VS Code | `/roj-code-review-pr-fast` |
 | Copilot, JetBrains | `/skill:roj-code-review-pr-fast` |
 
@@ -48,12 +47,7 @@ condensed tables in `SKILL.md` are a last-resort fallback.
 
 ## Install
 
-Any agent, with Node.js:
-
-    npx skills add rojcarranza/agent-skills -s roj-code-review-pr-fast
-
-Or from a clone of this repo (adds the skills it depends on, plus the
-Windows copy fallback):
-
-    python3 install.py --target claude    # mac / Claude Code
-    python3 install.py --target copilot   # work / GitHub Copilot
+Copilot only. Install it with the rest of this repo: see
+[Install](../../README.md#install) in the README, and
+[docs/installer.md](../../docs/installer.md) for flags, `--status` and the
+work VDI.

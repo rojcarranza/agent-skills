@@ -33,11 +33,10 @@ Explicit invocation differs per agent:
 
 | Agent | Command |
 | --- | --- |
-| Claude Code (terminal, VS Code, JetBrains) | `/roj-code-review-pr`, or plain English |
 | Copilot, VS Code | `/roj-code-review-pr` |
 | Copilot, JetBrains | `/skill:roj-code-review-pr` |
 
-All three are personal scope once installed, so they reach every project
+Both are personal scope once installed, so they reach every project
 with no per-repository seeding.
 
 With no argument the base is resolved from `origin/HEAD`, then `origin/main`,
@@ -114,24 +113,10 @@ something you do not care about.
 
 ## Install
 
-Any agent, with Node.js:
-
-    npx skills add rojcarranza/agent-skills -s roj-code-review-pr
-
-Or from a clone of this repo (adds the skills it depends on, plus the
-Windows copy fallback):
-
-    python3 install.py --target claude    # mac / Claude Code
-    python3 install.py --target copilot   # work / GitHub Copilot
-    python3 install.py --target both
-
-On the Windows VDI use `python` rather than `python3`. Copilot installs to
-`~/.copilot/skills/` (under `%USERPROFILE%` on Windows), which is personal
-scope: the skill is then available in every project, in both VS Code and
-JetBrains agent-mode chat. No `.github/skills` seeding is required.
-
-Copilot receives copies, not symlinks — re-run the installer after editing
-any rule file. `--status` shows what is installed where.
+Copilot only. Install it with the rest of this repo: see
+[Install](../../README.md#install) in the README, and
+[docs/installer.md](../../docs/installer.md) for flags, `--status` and the
+work VDI.
 
 If the skill does not appear in JetBrains: confirm chat is in agent mode,
 that the Copilot plugin is current, and that `install.py --status` lists

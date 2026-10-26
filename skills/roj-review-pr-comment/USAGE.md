@@ -16,7 +16,7 @@ the PR host.
 
 | Agent | Request |
 |---|---|
-| Claude Code, VS Code Copilot | `/roj-review-pr-comment 142` or `/roj-review-pr-comment https://github.com/<owner>/<repo>/pull/142` |
+| VS Code Copilot | `/roj-review-pr-comment 142` or `/roj-review-pr-comment https://github.com/<owner>/<repo>/pull/142` |
 | JetBrains Copilot | `/skill:roj-review-pr-comment 142` |
 | Plain English | `Review PR #142 and post the findings as comments` |
 
@@ -36,20 +36,9 @@ No argument reviews the PR for the current branch.
 
 A clean PR is posted as "No findings." — the skill never invents findings.
 
-## Automatic runs
-
-In the [dotfiles](https://github.com/rojcarranza/.dotfiles) setup a Claude Code
-hook (`pr_review_hook.py`) asks Claude to run this skill right after it opens
-a PR in an allowlisted repository. Without that hook the skill only runs
-when asked.
-
 ## Install
 
-Any agent, with Node.js:
-
-    npx skills add rojcarranza/agent-skills -s roj-review-pr-comment
-
-Or from a clone of this repo:
-
-    python3 install.py --target claude
-    python3 install.py --target copilot
+Copilot only. Install it with the rest of this repo: see
+[Install](../../README.md#install) in the README, and
+[docs/installer.md](../../docs/installer.md) for flags, `--status` and the
+work VDI.

@@ -1,4 +1,5 @@
-# Every skill install.py installs for Claude Code and Copilot, through Cali
+# Every skill install.py installs, through Cali. Copilot is the work agent, so
+# skills default to [copilot]; only roj-idea-to-project also targets Claude
 # (https://github.com/rojcarranza/cali). install.py runs
 # `cali sync -g --manifest <this file>`; cali.lock next to it pins each skill
 # to a tree (and community skills to a commit). Community refs are full commit SHAs: a version bump
@@ -6,46 +7,62 @@
 version: 1
 targets: [claude, copilot]
 skills:
-  # Own skills, from this clone at its checked-out HEAD. cali.lock pins the tree;
-  # `cali update -g --manifest cali.yaml --apply` moves it.
+  # Own skills, from this clone at its checked-out HEAD. cali.lock pins the
+  # tree; `cali update -g --manifest cali.yaml --apply` moves it.
   roj-code-review-pr:
     source: .//skills/roj-code-review-pr
+    targets: [copilot]
   roj-code-review-pr-fast:
     source: .//skills/roj-code-review-pr-fast
+    targets: [copilot]
   roj-explain-feature-changes:
     source: .//skills/roj-explain-feature-changes
+    targets: [copilot]
   roj-explain-logic:
     source: .//skills/roj-explain-logic
+    targets: [copilot]
   roj-grill-plan:
     source: .//skills/roj-grill-plan
+    targets: [copilot]
   roj-idea-to-project:
     source: .//skills/roj-idea-to-project
   roj-interview-prep:
     source: .//skills/roj-interview-prep
+    targets: [copilot]
   roj-investigate-issue:
     source: .//skills/roj-investigate-issue
+    targets: [copilot]
   roj-review-pr-comment:
     source: .//skills/roj-review-pr-comment
+    targets: [copilot]
   roj-soundboarding:
     source: .//skills/roj-soundboarding
+    targets: [copilot]
   roj-tour-codebase:
     source: .//skills/roj-tour-codebase
-  # Community skills our skills chain to (docs/community-skills.md).
+    targets: [copilot]
+  # Community skills our skills chain to (docs/community-skills.md), all
+  # Copilot only: roj-idea-to-project chains to none of them.
   code-tour:
     source: github:github/awesome-copilot//skills/code-tour
     ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+    targets: [copilot]
   acquire-codebase-knowledge:
     source: github:github/awesome-copilot//skills/acquire-codebase-knowledge
     ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+    targets: [copilot]
   context-map:
     source: github:github/awesome-copilot//skills/context-map
     ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
+    targets: [copilot]
   write-pr-description:
     source: github:warpdotdev/common-skills//.agents/skills/write-pr-description
     ref: 2a03b403b4f8d42cb54b8953697737193b2e8306
+    targets: [copilot]
   find-skills:
     source: github:vercel-labs/skills//skills/find-skills
     ref: 87a266971d9460a3d2606075b8e91edc83325472
+    targets: [copilot]
   # Copilot only: Claude gets the equivalent from a plugin.
   caveman:  # Claude: caveman plugin
     source: https://github.com/juliusbrussee/caveman//skills/caveman
@@ -55,52 +72,43 @@ skills:
     source: https://github.com/addyosmani/agent-skills//skills/debugging-and-error-recovery
     ref: 1401c8b8030e023baeebb31781a6653fe8e93026
     targets: [copilot]
-  # Cherry-picks for both targets.
-  architecture-blueprint-generator:
-    source: github:github/awesome-copilot//skills/architecture-blueprint-generator
-    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
-  add-educational-comments:
-    source: github:github/awesome-copilot//skills/add-educational-comments
-    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
-  arch-linux-triage:
-    source: github:github/awesome-copilot//skills/arch-linux-triage
-    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
-  centos-linux-triage:
-    source: github:github/awesome-copilot//skills/centos-linux-triage
-    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
-  debian-linux-triage:
-    source: github:github/awesome-copilot//skills/debian-linux-triage
-    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
-  fedora-linux-triage:
-    source: github:github/awesome-copilot//skills/fedora-linux-triage
-    ref: 613efc8c21d9b3ce642dff361d17006cd9967e28
+  # Cherry-picks, Copilot only like the rest.
   observability-and-instrumentation:
     source: github:addyosmani/agent-skills//skills/observability-and-instrumentation
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+    targets: [copilot]
   ci-cd-and-automation:
     source: github:addyosmani/agent-skills//skills/ci-cd-and-automation
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+    targets: [copilot]
   security-and-hardening:
     source: github:addyosmani/agent-skills//skills/security-and-hardening
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+    targets: [copilot]
   deprecation-and-migration:
     source: github:addyosmani/agent-skills//skills/deprecation-and-migration
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
+    targets: [copilot]
   pdf:
     source: github:anthropics/skills//skills/pdf
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
+    targets: [copilot]
   docx:
     source: github:anthropics/skills//skills/docx
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
+    targets: [copilot]
   pptx:
     source: github:anthropics/skills//skills/pptx
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
+    targets: [copilot]
   xlsx:
     source: github:anthropics/skills//skills/xlsx
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
+    targets: [copilot]
   impeccable:
     source: github:pbakaus/impeccable//plugin/skills/impeccable
     ref: aeeb3d8c30b5f95aeeb3e893b0f1a308af8fdb8f
+    targets: [copilot]
   # Optional — uncomment the entry's lines and re-run install.py:
   # grilling:
   #   source: github:mattpocock/skills//skills/productivity/grilling@49dd158d1076134a641b33efb035946536778336

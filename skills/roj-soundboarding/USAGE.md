@@ -18,8 +18,8 @@ tasks", "break this story into tasks", "refine this story".
 
 ## Commands per platform
 
-One skill, three flows — pick the flow in the request. Claude Code and VS Code
-Copilot: `/roj-soundboarding <request>`. JetBrains Copilot:
+One skill, three flows — pick the flow in the request. VS Code Copilot:
+`/roj-soundboarding <request>`. JetBrains Copilot:
 `/skill:roj-soundboarding <request>`. Plain English works everywhere.
 
 | Flow | Request |

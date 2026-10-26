@@ -75,9 +75,10 @@ caveman:
 - **Pin to a commit.** Every community ref is a full commit SHA, so a new
   upstream version is a reviewed diff. [`cali.lock`](../cali.lock) records
   the commit and tree of every community skill, and the tree of ours.
-- **One agent only.** `targets: [copilot]` (or `[claude]`) limits an entry;
-  caveman and debugging-and-error-recovery are Copilot only because Claude
-  gets the same from a plugin.
+- **One agent only.** `targets: [copilot]` (or `[claude]`) limits an entry.
+  Copilot is the work agent, so every entry is Copilot only except
+  `roj-idea-to-project`, which installs for both. Every community skill,
+  cherry-picks included, is Copilot only.
 - **Optional entries** are commented out in `cali.yaml`. Uncomment one and
   re-run `install.py` to install it. Commenting a live entry out drops it
   from `cali.lock` on the next run, but `cali sync` never deletes a folder:
@@ -100,12 +101,14 @@ Where things land:
 | What | Claude Code | Copilot |
 | --- | --- | --- |
 | Skills (Cali) | `~/.claude/skills/<name>/` | `~/.copilot/skills/<name>/` |
-| Instructions | `~/.claude/rules/personal.md` | `~/.copilot/instructions/personal.instructions.md` |
+| Instructions | none (`~/.claude/CLAUDE.md` is yours) | `~/.copilot/instructions/personal.instructions.md` |
 | MCP servers | `~/.claude.json` (`mcpServers`) | `~/.copilot/mcp-config.json` (`mcpServers`) |
 
-The instruction file is `.apm/instructions/personal.instructions.md`. Copilot
-gets it as is; Claude gets the same body with `applyTo:` turned into
-`paths:` (the conversion APM made). A deployed file is replaced when it is
+The instruction file is `.apm/instructions/personal.instructions.md`, deployed
+to Copilot as is. Claude gets none: it reads the global `~/.claude/CLAUDE.md`.
+An earlier `~/.claude/rules/personal.md` is moved to the backup folder (see
+"Old installs") when its body is a version this repo shipped; an edited copy
+or a link is kept with a warning. A deployed file is replaced when it is
 missing, a version this repo shipped (any commit of that file), or the
 dotfiles repo's link; one you edited, or a link to anything else, is kept
 with a warning — move the edits into the repo copy and delete it.
@@ -139,10 +142,26 @@ skills in `cali.yaml` for that target.
   `~/.apm/apm.lock.yaml` lists them; anything else there (other tools use
   that folder) is left alone.
 
-Anything else the old installers left — an optional skill still commented
-out in `cali.yaml`, or a Copilot-only skill in `~/.claude/skills` — is kept
-with a warning: uncomment it in `cali.yaml` to have Cali manage it, or
-delete it. If `cali sync` then fails, the run says so: the removed entries
+- A skill Cali no longer installs for that agent - a Copilot-only skill in
+  `~/.claude/skills` (every one but `roj-idea-to-project`), and the pruned
+  community skills (`RETIRED_SKILLS` in `install.py`) in either agent - is
+  only moved to the same backup folder when it is a link an older installer
+  made (into a checkout of this repo, or dangling). A real folder is kept:
+  Cali keeps no record of the agents a skill was dropped from, so nothing
+  shows who put it there. The run and `--status` print its full path with a
+  warning that it is left over; delete it by hand if it is stale. Skills
+  that were always Copilot only (`NEVER_CLAUDE_SKILLS`: `caveman`,
+  `debugging-and-error-recovery`) are never stale in `~/.claude/skills`. A
+  folder with any other name, such as `no-mistakes`, is never touched.
+- `~/.claude/rules/personal.md`, which earlier versions deployed for
+  Claude, is moved to `<backup>/claude/personal.md` when its body is a
+  version this repo shipped. An edited copy or a link is kept with a
+  warning.
+
+`--dry-run` lists these moves without making them, and `--status` lists
+whatever is still left. An optional skill still commented out in
+`cali.yaml` is kept with a warning: uncomment it in `cali.yaml` to have
+Cali manage it, or delete it. If `cali sync` then fails, the run says so: the removed entries
 come back once a re-run succeeds. `install.py` never uninstalls `apm` or
 deletes `~/.apm`.
 

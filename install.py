@@ -257,13 +257,34 @@ def legacy_skill_names():
     return custom_skill_names() | manifest_skill_names(active_only=False)
 
 
+# Community skills earlier versions of cali.yaml installed for both targets,
+# since pruned. Their folders stay behind: cali sync never deletes one.
+RETIRED_SKILLS = (
+    "add-educational-comments", "arch-linux-triage",
+    "architecture-blueprint-generator", "centos-linux-triage",
+    "debian-linux-triage", "fedora-linux-triage",
+)
+# Copilot-only skills no cali.yaml ever installed for Claude: a Claude copy
+# came from somewhere else.
+NEVER_CLAUDE_SKILLS = ("caveman", "debugging-and-error-recovery")
+
+
+def stale_skill_names(target):
+    """Skills an earlier install may have put in target's skills dir that
+    Cali no longer installs there: live cali.yaml skills limited to other
+    targets, and RETIRED_SKILLS. Optional (commented) skills are not stale,
+    nor are NEVER_CLAUDE_SKILLS for Claude."""
+    never = set(NEVER_CLAUDE_SKILLS) if target == "claude" else set()
+    return ((custom_skill_names() | manifest_skill_names()
+             | set(RETIRED_SKILLS)) - managed_skill_names(target) - never)
+
+
 def managed_skill_names(target):
-    """Skills Cali installs for target: ours, and every active cali.yaml
-    skill not limited to other targets. Only these are safe to remove —
-    cali sync puts them straight back."""
-    return custom_skill_names() | {
-        d["name"] for d in manifest_deps()
-        if d["active"] and (d["targets"] is None or target in d["targets"])}
+    """Skills Cali installs for target: every active cali.yaml skill not
+    limited to other targets. Only these are safe to remove — cali sync
+    puts them straight back."""
+    return {d["name"] for d in manifest_deps()
+            if d["active"] and (d["targets"] is None or target in d["targets"])}
 
 
 def read_lockfile():
@@ -307,11 +328,17 @@ def remove_installer_skills(target, dest_root, dry_run, cali_rows=None):
     installs for target. cali_rows is cali_status_rows(): a copy is moved to
     backup_dir() only when Cali says it did not install it (NOT_CALIS), so a
     Cali-installed folder, local edits included, is never touched. Without
-    cali_rows no copy is moved. A leftover Cali will not reinstall is kept."""
+    cali_rows no copy is moved. For a stale_skill_names() entry, which Cali
+    will not reinstall for target, only a link an older installer made is
+    moved to backup_dir(); a real folder is kept, and its path is printed
+    with a warning to delete it if stale (Cali keeps no record of the hosts
+    a skill was dropped from). Any other leftover Cali will not reinstall
+    is kept, with a warning when its SKILL.md declares that name."""
     results = []
     if not dest_root.is_dir():
         return results
-    names = legacy_skill_names()
+    stale = stale_skill_names(target)
+    names = legacy_skill_names() | stale
     managed = managed_skill_names(target)
     for entry in sorted(dest_root.iterdir()):
         if entry.name not in names:
@@ -321,7 +348,15 @@ def remove_installer_skills(target, dest_root, dry_run, cali_rows=None):
         else:
             ours = entry.is_dir() and is_ours(entry, entry.name)
         if entry.name not in managed:
-            if ours:
+            if entry.name in stale and entry.is_symlink() and ours:
+                dest = _move_aside(entry, target, dry_run)
+                results.append((target, entry.name,
+                                f"moved to {dest} (not installed for {target})"))
+            elif entry.name in stale:
+                warn(f"{entry} is left over: Cali no longer installs "
+                     f"{entry.name} for {target} — kept; delete it if it "
+                     "is stale")
+            elif ours:
                 warn(f"{entry} was installed by an old installer; Cali does "
                      f"not manage {entry.name} for {target} — uncomment it in "
                      "cali.yaml to keep it updated, or delete it")
@@ -365,31 +400,48 @@ def remove_apm_skills(dry_run, lock_text):
 
 
 def instruction_path(target):
-    """Where the personal instructions go: the paths APM deployed to."""
+    """Where the personal instructions go, or None for a target that gets
+    none. Claude reads the global ~/.claude/CLAUDE.md instead."""
     if target == "claude":
-        return Path.home() / ".claude" / "rules" / "personal.md"
+        return None
     return Path.home() / ".copilot" / "instructions" / INSTRUCTIONS_SRC.name
 
 
-def render_instructions(text, target):
-    """The file as target reads it. Copilot takes it as is; Claude rules
-    take `paths:` where Copilot takes `applyTo:` — the conversion APM made
-    (description dropped)."""
-    if target != "claude" or not text.startswith("---\n"):
-        return text
-    end = text.find("\n---\n", 4)
-    if end < 0:
-        return text
-    globs = []
-    for line in text[4:end].splitlines():
-        key, _, value = line.partition(":")
-        if key.strip() == "applyTo":
-            globs = [g.strip() for g in _unquote(value.strip()).split(",")
-                     if g.strip()]
-    if not globs:  # no applyTo: a rule without paths loads everywhere
-        return text[end + 5:]
-    paths = "".join(f"  - {json.dumps(g)}\n" for g in globs)
-    return f"---\npaths:\n{paths}---\n" + text[end + 5:]
+def claude_rules_path():
+    """Where earlier versions deployed the instructions for Claude."""
+    return Path.home() / ".claude" / "rules" / "personal.md"
+
+
+def _instruction_body(text):
+    """text without its front matter: the part every rendering shared."""
+    if text.startswith("---\n"):
+        end = text.find("\n---\n", 4)
+        if end >= 0:
+            return text[end + 5:]
+    return text
+
+
+def retire_claude_rules(dry_run):
+    """Move the personal.md rule earlier versions deployed for Claude to
+    backup_dir(), when its body is one this repo shipped (Claude got it with
+    `applyTo:` turned into `paths:`). An edited copy or a link is kept with
+    a warning."""
+    path = claude_rules_path()
+    if path.is_symlink():
+        warn(f"{path} is a link - left in place; Claude now gets no "
+             "personal instructions from install.py")
+        return []
+    if not path.is_file():
+        return []
+    current = path.read_text(encoding="utf-8", errors="replace")
+    if _instruction_body(current) not in {
+            _instruction_body(t) for t in shipped_instructions()}:
+        warn(f"{path} differs from every version install.py shipped - left "
+             "in place; Claude now gets no personal instructions from "
+             "install.py")
+        return []
+    dest = _move_aside(path, "claude", dry_run)
+    return [("claude", path.name, f"moved to {dest} (Claude gets none)")]
 
 
 def shipped_instructions():
@@ -432,13 +484,14 @@ def _write_text(path, text):
 
 
 def install_instructions(target, dry_run):
-    """Deploy INSTRUCTIONS_SRC for target. Replaces a missing file, a
+    """Deploy INSTRUCTIONS_SRC for target (Copilot only). Replaces a missing file, a
     version this repo shipped, or the dotfiles repo's link; keeps an
     edited copy or a link to anything else, with a warning. Nothing is
     returned when the file is already current."""
     dest = instruction_path(target)
-    new = render_instructions(INSTRUCTIONS_SRC.read_text(encoding="utf-8"),
-                              target)
+    if dest is None:
+        return []
+    new = INSTRUCTIONS_SRC.read_text(encoding="utf-8")
     if dest.is_symlink():
         if not _links_into_dotfiles(dest):
             warn(f"{dest} links somewhere other than the dotfiles repo — left "
@@ -449,8 +502,7 @@ def install_instructions(target, dry_run):
         current = dest.read_text(encoding="utf-8", errors="replace")
         if current == new:
             return []
-        if current not in {render_instructions(t, target)
-                           for t in shipped_instructions()}:
+        if current not in shipped_instructions():
             warn(f"{dest} differs from {INSTRUCTIONS_SRC} — left in place; "
                  "merge your edits into the repo copy, delete it, and re-run")
             return []
@@ -661,8 +713,7 @@ _RUN_STAMP = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
 
 
 def backup_dir():
-    """Where install.py keeps copies it moved out of a skills dir, one
-    folder per run."""
+    """Where install.py keeps what it moved aside, one folder per run."""
     return Path.home() / ".agent-skills-backups" / _RUN_STAMP
 
 
@@ -994,6 +1045,8 @@ def show_status(targets):
                  + retire_prompts(target, root, dry_run=True))
         if target == "copilot":
             older += remove_apm_skills(True, lock_text)
+        else:
+            older += retire_claude_rules(dry_run=True)
         for _, name, status in install_instructions(target, dry_run=True):
             if status == "replaced dotfiles link":
                 older.append((target, name, status))
@@ -1095,6 +1148,8 @@ def main():
                                       args.dry_run))
         if target == "copilot":
             results.extend(remove_apm_skills(args.dry_run, lock_text))
+        else:
+            results.extend(retire_claude_rules(args.dry_run))
         results.extend(install_instructions(target, args.dry_run))
     if github_token():
         for target in targets:
