@@ -421,6 +421,7 @@ class TestOnboardRepoGuide(unittest.TestCase):
                         r'integrity="([^"]*)"', page)
         skill = (self.ONBOARD / "SKILL.md").read_text("utf-8")
         self.assertIn(f'src="{tag.group(1)}" integrity="{tag.group(2)}"', skill)
+        self.assertIn('fig.className = "diagram failed"', page)
         for needle in ('integrity="sha384-', 'class="diagram-src"',
                        'id="mermaid-banner"', 'prefers-color-scheme: dark',
                        'data-theme="dark"', 'code class="ref"',

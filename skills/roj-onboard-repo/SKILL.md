@@ -181,7 +181,8 @@ When `references/html-page.md` is unavailable, the page still meets this
 minimum: one `<figure class="diagram">` per diagram holding a
 `<div class="diagram-view">`, a hidden-until-failed `<p class="diagram-note">`
 and `<pre class="diagram-src">` with the HTML-escaped Mermaid source; a
-`<div id="mermaid-banner">` shown when `window.mermaid` is missing; and this
+`<div id="mermaid-banner">` shown when `window.mermaid` is missing, which also
+shows every figure's note; and this
 exact script tag before the inline script that calls `mermaid.render`:
 
 ```

@@ -180,7 +180,11 @@ styles and the script as they are, adjusting only what the repository needs.
   var figures = Array.prototype.slice.call(document.querySelectorAll("figure.diagram"));
   var seq = 0;
   function draw() {
-    if (!window.mermaid) { document.getElementById("mermaid-banner").className = "show"; return; }
+    if (!window.mermaid) {
+      document.getElementById("mermaid-banner").className = "show";
+      figures.forEach(function (fig) { fig.className = "diagram failed"; });
+      return;
+    }
     mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: theme() === "dark" ? "dark" : "default" });
     figures.forEach(function (fig) {
       var src = fig.querySelector("pre.diagram-src").textContent;
