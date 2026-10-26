@@ -1009,6 +1009,50 @@ class TestBitbucketPrScript(unittest.TestCase):
                 code, _, err = self.run_cmd(argv, env)
                 self.assertEqual(code, 5, err)
 
+    def test_a_transport_failure_mid_post_still_reports_what_was_posted(self):
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        import threading
+        posts = []
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def reply(self, body):
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self):
+                self.reply(b'{"values": [], "isLastPage": true}')
+
+            def do_POST(self):
+                self.rfile.read(int(self.headers["Content-Length"]))
+                posts.append(1)
+                self.reply(b'{"id": 50}' if len(posts) == 1
+                           else b"<html>SSO</html>")
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        env = {"BITBUCKET_URL": f"http://127.0.0.1:{server.server_port}",
+               "BITBUCKET_TOKEN": self.TOKEN}
+        with tempfile.TemporaryDirectory() as tmp:
+            f = self.findings(Path(tmp) / "f.json")
+            data = json.loads(Path(f).read_text(encoding="utf-8"))
+            data["comments"].append(dict(data["comments"][0], line=30,
+                                         text="second finding"))
+            Path(f).write_text(json.dumps(data), encoding="utf-8")
+            code, out, err = self.run_cmd(["post", *self.PR, "--findings", f],
+                                          env)
+        self.assertEqual(code, 5, err)
+        self.assertEqual(out["status"], "partial")
+        self.assertEqual([p["line"] for p in out["posted"]], [22])
+        self.assertIn("JSON object", out["error"])
+        self.assertEqual(len(posts), 2)
+
     def test_failures_have_their_own_exit_codes(self):
         env, state = self.serve()
         with tempfile.TemporaryDirectory() as tmp:

@@ -160,14 +160,20 @@ def error_message(err):
         return str(err.reason)
 
 
+def as_fail(err):
+    if isinstance(err, Fail):
+        return err
+    code = EXIT_REJECTED if err.status in (401, 403) else EXIT_SERVER
+    return Fail(str(err), code)
+
+
 def guard(call):
     """Turn an auth failure into its own exit code, other API errors into the
     server error code."""
     try:
         return call()
     except ApiError as err:
-        code = EXIT_REJECTED if err.status in (401, 403) else EXIT_SERVER
-        raise Fail(str(err), code) from None
+        raise as_fail(err) from None
 
 
 def fetch_comments(client):
@@ -306,8 +312,11 @@ def cmd_post(args, env, out, stdin):
                 failed.append({"path": c["path"], "line": c["line"],
                                "message": str(err), "text": c["text"]})
             else:
-                fatal = err
+                fatal = as_fail(err)
                 break
+        except Fail as err:
+            fatal = err
+            break
     status = "failed" if fatal and not posted else "partial" if fatal else "ok"
     summary_id = None
     if not fatal:
@@ -317,8 +326,9 @@ def cmd_post(args, env, out, stdin):
                 for f in failed], len(skipped), len(posted))
             summary_id = client.call("POST", client.pr_path + "/comments",
                                      body).get("id")
-        except ApiError as err:
-            fatal, status = err, "partial" if posted else "failed"
+        except (ApiError, Fail) as err:
+            fatal = as_fail(err)
+            status = "partial" if posted else "failed"
     json.dump({"status": status, "posted": posted, "skipped": skipped,
                "failed": [{k: f[k] for k in ("path", "line", "message")}
                           for f in failed],
@@ -326,8 +336,7 @@ def cmd_post(args, env, out, stdin):
                "error": str(fatal) if fatal else None}, out)
     out.write("\n")
     if fatal:
-        raise Fail(str(fatal), EXIT_REJECTED if fatal.status in (401, 403)
-                   else EXIT_SERVER)
+        raise fatal
 
 
 def parser():
