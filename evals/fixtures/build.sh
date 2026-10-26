@@ -248,6 +248,36 @@ def test_slugify():
     assert slugify("  --  ") == ""
 EOF
   G add -A; G commit -qm "Add slugify helper for upload names"; push_all ;;
+pyrepo-bb-pr-docs)  # a docs-only Bitbucket Data Center PR: source only under
+  # refs/pull-requests/7/from, target develop, checkout sitting on main
+  init_repo main; py_base
+  G checkout -qb develop
+  printf '# Changelog\n' > CHANGELOG.md
+  G add -A; G commit -qm "Start the changelog"
+  G checkout -qb feature/docs-uploader
+  mkdir -p docs
+  cat > README.md <<'EOF'
+# uploader
+
+Posts a JSON payload to an ingest URL. See docs/uploader.md.
+EOF
+  cat > docs/uploader.md <<'EOF'
+# Uploader
+
+`upload(url, payload, session=None)` in `app/uploader.py` POSTs `payload` as
+JSON with a 10 second timeout and returns the parsed response. A non-2xx
+answer raises `requests.HTTPError`.
+
+`app/cli.py` calls it with the URL and a name and prints the returned id.
+EOF
+  G add -A; G commit -qm "Document the uploader
+
+Add a README and a usage page for upload()."
+  push_all
+  git -C ../origin.git update-ref refs/pull-requests/7/from "$(git rev-parse feature/docs-uploader)"
+  git -C ../origin.git update-ref -d refs/heads/feature/docs-uploader
+  G checkout -q main; G branch -q -D feature/docs-uploader
+  git update-ref -d refs/remotes/origin/feature/docs-uploader ;;
 helm)          init_repo main
   mkdir -p chart/templates
   printf 'apiVersion: v2\nname: ingest\nversion: 0.3.1\nappVersion: "1.4.0"\n' > chart/Chart.yaml

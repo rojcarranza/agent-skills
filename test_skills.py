@@ -591,6 +591,206 @@ class TestEvals(unittest.TestCase):
                             self.assertIsInstance(x, str)
 
 
+class TestPrBrief(unittest.TestCase):
+    """roj-explain-logic writes .pr-review/pr-<n>/brief.md and brief.html for
+    a PR. The page check is html-page.md's, the brief check is pr-brief.md's;
+    both are run here exactly as the skill ships them."""
+
+    EXPLAIN = SKILLS / "roj-explain-logic"
+    ONBOARD = TestOnboardRepoGuide.ONBOARD
+    script = TestOnboardRepoGuide.script
+    run_script = TestOnboardRepoGuide.run_script
+    DIAGRAM = """sequenceDiagram
+  autonumber
+  actor U as user
+  participant A as agent
+  participant S as script
+  U->>A: review PR 7
+  rect rgba(0,180,0,0.12)
+  A->>S: + info, read
+  end
+  rect rgba(255,190,0,0.15)
+  S->>A: ~ fetch the head, inferred
+  end
+  rect rgba(220,0,0,0.12)
+  Note over A,S: - removed: gh pr diff, read
+  end"""
+    BRIEF = (
+        "# PR brief: x (PR 7)\n\n"
+        "> Built from head `0123456789ab` vs `origin/develop` @ `abcdef0` "
+        "(2026-10-26, target `develop`). Every claim cites `path:line`.\n"
+        "> Intent: commit messages.\n\n"
+        "## 1. What this PR does\n\nIt retries.\n\n"
+        "## 2. Where it sits\n\nThe app.\n\n"
+        "## 3. Flow diff\n\n```mermaid\n{diagram}\n```\n\n"
+        "- 2 \u00b7 `a.py:2` \u00b7 info\n\n"
+        "## 4. Files\n\n| File | Role | Change |\n| --- | --- | --- |\n"
+        "| `a.py` | code | changed |\n\n"
+        "## 5. Walkthrough\n\nSteps.\n\n## 6. Reading order\n\n1. `a.py:1`\n\n"
+        "## 7. Questions for the author, and what was not checked\n\n"
+        "1. [?] Why?\n\nNot checked: a live server.\n")
+
+    def brief_script(self):
+        text = (self.EXPLAIN / "references" / "pr-brief.md").read_text("utf-8")
+        tail = text[text.index("`check-brief.py`:"):]
+        return re.search(r"```python\n(.*?)\n```", tail, re.S).group(1)
+
+    def page_script(self):
+        text = (self.EXPLAIN / "references" / "html-page.md").read_text("utf-8")
+        tail = text[text.index("`check-html.py`:"):]
+        return re.search(r"```python\n(.*?)\n```", tail, re.S).group(1)
+
+    def build(self, tmp, brief=None):
+        """A repo folder holding a.py and .pr-review/pr-7/brief.md."""
+        root = Path(tmp)
+        (root / "a.py").write_text("one\ntwo\nthree\n", "utf-8")
+        d = root / ".pr-review" / "pr-7"
+        d.mkdir(parents=True)
+        (d / "brief.md").write_text(
+            brief or self.BRIEF.format(diagram=self.DIAGRAM), "utf-8")
+        return root, d
+
+    def check(self, root, d, *flags):
+        return self.run_script(self.brief_script(), *flags, root, d / "brief.md")
+
+    def test_brief_check_passes_a_good_brief(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, d = self.build(tmp)
+            run = self.check(root, d)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+
+    @unittest.skipUnless(shutil.which("git"), "needs git")
+    def test_brief_check_reads_the_head_not_the_working_tree(self):
+        """A PR is not checked out: anchors resolve against `--rev`."""
+        git = ["git", "-c", "user.name=Dev", "-c", "user.email=dev@example.com"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root, d = self.build(tmp)
+            subprocess.run([*git, "init", "-q", str(root)], check=True)
+            subprocess.run([*git, "-C", str(root), "add", "a.py"], check=True)
+            subprocess.run([*git, "-C", str(root), "commit", "-qm", "x"],
+                           check=True)
+            (root / "a.py").write_text("one\n", "utf-8")  # working tree moved on
+            head = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", "HEAD"],
+                capture_output=True, text=True, check=True).stdout.strip()
+            self.assertEqual(self.check(root, d, "--rev", head).returncode, 0)
+            bad = self.check(root, d)
+            self.assertEqual(bad.returncode, 1)
+            self.assertIn("a.py:2", bad.stdout)
+
+    def test_brief_check_catches_each_rule(self):
+        good = self.BRIEF.format(diagram=self.DIAGRAM)
+        no_rect = good
+        for line in ("  rect rgba(0,180,0,0.12)\n", "  rect rgba(255,190,0,0.15)\n",
+                     "  rect rgba(220,0,0,0.12)\n", "  end\n"):
+            no_rect = no_rect.replace(line, "")
+        cases = {
+            "bad anchor": (good.replace("`a.py:2`", "`a.py:9`"),
+                           "bad anchor a.py:9"),
+            "section missing": (good.replace("## 6. ", "## 8. "),
+                                "sections 1 to 7"),
+            "header missing": (good.replace("> Built from head", "> From"),
+                               "header line missing"),
+            "untagged step": (good.replace("+ info, read", "info"),
+                              "needs a +, ~ or - tag"),
+            "no tier word": (good.replace("+ info, read", "+ info"),
+                             "needs a +, ~ or - tag"),
+            "no rect": (no_rect, "no rect block"),
+            "emoji": (good.replace("+ info, read", "+ \U0001F7E2 info, read"),
+                      "emoji"),
+            "no-flow-change with a diagram": (good.replace(
+                "## 3. Flow diff\n\n", "## 3. Flow diff\n\n**No flow change.** x\n\n"),
+                                              "no-flow-change brief has a diagram"),
+        }
+        for name, (brief, message) in cases.items():
+            with self.subTest(case=name), tempfile.TemporaryDirectory() as tmp:
+                root, d = self.build(tmp, brief)
+                run = self.check(root, d)
+                self.assertEqual(run.returncode, 1, run.stdout)
+                self.assertIn(message, run.stdout)
+
+    def test_brief_check_enforces_the_diagram_caps(self):
+        many = "\n".join(f"  A->>S: + step {i}, read" for i in range(12))
+        peers = "\n".join(f"  participant P{i} as p{i}" for i in range(4))
+        for name, diagram, message in (
+            ("13 steps", self.DIAGRAM.replace(
+                "  rect rgba(0,180,0,0.12)\n", "  rect rgba(0,180,0,0.12)\n" + many + "\n"),
+             "steps, the cap is 12"),
+            ("6 participants", self.DIAGRAM.replace(
+                "  U->>A", peers + "\n  U->>A"), "participants, the cap is 5"),
+        ):
+            with self.subTest(case=name), tempfile.TemporaryDirectory() as tmp:
+                root, d = self.build(tmp, self.BRIEF.format(diagram=diagram))
+                run = self.check(root, d)
+                self.assertEqual(run.returncode, 1, run.stdout)
+                self.assertIn(message, run.stdout)
+
+    def test_no_flow_change_brief_passes_without_a_diagram(self):
+        head, rest = self.BRIEF.split("## 3. Flow diff")
+        tail = rest[rest.index("## 4. Files"):]
+        brief = head + "## 3. Flow diff\n\n**No flow change.** Docs only.\n\n" + tail
+        with tempfile.TemporaryDirectory() as tmp:
+            root, d = self.build(tmp, brief)
+            run = self.check(root, d)
+            self.assertEqual(run.returncode, 0, run.stdout)
+
+    def build_page(self, d, diagram):
+        src = diagram.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        (d / "brief.html").write_text(
+            '<html><body><div id="mermaid-banner"></div>'
+            + "".join(f"<h3>{h}</h3>" for h in re.findall(
+                r"^## (.+)$", (d / "brief.md").read_text("utf-8"), re.M))
+            + '<figure class="diagram"><p class="diagram-note">n</p>'
+            f'<pre class="diagram-src">{src}</pre></figure>'
+            '<code class="ref">a.py:2</code><code class="ref">a.py:1</code>'
+            '<script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/'
+            'mermaid.min.js"></script></body></html>', "utf-8")
+
+    def test_page_check_takes_a_page_name_and_ignores_other_markdown(self):
+        code = self.page_script()
+        with tempfile.TemporaryDirectory() as tmp:
+            root, d = self.build(tmp)
+            self.build_page(d, self.DIAGRAM)
+            (d / "review.md").write_text(
+                "## Extra\n\n```mermaid\nflowchart TD\n  a --> b\n```\n"
+                "`other.py:3`\n", "utf-8")
+            run = self.run_script(code, d, "brief.html")
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        with tempfile.TemporaryDirectory() as tmp:
+            root, d = self.build(tmp)
+            self.build_page(d, self.DIAGRAM + "\n  A->>S: + more, read")
+            bad = self.run_script(code, d, "brief.html")
+            self.assertEqual(bad.returncode, 1)
+            self.assertIn("diagrams differ", bad.stdout)
+
+    def test_onboarding_copy_of_the_page_script_is_the_shared_one(self):
+        self.assertEqual(
+            self.page_script(), self.script("html-page.md", "check-html.py"))
+
+    def test_skill_and_reference_state_the_contract(self):
+        body = (self.EXPLAIN / "SKILL.md").read_text("utf-8")
+        for name in ("pr-brief.md", "html-page.md", "mermaid.md", ".pr-review/"):
+            self.assertIn(name, body)
+        flat = " ".join((self.EXPLAIN / "references" / "pr-brief.md")
+                        .read_text("utf-8").split())
+        for needle in (
+                "At most 12 steps and 5 participants",
+                "`+` new, `~` changed, `-` removed",
+                "`rgba(0,180,0,0.12)` new", "`rgba(255,190,0,0.15)` changed",
+                "`rgba(220,0,0,0.12)` removed",
+                "At most 12 lines, no diagram",
+                "**No flow change.**", "never invent PR text",
+                "No defect talk and no improvement advice",
+                "never a question that doubts the code",
+                "echo '.pr-review/' >> .git/info/exclude",
+                "/skill:roj-code-review-pr PR <n>", "/roj-code-review-pr PR <n>"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle.lower(), flat.lower())
+        mermaid = (self.EXPLAIN / "references" / "mermaid.md").read_text("utf-8")
+        for needle in ("rect rgba(0,180,0,0.12)", "Note over A,G", "Emoji in a label"):
+            self.assertIn(needle, mermaid)
+
+
 STOPWORDS = frozenset("""a an and any are as at be by do does for from has have
 how i if in into what who why whom is it its my no not of on one or our so that the their them
 then this to use used user users using want when which with you your""".split())
@@ -613,6 +813,7 @@ ROUTES = {
         "explain this function line by line",
         "walk me through how this code flow works",
         "what does this method do and who calls it",
+        "explain this pull request and draw how the change flows",
     ],
     "roj-explain-feature-changes": [
         "explain my changes compared to develop",

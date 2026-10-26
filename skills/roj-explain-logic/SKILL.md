@@ -1,6 +1,6 @@
 ---
 name: roj-explain-logic
-description: Explain the logic of code the user is reading — a pull request, a feature branch diff, a file, or a function — as a guided, step-by-step walkthrough. Use when the user says "explain this PR", "walk me through this branch", "explain this function", "what does this method do", "who calls this", "what does this code do", "help me understand this logic", "why does this work", "trace this flow", or pastes/points at code they are trying to understand, even without the word "explain". Also for "explain and review" or "explain this and flag anything risky", which adds a review pass after the walkthrough. Covers Java, Python, Go, shell scripts, and Atlassian Bamboo API/specs code. For the user's own branch explained for their PR use roj-explain-feature-changes; for onboarding to a whole repo use roj-onboard-repo; for finding defects use roj-code-review-pr.
+description: Explain the logic of code the user is reading — a pull request, a feature branch diff, a file, or a function — as a guided, step-by-step walkthrough. For a PR or branch it writes a brief, with a flow diagram and an HTML page, under .pr-review/. Use when the user says "explain this PR", "brief me on this PR", "explain this PR and draw the flow", "walk me through this branch", "explain this function", "what does this method do", "who calls this", "what does this code do", "help me understand this logic", "why does this work", "trace this flow", or pastes/points at code they are trying to understand, even without the word "explain". Also for "explain and review" or "explain this and flag anything risky", which adds a review pass after the walkthrough. Covers Java, Python, Go, shell scripts, and Atlassian Bamboo API/specs code. For the user's own branch explained for their PR use roj-explain-feature-changes; for onboarding to a whole repo use roj-onboard-repo; for finding defects use roj-code-review-pr.
 license: MIT
 ---
 
@@ -21,6 +21,13 @@ Priority order:
      checkout and read from it, as `references/forge-bitbucket-dc.md` says.
    - GitHub PR: the GitHub MCP server's pull-request tools if one is
      connected, else `gh pr diff <number>`.
+   - A PR or branch is explained as a **brief**, written to
+     `.pr-review/pr-<n>/brief.md` and `brief.html`, not as a long chat
+     answer. Load `references/pr-brief.md` now: where the files go, the read
+     gate, the template, the caps and the check scripts (it uses
+     `references/mermaid.md` and `references/html-page.md`). If it cannot be
+     opened, explain in chat as for a file and print `Reference unavailable:
+     pr-brief.md`.
 2. **File/function**: read the whole file, not just the snippet.
 3. **Ambiguous**: ask ONE question ("Which branch/PR, or which file?"), then proceed.
 
@@ -39,13 +46,16 @@ A diff alone lies. Always:
 
 ## Step 3 — Structure: Concept → Code → Why
 
-Never jump straight to line-by-line.
+Never jump straight to line-by-line. For a PR or branch these steps fill the
+brief's sections 1, 2 and 5; chat carries only the summary in
+`references/pr-brief.md`.
 
 1. **Big picture** — 2-4 sentences: problem solved, overall approach.
    One-line role per changed file.
 2. **Flow** — walk the execution path in run order, not file-by-file.
-   Each step: inputs → transformation → outputs. Mermaid diagram when
-   3+ moving parts — `sequenceDiagram` for a call path, `flowchart` for
+   Each step: inputs → transformation → outputs. In chat (file and function
+   targets; a PR or branch keeps its diagram in the brief) a Mermaid diagram
+   when 3+ moving parts — `sequenceDiagram` for a call path, `flowchart` for
    structure; never ASCII art. Load `references/mermaid.md` before drawing. Quote the actual lines, then explain in plain language.
    Name patterns used (retry loop, factory, decorator, context manager,
    goroutine + channel, trap/cleanup) with a one-line definition.
@@ -129,7 +139,8 @@ the code in scope. Apply its severity (Blocker, Major, Minor, Nit),
 confidence (Confirmed, Probable; Speculative becomes a question), its
 failure-scenario rule, its never-report list and its verification pass, and
 print findings in its format (`path:line`, severity, confidence, "Fails when",
-fix). The callers and tests you already traced for the explanation are the
+fix). For a PR the brief is written first; the review prints in chat after its
+summary and is never written into the brief. The callers and tests you already traced for the explanation are the
 system pass. Run no command beyond `git`. Solid code: say so plainly - never
 invent findings.
 
@@ -149,3 +160,6 @@ invent findings.
 - No refactoring advice unless explicitly requested.
 - Diff touches CI/CD or infra: always end with "runtime impact" — what
   changes about how/when things execute.
+- PR or branch target: write only under `<ROOT>/.pr-review/`; print the
+  `.git/info/exclude` line when it is not ignored, never run it, never edit
+  `.gitignore`.

@@ -32,7 +32,23 @@
     "should_trigger": true
   },
   {
+    "query": "explain this pull request and draw the flow",
+    "should_trigger": true
+  },
+  {
+    "query": "brief me on PR 42 before I review it",
+    "should_trigger": true
+  },
+  {
     "query": "explain my changes vs develop so I can explain them to my reviewer",
+    "should_trigger": false
+  },
+  {
+    "query": "review PR 42 for defects",
+    "should_trigger": false
+  },
+  {
+    "query": "draw the architecture of this repo",
     "should_trigger": false
   },
   {

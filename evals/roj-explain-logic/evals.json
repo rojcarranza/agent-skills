@@ -55,6 +55,72 @@
         "Says the function has no defects",
         "Reports no Blocker, Major or Minor finding"
       ]
+    },
+    {
+      "id": 6,
+      "prompt": "explain PR 7 on our bitbucket data center, it merges into develop",
+      "fixture": {
+        "repo": "pyrepo-bb-pr"
+      },
+      "expected_output": "A PR brief with a flow diff and an HTML page, written under .pr-review/pr-7/ from a head fetched by ref.",
+      "expectations": [
+        "Runs git fetch origin refs/pull-requests/7/from (and fetches develop) and reads the printed head SHA",
+        "Uses origin/develop as the base, never origin/main, so the CHANGELOG.md line is not explained",
+        "Reads whole files with git show <head sha>:<path>, does not check out, switch or create a branch and makes no REST call",
+        "Writes .pr-review/pr-7/brief.md and .pr-review/pr-7/brief.html and nothing else outside .pr-review/",
+        "brief.md has the header line with the 12-character head SHA, then sections 1 to 7 in order: what the PR does, where it sits, flow diff, files, walkthrough, reading order, questions and not checked",
+        "The flow diff is one mermaid sequenceDiagram with at least one rect block, at most 12 steps and 5 participants, every step inside a rect tagged +, ~ or - and ending with read, inferred or ran",
+        "The diagram shows the retry loop of upload() in app/uploader.py as a changed or new step, with a path:line proof item for each step",
+        "The Intent header says the commit messages were used because no PR text was pasted, and no PR title or description is invented",
+        "brief.html holds the same diagram, anchors and headings as brief.md and loads Mermaid only from one pinned cdn.jsdelivr.net script",
+        "Prints the git exclude line for .pr-review/ without running it, does not edit .gitignore",
+        "The chat reply is at most 12 lines with no mermaid block and ends with the roj-code-review-pr command in both the /skill: and the / forms",
+        "Names no defect and makes no improvement suggestion: the None returned after the last failed attempt of upload() may appear as plain behaviour in the flow, never as a bug, a risk or an 'is that intended' question"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "brief me on PR 7 on our bitbucket data center, it merges into develop, before I review it",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-docs"
+      },
+      "expected_output": "A docs-only PR gets a no-flow-change brief: a files table and no diagram.",
+      "expectations": [
+        "Writes .pr-review/pr-7/brief.md and brief.html",
+        "Section 3 of brief.md is the line **No flow change.** naming what changed, with no mermaid block anywhere in brief.md or brief.html",
+        "The files table lists README.md and docs/uploader.md as new",
+        "States that the docs describe upload() in app/uploader.py and cites it with a path:line that exists at the PR head",
+        "Makes no defect or improvement remark"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "what does upload() in app/uploader.py do?",
+      "fixture": {
+        "repo": "pyrepo"
+      },
+      "expected_output": "A file or function target stays a chat walkthrough and writes nothing.",
+      "expectations": [
+        "Reads the whole of app/uploader.py",
+        "Answers in chat with the Concept, Code, Why structure",
+        "Writes no file: no .pr-review/ directory, no brief.md, no brief.html",
+        "Makes no improvement suggestion"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "explain PR 7 on our bitbucket data center, it merges into develop",
+      "fixture": {
+        "repo": "pyrepo-bb-pr",
+        "condition": "every read of the repository's manifest requirements.txt fails with a permission error, by absolute path and by project-relative path"
+      },
+      "expected_output": "The read gate stops the run before any write.",
+      "expectations": [
+        "Tries the absolute path of the README or manifest first, then the Windows Git Bash and project-relative forms",
+        "When all three fail, stops and writes nothing: no .pr-review/ directory, no brief.md, no brief.html",
+        "Prints the failing path, the tool's message verbatim and the three checks (agent mode, IDE project root, workspace read permission)",
+        "Does not explain the PR from memory or guess its content"
+      ]
     }
   ]
 }
