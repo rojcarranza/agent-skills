@@ -23,8 +23,10 @@ Rules that hold for the whole run:
 - Graph check, first and every run: look for `graphify-out/graph.json` at the
   repository root before searching for the failing code. Present: follow
   `references/graph-first.md`. Absent: search directly. Close the report with
-  one line: `Graph: used`, `Graph: stale, skipped` or
-  `Graph: none found, searched directly`. The read-only `graphify` queries in
+  a Graph line only when it informs: `Graph: used` or `Graph: stale, skipped`
+  when a graph exists, `Graph: none found, searched directly` only when a
+  large repository (hundreds of source files) has none; otherwise print no
+  Graph line. The read-only `graphify` queries in
   that file are allowed alongside `git`.
 
 Helper skills are optional: every chain step below has an inline

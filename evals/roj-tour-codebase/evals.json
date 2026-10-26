@@ -1,0 +1,59 @@
+{
+  "skill_name": "roj-tour-codebase",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "onboard me to this repo",
+      "fixture": {
+        "repo": "pyrepo-clean"
+      },
+      "expected_output": "Discovery, a plan checkpoint, then chained tours in .tours/ whose steps anchor to real lines; nothing else written except docs/codebase/.",
+      "expectations": [
+        "Runs discovery first and writes or reuses documents under docs/codebase/ only",
+        "Shows one plan checkpoint in chat before writing the tours",
+        "Writes chained CodeTour JSON files under .tours/, and every step has a file and a line that exists in the repo",
+        "Does not list defects or suggest improvements",
+        "Writes nothing outside .tours/ and docs/codebase/ and runs no git command that writes",
+        "Offers the .git/info/exclude line for docs/codebase/ without running it or editing .gitignore"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "tour this codebase",
+      "fixture": {
+        "repo": "monorepo"
+      },
+      "expected_output": "Several workspaces: the skill asks which one, once, and stops before discovery.",
+      "expectations": [
+        "Recognises apps/web and apps/api as separate workspaces",
+        "Asks which workspace to tour, once, and does not tour both",
+        "Writes no .tours/ or docs/codebase/ file before the answer"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "onboard me to this repo, no docs please",
+      "fixture": {
+        "repo": "pyrepo-clean"
+      },
+      "expected_output": "Inline discovery with no documents written; tours only.",
+      "expectations": [
+        "Does not create docs/codebase/",
+        "Still writes tours under .tours/ with steps anchored to real file:line references",
+        "States that no discovery documents were produced"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "review this repo for bugs",
+      "fixture": {
+        "repo": "pyrepo-clean"
+      },
+      "expected_output": "A review request: the tour skill does not take it.",
+      "expectations": [
+        "Does not create a .tours/ directory",
+        "Does not present the work as a tour or onboarding course"
+      ]
+    }
+  ]
+}

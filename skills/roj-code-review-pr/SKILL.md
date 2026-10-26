@@ -1,6 +1,6 @@
 ---
 name: roj-code-review-pr
-description: Review a Git change for defects before it ships - your own branch with uncommitted work, a teammate's branch, or a Bitbucket Data Center pull request, without checking it out. Auto mode (the default) picks a quick chat-only pass or a full written review from the size and risk of the diff; say quick or full to force one. Use when the user says "review my branch", "review this PR", "review PR 123", "review origin/feature/x", "code review", "quick review", "sanity check my changes", "review before I push", or asks for defects or risks in a diff, even a pasted one. An optional intent (PR description, Jira story, SB acceptance criteria) adds "acceptance criterion not met" findings. Loads only the lenses for the stacks touched (Java, Python, Bash, Go, Bamboo, Docker, Kubernetes, Helm). Git only, no PR host API. For comprehension use roj-explain-logic; to post comments on a GitHub PR use roj-review-pr-comment.
+description: Review a Git change for defects before it ships - your own branch with uncommitted work, a teammate's branch, or a Bitbucket Data Center pull request, without checking it out. Auto mode (the default) picks a quick chat-only pass or a full written review from the size and risk of the diff; say quick or full to force one. Use when the user says "review my branch", "review my pull request", "review this PR", "review PR 123", "review origin/feature/x", "code review", "quick review", "find defects in this branch", "review my uncommitted changes", "sanity check my changes", "review before I push", or asks for defects or risks in a diff, even a pasted one. An optional intent (PR description, Jira story, SB acceptance criteria) adds "acceptance criterion not met" findings. Loads only the lenses for the stacks touched (Java, Python, Bash, Go, Bamboo, Docker, Kubernetes, Helm). Git only, no PR host API. For comprehension use roj-explain-logic; to post comments on a GitHub PR use roj-review-pr-comment.
 license: MIT
 allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git status *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git symbolic-ref *) Bash(git merge-base *) Bash(git show *) Bash(git branch --show-current) Bash(git remote get-url *) Bash(git fetch origin *) Bash(graphify query *) Bash(graphify explain *) Bash(graphify path *) Bash(graphify affected *)
 ---
@@ -32,8 +32,10 @@ Rules that hold for the whole run:
 - Graph check, first and every run in full mode: look for
   `graphify-out/graph.json` at the repository root. Present: follow
   `references/graph-first.md`. Absent: search directly. Close the report with
-  one line: `Graph: used`, `Graph: stale, skipped` or
-  `Graph: none found, searched directly`. Quick mode is diff-local, so it
+  a Graph line only when it informs: `Graph: used` or `Graph: stale, skipped`
+  when a graph exists, `Graph: none found, searched directly` only when a
+  large repository (hundreds of source files) has none; otherwise print no
+  Graph line. Quick mode is diff-local, so it
   does not use the graph and prints no `Graph:` line.
 
 Always load `references/review-method.md` and `references/cross-cutting.md`

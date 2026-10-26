@@ -1,6 +1,6 @@
 ---
 name: roj-explain-logic
-description: Explain the logic of code the user is reading — a pull request, a feature branch diff, a file, or a function — as a guided, step-by-step walkthrough. Use when the user says "explain this PR", "walk me through this branch", "what does this code do", "help me understand this logic", "why does this work", "trace this flow", or pastes/points at code they are trying to understand, even without the word "explain". Also for "explain and review" or "explain this and flag anything risky", which adds a review pass after the walkthrough. Covers Java, Python, Go, shell scripts, and Atlassian Bamboo API/specs code. For the user's own branch explained for their PR use roj-explain-feature-changes; for onboarding to a whole repo use roj-tour-codebase; for finding defects use roj-code-review-pr.
+description: Explain the logic of code the user is reading — a pull request, a feature branch diff, a file, or a function — as a guided, step-by-step walkthrough. Use when the user says "explain this PR", "walk me through this branch", "explain this function", "what does this method do", "who calls this", "what does this code do", "help me understand this logic", "why does this work", "trace this flow", or pastes/points at code they are trying to understand, even without the word "explain". Also for "explain and review" or "explain this and flag anything risky", which adds a review pass after the walkthrough. Covers Java, Python, Go, shell scripts, and Atlassian Bamboo API/specs code. For the user's own branch explained for their PR use roj-explain-feature-changes; for onboarding to a whole repo use roj-tour-codebase; for finding defects use roj-code-review-pr.
 license: MIT
 ---
 
@@ -138,8 +138,10 @@ invent findings.
 - Graph check, first and every run: look for `graphify-out/graph.json` at the
   repository root before tracing callers. Present: follow
   `references/graph-first.md`. Absent: search directly. Close the answer with
-  one line: `Graph: used`, `Graph: stale, skipped` or
-  `Graph: none found, searched directly`. The read-only `graphify` queries in
+  a Graph line only when it informs: `Graph: used` or `Graph: stale, skipped`
+  when a graph exists, `Graph: none found, searched directly` only when a
+  large repository (hundreds of source files) has none; otherwise print no
+  Graph line. The read-only `graphify` queries in
   that file are allowed alongside `git`.
 - Never invent behavior — if you can't see the code a call resolves to,
   say so and go read it.

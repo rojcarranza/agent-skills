@@ -1,0 +1,58 @@
+{
+  "skill_name": "roj-interview-prep",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "prepare the interview for alex-example-cv.md",
+      "fixture": {
+        "repo": "interview-cv"
+      },
+      "expected_output": "Standalone mode: asks for the output directory (or writes beside the CV), builds the full document from the bundled references, commits nothing.",
+      "expectations": [
+        "Detects there is no interviewer vault and uses the bundled references instead of failing",
+        "Writes one interview document containing a candidate summary, a tech matrix, the CV deep-dive, the baseline questions, CV-specific questions, scenarios, behavioural questions and coding tasks",
+        "Embeds every B and BC baseline question from references/base-questions.md in full",
+        "The tech matrix has a row per role competency, including Terraform and Ansible marked Absent, with CV evidence quoted for the rest",
+        "Handles all Absent competencies in one grouped gap-check question, not one question each",
+        "Raises the tool-less 'built CI/CD pipelines' claim as a neutral question, not an accusation",
+        "Every question block ends with an empty Comment field",
+        "Runs no git command that writes (no commit, branch or push)"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "prepare the interview for the new candidate",
+      "fixture": {
+        "repo": "interview-cv"
+      },
+      "expected_output": "One CV is present but the user named no file; the skill picks it or asks, never invents a CV.",
+      "expectations": [
+        "Either uses alex-example-cv.md as the only CV present or asks which CV to use",
+        "Does not invent employers, dates or skills that are not in the CV"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "do the final assessment for the candidate",
+      "fixture": {
+        "repo": "interview-cv"
+      },
+      "expected_output": "Flow 2 needs a filled-in doc; none exists, so the skill asks for it instead of making up answers.",
+      "expectations": [
+        "Asks for the filled interview document or pasted answers",
+        "Does not invent interview answers or a score"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "review my pull request for bugs",
+      "fixture": {
+        "repo": "interview-cv"
+      },
+      "expected_output": "A review request: the interview skill does not take it.",
+      "expectations": [
+        "Does not produce an interview document"
+      ]
+    }
+  ]
+}

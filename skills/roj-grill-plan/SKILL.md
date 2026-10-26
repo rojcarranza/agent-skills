@@ -41,8 +41,10 @@ grill an invented story.
 5. **Graph check, first and every run:** before looking facts up in a
    repository, look for `graphify-out/graph.json` at its root. Present:
    follow `references/graph-first.md`. Absent: search directly. Close the
-   final chat message with one line: `Graph: used`, `Graph: stale, skipped`
-   or `Graph: none found, searched directly`.
+   final chat message with a Graph line only when it informs: `Graph: used` or
+   `Graph: stale, skipped` when a graph exists, `Graph: none found, searched
+   directly` only when a large repository (hundreds of source files) has none;
+   otherwise print no Graph line.
 
 ## Flow
 

@@ -1,0 +1,50 @@
+[
+  {
+    "query": "investigate this issue, the problem and log are in BUILD-4521-problem.md",
+    "should_trigger": true
+  },
+  {
+    "query": "why did this Bamboo build fail? the log is in the attached .md",
+    "should_trigger": true
+  },
+  {
+    "query": "find the root cause of this pipeline failure, stack trace is in the problem file",
+    "should_trigger": true
+  },
+  {
+    "query": "validate this bug report and write up the steps to solve it",
+    "should_trigger": true
+  },
+  {
+    "query": "the Test stage went red after the merge, investigate and tell me how to fix it",
+    "should_trigger": true
+  },
+  {
+    "query": "my Dockerfile build fails on the agent but works locally, investigate the cause",
+    "should_trigger": true
+  },
+  {
+    "query": "walk me through how the uploader retry logic works",
+    "should_trigger": false
+  },
+  {
+    "query": "review my pull request for defects before I merge",
+    "should_trigger": false
+  },
+  {
+    "query": "tour this codebase so I can onboard",
+    "should_trigger": false
+  },
+  {
+    "query": "grill me on this plan before we start",
+    "should_trigger": false
+  },
+  {
+    "query": "write a Jira comment answering the reviewer's question on my PR",
+    "should_trigger": false
+  },
+  {
+    "query": "explain what changed on my feature branch compared with main",
+    "should_trigger": false
+  }
+]
