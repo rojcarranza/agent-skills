@@ -328,11 +328,12 @@ def remove_installer_skills(target, dest_root, dry_run, cali_rows=None):
     installs for target. cali_rows is cali_status_rows(): a copy is moved to
     backup_dir() only when Cali says it did not install it (NOT_CALIS), so a
     Cali-installed folder, local edits included, is never touched. Without
-    cali_rows no copy is moved. A stale_skill_names() folder, which Cali
-    will not reinstall for target, is moved to backup_dir() only with a
-    record that it was installed for target: a Cali status row, or a link
-    this installer made. Without one it is kept with a warning, as is any
-    other leftover Cali will not reinstall."""
+    cali_rows no copy is moved. For a stale_skill_names() entry, which Cali
+    will not reinstall for target, only a link an older installer made is
+    moved to backup_dir(); a real folder is kept, and its path is printed
+    with a warning to delete it if stale (Cali keeps no record of the hosts
+    a skill was dropped from). Any other leftover Cali will not reinstall
+    is kept, with a warning when its SKILL.md declares that name."""
     results = []
     if not dest_root.is_dir():
         return results
@@ -347,18 +348,14 @@ def remove_installer_skills(target, dest_root, dry_run, cali_rows=None):
         else:
             ours = entry.is_dir() and is_ours(entry, entry.name)
         if entry.name not in managed:
-            installed = (ours if entry.is_symlink() else cali_rows is not None
-                         and bool(set(cali_rows.get((entry.name, target), ()))
-                                  - NOT_CALIS))
-            if entry.name in stale and installed:
+            if entry.name in stale and entry.is_symlink() and ours:
                 dest = _move_aside(entry, target, dry_run)
                 results.append((target, entry.name,
                                 f"moved to {dest} (not installed for {target})"))
-            elif ours and entry.name in stale:
+            elif entry.name in stale:
                 warn(f"{entry} is left over: Cali no longer installs "
-                     f"{entry.name} for {target}, and nothing records that "
-                     "install.py or Cali put it there — kept; delete it if "
-                     "it is stale")
+                     f"{entry.name} for {target} — kept; delete it if it "
+                     "is stale")
             elif ours:
                 warn(f"{entry} was installed by an old installer; Cali does "
                      f"not manage {entry.name} for {target} — uncomment it in "

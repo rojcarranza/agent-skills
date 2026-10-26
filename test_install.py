@@ -1182,79 +1182,44 @@ class TestLegacyCleanup(TempDirTest):
         self.assertIn("uncomment it in cali.yaml", err)
         self.assertEqual(err.count("[ warn ]"), 1)
 
-    def test_copilot_only_skill_copy_moved_aside_for_claude(self):
-        # Cali installed it for Claude before the skill went Copilot only,
-        # and cali sync never deletes a folder: it would keep loading.
-        for state in ("ok", "modified"):
-            with self.subTest(state=state):
-                root = self.tmp / f"claude-{state}"
-                self.make_skill(f"claude-{state}", name="roj-b",
-                                content=OWNED.format("roj-b") + "edit\n")
-                results, err = self.cleanup(
-                    "claude", root, cali_rows=rows(state, "roj-b"))
-                self.assertFalse((root / "roj-b").exists())
-                kept = self.backups / "claude" / "roj-b"
-                self.assertEqual((kept / "SKILL.md").read_text(encoding="utf-8"),
-                                 OWNED.format("roj-b") + "edit\n")
-                self.assertEqual(results, [("claude", "roj-b",
-                                            f"moved to {kept} (not installed for claude)")])
-                self.assertEqual(err, "")
-                shutil.rmtree(self.backups)
-
-    def test_stale_copy_without_install_record_kept_with_warning(self):
-        # A matching SKILL.md name alone does not show who installed it.
-        for i, cali_rows in enumerate(
-                (None, self.NOT_INSTALLED, rows("base-lost", "roj-b"))):
-            with self.subTest(cali_rows=cali_rows):
-                root = self.tmp / f"claude-{i}"
-                self.make_skill(f"claude-{i}", name="roj-b",
-                                content=OWNED.format("roj-b"))
-                results, err = self.cleanup("claude", root, cali_rows=cali_rows)
-                self.assertTrue((root / "roj-b" / "SKILL.md").is_file())
-                self.assertEqual(results, [])
-                self.assertIn("roj-b is left over", err)
-                self.assertEqual(err.count("[ warn ]"), 1)
-                self.assertFalse(self.backups.exists())
+    def test_stale_copy_kept_and_listed_with_its_path(self):
+        # cali status drops a host's row once cali.yaml drops the host, so
+        # nothing shows who put a real folder there: it is only reported.
+        for target, name in (("claude", "roj-b"),
+                             ("claude", "debian-linux-triage"),
+                             ("copilot", "debian-linux-triage")):
+            for content in (OWNED.format(name), OWNED.format("my-" + name)):
+                with self.subTest(target=target, name=name, content=content):
+                    root = self.tmp / "roots" / f"{target}-{len(content)}"
+                    shutil.rmtree(root, ignore_errors=True)
+                    self.make_skill(f"roots/{target}-{len(content)}", name=name,
+                                    content=content)
+                    results, err = self.cleanup(target, root,
+                                                cali_rows=rows("ok", name))
+                    self.assertTrue((root / name / "SKILL.md").is_file())
+                    self.assertEqual(results, [])
+                    self.assertIn(f"{root / name} is left over", err)
+                    self.assertIn("delete it if it is stale", err)
+                    self.assertEqual(err.count("[ warn ]"), 1)
+                    self.assertFalse(self.backups.exists())
 
     def test_copilot_only_skill_copy_kept_for_claude(self):
         self.make_skill("claude", name="caveman", content=OWNED.format("caveman"))
-        results, err = self.cleanup("claude", self.tmp / "claude",
-                                    cali_rows=rows("ok", "caveman"))
+        results, err = self.cleanup("claude", self.tmp / "claude")
         self.assertTrue((self.tmp / "claude" / "caveman").is_dir())
         self.assertEqual(results, [])
         self.assertIn("Cali does not manage caveman for claude", err)
         self.assertFalse(self.backups.exists())
-
-    def test_retired_skill_moved_aside_only_with_a_cali_row(self):
-        for target in ("claude", "copilot"):
-            with self.subTest(target=target):
-                root = self.tmp / target
-                self.make_skill(target, name="debian-linux-triage",
-                                content=OWNED.format("debian-linux-triage"))
-                results, err = self.cleanup(target, root, cali_rows=None)
-                self.assertTrue((root / "debian-linux-triage").is_dir())
-                self.assertEqual(results, [])
-                self.assertIn("debian-linux-triage is left over", err)
-                results, _ = self.cleanup(
-                    target, root, cali_rows=rows("ok", "debian-linux-triage"))
-                self.assertFalse((root / "debian-linux-triage").exists())
-                self.assertTrue((self.backups / target / "debian-linux-triage"
-                                 / "SKILL.md").is_file())
-                self.assertEqual(len(results), 1)
 
     def test_link_of_a_stale_skill_moved_aside(self):
         root = self.tmp / "claude"
         self.link(root / "roj-b", self.tmp / "gone" / "roj-b")
         results, _ = self.cleanup("claude", root, cali_rows=None)
         self.assertFalse((root / "roj-b").is_symlink())
-        self.assertTrue((self.backups / "claude" / "roj-b").is_symlink())
-        self.assertEqual(len(results), 1)
-
-    def test_stale_skill_with_a_foreign_skill_md_kept(self):
-        self.make_skill("claude", name="roj-b", content=OWNED.format("my-roj-b"))
-        results, err = self.cleanup("claude", self.tmp / "claude")
-        self.assertTrue((self.tmp / "claude" / "roj-b").is_dir())
-        self.assertEqual((results, err), ([], ""))
+        kept = self.backups / "claude" / "roj-b"
+        self.assertTrue(kept.is_symlink())
+        self.assertEqual(results, [("claude", "roj-b",
+                                    f"moved to {kept} (not installed for claude)")])
 
     def test_unknown_folders_never_touched_for_claude(self):
         for name in ("no-mistakes", "synced"):
@@ -1266,11 +1231,11 @@ class TestLegacyCleanup(TempDirTest):
             self.assertTrue((self.tmp / "claude" / name / "SKILL.md").is_file())
         self.assertFalse(self.backups.exists())
 
-    def test_dry_run_moves_no_stale_skill(self):
-        self.make_skill("claude", name="roj-b", content=OWNED.format("roj-b"))
-        results, _ = self.cleanup("claude", self.tmp / "claude", dry_run=True,
-                                  cali_rows=rows("ok", "roj-b"))
-        self.assertTrue((self.tmp / "claude" / "roj-b").is_dir())
+    def test_dry_run_moves_no_stale_link(self):
+        root = self.tmp / "claude"
+        self.link(root / "roj-b", self.tmp / "gone" / "roj-b")
+        results, _ = self.cleanup("claude", root, dry_run=True)
+        self.assertTrue((root / "roj-b").is_symlink())
         self.assertFalse(self.backups.exists())
         self.assertTrue(results[0][2].startswith("moved to "))
 
@@ -1822,40 +1787,37 @@ class TestMain(TempDirTest):
         rules.write_text(install.INSTRUCTIONS_SRC.read_text(encoding="utf-8"))
         return rules
 
-    def test_claude_leftovers_moved_aside_and_unknown_kept(self):
+    def test_claude_leftovers_listed_rules_moved_and_unknown_kept(self):
         home = self.tmp / "home"
         self.make_skill("home/claude", name="roj-explain-logic",
                         content=OWNED.format("roj-explain-logic"))
         self.make_skill("home/claude", name="no-mistakes",
                         content=OWNED.format("no-mistakes"))
         rules = self.write_shipped_rules()
-        code, _, _, _ = self.run_main(["--target", "claude"],
-                                      cali_rows=rows("ok", "roj-explain-logic"))
+        code, _, _, err = self.run_main(["--target", "claude"])
         self.assertEqual(code, 0)
-        self.assertFalse((home / "claude" / "roj-explain-logic").exists())
-        self.assertTrue((home / "backups" / "claude" / "roj-explain-logic"
-                         / "SKILL.md").is_file())
+        left = home / "claude" / "roj-explain-logic"
+        self.assertTrue((left / "SKILL.md").is_file())
+        self.assertIn(f"{left} is left over", err)
+        self.assertFalse((home / "backups" / "claude" / "roj-explain-logic").exists())
         self.assertFalse(rules.exists())
         self.assertTrue((home / "backups" / "claude" / "personal.md").is_file())
         self.assertTrue((home / "claude" / "no-mistakes" / "SKILL.md").is_file())
+        self.assertNotIn("no-mistakes", err)
 
     def test_status_and_dry_run_report_claude_leftovers_without_moving(self):
         home = self.tmp / "home"
         self.make_skill("home/claude", name="code-tour",
                         content=OWNED.format("code-tour"))
         rules = self.write_shipped_rules()
-        installed = rows("ok", "code-tour")
-        _, _, _, err = self.run_main(["--status", "--target", "claude"],
-                                     cali_rows=installed)
-        self.assertIn("code-tour left by an older install", err)
-        self.assertIn("personal.md left by an older install", err)
+        left = home / "claude" / "code-tour"
         _, _, _, err = self.run_main(["--status", "--target", "claude"])
-        self.assertIn("code-tour is left over", err)
-        _, _, out, _ = self.run_main(["--dry-run", "--target", "claude"],
-                                     cali_rows=installed)
-        self.assertIn("code-tour", out)
+        self.assertIn(f"{left} is left over", err)
+        self.assertIn("personal.md left by an older install", err)
+        _, _, out, err = self.run_main(["--dry-run", "--target", "claude"])
+        self.assertIn(f"{left} is left over", err)
         self.assertIn("personal.md", out)
-        self.assertTrue((home / "claude" / "code-tour").is_dir())
+        self.assertTrue((left / "SKILL.md").is_file())
         self.assertTrue(rules.is_file())
         self.assertFalse((home / "backups").exists())
 
