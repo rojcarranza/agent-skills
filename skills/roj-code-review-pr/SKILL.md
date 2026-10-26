@@ -34,8 +34,9 @@ has `graphify-out/graph.json`.
 
 The skill needs a terminal to run `git`. If the agent cannot run commands
 (some Copilot configurations), say so and ask the user to paste
-`git diff <base>...HEAD`, `git status --porcelain`, `git diff HEAD` and the
-contents of the untracked files — then review that, and skip phases 5 and 8.
+`git diff <base>...HEAD`, `git status --porcelain --untracked-files=all`,
+`git diff HEAD` and the contents of the untracked files — then review that,
+and skip phases 5 and 8.
 
 ## Phase 1 — Resolve the base branch
 
@@ -72,7 +73,8 @@ branch point, which is the main source of reviewing unrelated code.
 List but do not review: `vendor/`, `target/`, `dist/`, `node_modules/`,
 generated files (`*.pb.go`, `*_generated.go`), lockfiles, binaries.
 
-6. **Uncommitted work is part of the review.** Run `git status --porcelain`.
+6. **Uncommitted work is part of the review.** Run
+   `git status --porcelain --untracked-files=all`.
    When it lists changes, also run `git diff --stat HEAD` and
    `git diff -U15 HEAD` (staged and unstaged edits), and read every untracked
    file it lists (`??`) as new code, except this skill's own output from an
