@@ -63,7 +63,10 @@ Load technology lenses (`lang-*.md`, `platform-*.md`) only for stacks the
 diff touches, as the method's *Lens selection* section says, and
 `references/graph-first.md` when the checkout has `graphify-out/graph.json`.
 Read `references/forge-bitbucket-dc.md` for how a PR head is fetched and
-read, and `references/bitbucket-rest.md` before the first script call.
+read, and `references/bitbucket-rest.md` before the first script call. The
+forge reference's "no REST call, no token" lines describe its git-only path;
+this skill adds REST only through `scripts/bitbucket_pr.py`, when
+`BITBUCKET_URL` and `BITBUCKET_TOKEN` are set.
 
 ## 2. Resolve the PR
 

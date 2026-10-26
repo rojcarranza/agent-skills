@@ -69,9 +69,10 @@ never guessed from `origin/HEAD`.
 
 A clean PR is reported as "No findings." - the skill never invents findings.
 
-Works the same from PowerShell and cmd: every command is a single line, and
-the one script that talks to Bitbucket builds its JSON itself, so there is no
-shell quoting to get wrong.
+Works the same from bash and PowerShell: git commands are single lines, and
+the findings JSON is piped to the one script that talks to Bitbucket, which
+builds the requests itself, so there is no shell quoting to get wrong. cmd
+has no heredoc or here-string, so there the skill stays with the draft.
 
 ## Install
 

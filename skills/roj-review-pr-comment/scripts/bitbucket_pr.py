@@ -45,6 +45,14 @@ TIMEOUT = 30
 EXIT_INPUT, EXIT_NO_TOKEN, EXIT_REJECTED, EXIT_SERVER = 2, 3, 4, 5
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+OPENER = urllib.request.build_opener(NoRedirect)
+
+
 class Fail(Exception):
     def __init__(self, message, code):
         super().__init__(message)
@@ -112,14 +120,25 @@ class Client:
             "Accept": "application/json",
             **({"Content-Type": "application/json"} if data else {})})
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+            with OPENER.open(req, timeout=TIMEOUT) as resp:
                 raw = resp.read()
         except urllib.error.HTTPError as err:
+            if 300 <= err.code < 400:
+                raise Fail(f"{self.root} answered HTTP {err.code}, a "
+                           "redirect; the token is not sent elsewhere",
+                           EXIT_SERVER) from None
             raise ApiError(err.code, error_message(err)) from None
         except (urllib.error.URLError, OSError) as err:
             raise Fail(f"cannot reach {self.root}: "
                        f"{getattr(err, 'reason', err)}", EXIT_SERVER) from None
-        return json.loads(raw) if raw else {}
+        try:
+            page = json.loads(raw) if raw else {}
+        except ValueError:
+            page = None
+        if not isinstance(page, dict):
+            raise Fail(f"{self.root} did not answer with a JSON object",
+                       EXIT_SERVER)
+        return page
 
     def pages(self, path, query=None):
         start = 0

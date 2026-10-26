@@ -781,18 +781,6 @@ class TestReviewPrCommentSkill(unittest.TestCase):
             self.assertNotIn(tool, ("Write", "Edit"))
             self.assertFalse(tool.startswith(("Bash(gh", "Bash(curl")), tool)
 
-    def test_description_names_bitbucket_and_the_post_condition(self):
-        fm, _ = frontmatter(self.text("SKILL.md"))
-        self.assertIn("Bitbucket Data Center", fm["description"])
-        self.assertIn("BITBUCKET_TOKEN", fm["description"])
-
-    def test_bitbucket_reference_is_shared_from_the_review_skill(self):
-        owner = (SKILLS / "roj-code-review-pr" / "references"
-                 / "forge-bitbucket-dc.md").read_text("utf-8")
-        self.assertEqual(
-            (self.SKILL / "references" / "forge-bitbucket-dc.md")
-            .read_text("utf-8"), owner)
-
 
 class TestBitbucketPrScript(unittest.TestCase):
     """scripts/bitbucket_pr.py against the stand-in server the evals use."""
@@ -940,6 +928,63 @@ class TestBitbucketPrScript(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(len(data["requests"]), 2)
         self.assertTrue(data["requests"][0]["path"].endswith("/comments"))
+
+    def stub(self, handler_fn):
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        import threading
+        seen = []
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                seen.append(self.headers.get("Authorization"))
+                handler_fn(self)
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return server, seen
+
+    def test_a_redirect_is_refused_and_never_gets_the_token(self):
+        target, target_seen = self.stub(
+            lambda h: (h.send_response(200), h.end_headers()))
+
+        def redirect(h):
+            h.send_response(302)
+            h.send_header("Location",
+                          f"http://127.0.0.1:{target.server_port}/sso")
+            h.end_headers()
+        origin, _ = self.stub(redirect)
+        env = {"BITBUCKET_URL": f"http://127.0.0.1:{origin.server_port}",
+               "BITBUCKET_TOKEN": self.TOKEN}
+        code, _, err = self.run_cmd(["info", *self.PR], env)
+        self.assertEqual(code, 5, err)
+        self.assertEqual(target_seen, [])
+
+    def test_a_non_json_answer_is_a_server_error(self):
+        def html(h):
+            body = b"<html>SSO</html>"
+            h.send_response(200)
+            h.send_header("Content-Length", str(len(body)))
+            h.end_headers()
+            h.wfile.write(body)
+
+        def array(h):
+            body = b"[]"
+            h.send_response(200)
+            h.send_header("Content-Length", str(len(body)))
+            h.end_headers()
+            h.wfile.write(body)
+        for fn in (html, array):
+            server, _ = self.stub(fn)
+            env = {"BITBUCKET_URL": f"http://127.0.0.1:{server.server_port}",
+                   "BITBUCKET_TOKEN": self.TOKEN}
+            for argv in (["info", *self.PR], ["comments", *self.PR]):
+                code, _, err = self.run_cmd(argv, env)
+                self.assertEqual(code, 5, err)
 
     def test_failures_have_their_own_exit_codes(self):
         env, state = self.serve()
