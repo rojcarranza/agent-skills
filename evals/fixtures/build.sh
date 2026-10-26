@@ -4,7 +4,8 @@
 #   evals/fixtures/build.sh <kind> <dest>
 #
 # Creates <dest>/origin.git (a bare "remote") and <dest>/repo (a clone with
-# origin/HEAD set), in the state the eval's prompt assumes. <dest> must be
+# origin/HEAD set), in the state the eval's prompt assumes; a kind may add
+# sibling checkouts beside repo (sb-work: <dest>/orders-chart). <dest> must be
 # missing or empty. The kinds are the labels of the case statement below;
 # evals.json names one per eval under "fixture".
 set -euo pipefail
