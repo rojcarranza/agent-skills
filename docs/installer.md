@@ -244,7 +244,7 @@ before reading files. Eight skills do, through the shared
 
 | Skill | Graph step |
 | --- | --- |
-| `roj-tour-codebase` | `GRAPH_REPORT.md` as the discovery map; `graphify path` for the core flow |
+| `roj-onboard-repo` | `GRAPH_REPORT.md` as the starting map; `graphify path` for the core flow |
 | `roj-explain-logic` | `graphify explain` / `path` for callers and callees |
 | `roj-explain-feature-changes` | `graphify affected` / `explain` while tracing |
 | `roj-code-review-pr`, `roj-review-pr-comment` | `graphify affected` in the system pass (callers of changed symbols) |

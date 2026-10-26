@@ -263,6 +263,7 @@ RETIRED_SKILLS = (
     "add-educational-comments", "arch-linux-triage",
     "architecture-blueprint-generator", "centos-linux-triage",
     "debian-linux-triage", "fedora-linux-triage", "roj-code-review-pr-fast",
+    "roj-tour-codebase",
 )
 # Copilot-only skills no cali.yaml ever installed for Claude: a Claude copy
 # came from somewhere else.

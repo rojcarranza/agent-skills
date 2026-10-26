@@ -14,8 +14,8 @@ Creates CodeTour `.tour` walkthroughs through a repo, PR, or bug.
 
 `roj-explain-logic`, `roj-investigate-issue`, `roj-soundboarding` and `roj-code-review-pr`
 chain to this skill at the end of a run and fall back to writing a minimal
-`.tour` inline when it is absent. `roj-tour-codebase` drives it four times in one
-run, for a chained series.
+`.tour` inline when it is absent. `roj-onboard-repo` invokes it by name, once,
+only when the reader asks for a tour of the core flow.
 
 Upstream gotcha: its `SKILL.md` documents the bundled scripts at
 `~/.agents/skills/code-tour/scripts/`, a path Cali does not create —
@@ -28,9 +28,11 @@ Maps and documents an existing codebase, writing seven documents into
 `docs/codebase/`.
 - `Map this codebase and create onboarding docs`
 
-`roj-tour-codebase` calls it as its discovery phase and owns the onboarding
-vocabulary ("onboard me", "tour this repo", "teach me how this works"). Reach
-for this skill directly only when documents are wanted without tours.
+`roj-onboard-repo` no longer calls it: it owns the onboarding vocabulary
+("onboard me", "tour this repo", "teach me how this works") and writes its own
+guide in `.onboarding/`. An existing `docs/codebase/` is read as a lead and
+cross-checked against the code. Reach for this skill directly when the seven
+reference documents are wanted.
 
 ## context-map
 Lists every file relevant to a task before changes are made.

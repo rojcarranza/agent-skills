@@ -20,7 +20,15 @@
     "should_trigger": true
   },
   {
-    "query": "leave a series of CodeTour files so I can replay the architecture in the IDE",
+    "query": "leave a CodeTour of the core flow after you explain the repo",
+    "should_trigger": true
+  },
+  {
+    "query": "I need a diagram and an explanation of this repo before I review PRs",
+    "should_trigger": true
+  },
+  {
+    "query": "draw the architecture of this project and walk me through the code",
     "should_trigger": true
   },
   {
@@ -45,6 +53,14 @@
   },
   {
     "query": "generate interview questions from this CV",
+    "should_trigger": false
+  },
+  {
+    "query": "explain this pull request",
+    "should_trigger": false
+  },
+  {
+    "query": "draw a sequence diagram for this function",
     "should_trigger": false
   }
 ]

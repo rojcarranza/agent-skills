@@ -1079,7 +1079,7 @@ class TestLegacyCleanup(TempDirTest):
         retired = {"add-educational-comments", "arch-linux-triage",
                    "architecture-blueprint-generator", "centos-linux-triage",
                    "debian-linux-triage", "fedora-linux-triage",
-                   "roj-code-review-pr-fast"}
+                   "roj-code-review-pr-fast", "roj-tour-codebase"}
         # caveman was Copilot only before: no install put it in Claude.
         self.assertEqual(install.stale_skill_names("claude"), {"roj-b"} | retired)
         self.assertEqual(install.stale_skill_names("copilot"), retired)
