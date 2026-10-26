@@ -50,7 +50,8 @@ reproducible.
 1. Resolves the base and warns when the diff looks too large to be the right
    one (over 40 commits, or roughly 2000 lines).
 2. Collects the diff with `git diff <base>...HEAD` — three-dot, so work
-   merged into the base since the branch point is never reviewed.
+   merged into the base since the branch point is never reviewed - plus
+   staged, unstaged and untracked work, each such finding marked uncommitted.
 3. Detects the stacks from the **changed files**, not from what the
    repository contains, and loads at most three rule files.
 4. Reads the repository's own conventions (`CLAUDE.md`, `CONTRIBUTING.md`,
