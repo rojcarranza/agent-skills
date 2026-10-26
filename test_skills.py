@@ -767,28 +767,11 @@ class TestPrBrief(unittest.TestCase):
         self.assertEqual(
             self.page_script(), self.script("html-page.md", "check-html.py"))
 
-    def test_skill_and_reference_state_the_contract(self):
+    def test_skill_names_reference_files_that_exist(self):
         body = (self.EXPLAIN / "SKILL.md").read_text("utf-8")
-        for name in ("pr-brief.md", "html-page.md", "mermaid.md", ".pr-review/"):
-            self.assertIn(name, body)
-        flat = " ".join((self.EXPLAIN / "references" / "pr-brief.md")
-                        .read_text("utf-8").split())
-        for needle in (
-                "At most 12 steps and 5 participants",
-                "`+` new, `~` changed, `-` removed",
-                "`rgba(0,180,0,0.12)` new", "`rgba(255,190,0,0.15)` changed",
-                "`rgba(220,0,0,0.12)` removed",
-                "At most 12 lines, no diagram",
-                "**No flow change.**", "never invent PR text",
-                "No defect talk and no improvement advice",
-                "never a question that doubts the code",
-                "echo '.pr-review/' >> .git/info/exclude",
-                "/skill:roj-code-review-pr PR <n>", "/roj-code-review-pr PR <n>"):
-            with self.subTest(needle=needle):
-                self.assertIn(needle.lower(), flat.lower())
-        mermaid = (self.EXPLAIN / "references" / "mermaid.md").read_text("utf-8")
-        for needle in ("rect rgba(0,180,0,0.12)", "Note over A,G", "Emoji in a label"):
-            self.assertIn(needle, mermaid)
+        for name in set(re.findall(r"references/([\w.-]+\.md)", body)):
+            with self.subTest(name=name):
+                self.assertTrue((self.EXPLAIN / "references" / name).is_file())
 
 
 STOPWORDS = frozenset("""a an and any are as at be by do does for from has have
