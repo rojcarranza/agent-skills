@@ -231,8 +231,8 @@ python3 check-html.py <ROOT>/.onboarding
 python3 check-html.py <ROOT>/.pr-review/pr-<n> brief.html
 ```
 
-With no page name the page is `index.html` and the Markdown is every `*.md`
-under the folder. With a page name, the Markdown is the file with the same
+With no page name the page is `index.html` and the Markdown is `README.md`,
+`flows/*.md`, `modules.md` and `reviewing-prs.md`. With a page name, the Markdown is the file with the same
 stem (`brief.html` against `brief.md`), so other files in the folder, such as a
 review report, are not compared.
 
@@ -245,7 +245,11 @@ from pathlib import Path
 d = Path(sys.argv[1])
 name = sys.argv[2] if len(sys.argv) > 2 else "index.html"
 page = (d / name).read_text(encoding="utf-8")
-mds = sorted(d.rglob("*.md")) if name == "index.html" else [d / (Path(name).stem + ".md")]
+if name == "index.html":
+    mds = [d / "README.md"] + sorted((d / "flows").glob("*.md")) + [
+        p for p in (d / "modules.md", d / "reviewing-prs.md") if p.is_file()]
+else:
+    mds = [d / (Path(name).stem + ".md")]
 md = "\n".join(p.read_text(encoding="utf-8") for p in mds)
 
 def norm(s):
