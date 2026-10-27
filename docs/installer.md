@@ -39,11 +39,13 @@ the personal instructions, register the GitHub MCP server, run
 Windows home (WSL only), then install `graphify`. Every
 `cali` command `install.py` runs takes `-g --manifest <clone>/cali.yaml`:
 skills land in `~/.claude/skills` and `~/.copilot/skills`, and `cali.lock`
-is read and written next to `cali.yaml` in the clone.
+is read and written next to `cali.yaml` in the clone. The one exception is
+a Git Bash run when a WSL run owns the Windows Copilot skills: it syncs a
+Claude-only manifest instead (see "WSL: two homes").
 
 `--target` limits the cleanup, instructions, MCP servers and `graphify`.
 `cali sync` has no target option, so it always installs every target
-`cali.yaml` names.
+`cali.yaml` names, apart from that Git Bash exception.
 
 The GitHub MCP server is registered only when a GitHub login exists:
 `$token`, else `gh auth token`; with neither, `install.py` skips MCP servers
