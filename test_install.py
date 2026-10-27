@@ -1186,24 +1186,68 @@ class TestLegacyCleanup(TempDirTest):
     def test_stale_copy_kept_and_listed_with_its_path(self):
         # cali status drops a host's row once cali.yaml drops the host, so
         # nothing shows who put a real folder there: it is only reported.
-        for target, name in (("claude", "roj-b"),
-                             ("claude", "debian-linux-triage"),
-                             ("copilot", "debian-linux-triage"),
-                             ("copilot", "roj-code-review-pr-fast")):
-            for content in (OWNED.format(name), OWNED.format("my-" + name)):
-                with self.subTest(target=target, name=name, content=content):
-                    root = self.tmp / "roots" / f"{target}-{len(content)}"
-                    shutil.rmtree(root, ignore_errors=True)
-                    self.make_skill(f"roots/{target}-{len(content)}", name=name,
-                                    content=content)
-                    results, err = self.cleanup(target, root,
-                                                cali_rows=rows("ok", name))
-                    self.assertTrue((root / name / "SKILL.md").is_file())
-                    self.assertEqual(results, [])
-                    self.assertIn(f"{root / name} is left over", err)
-                    self.assertIn("delete it if it is stale", err)
-                    self.assertEqual(err.count("[ warn ]"), 1)
-                    self.assertFalse(self.backups.exists())
+        # (A retired skill that declares its own name is moved: see below.)
+        for target, name, content in (
+                ("claude", "roj-b", OWNED.format("roj-b")),
+                ("claude", "roj-b", OWNED.format("my-roj-b")),
+                ("claude", "debian-linux-triage", OWNED.format("my-debian")),
+                ("copilot", "debian-linux-triage", OWNED.format("my-debian")),
+                ("copilot", "roj-code-review-pr-fast", OWNED.format("mine"))):
+            with self.subTest(target=target, name=name, content=content):
+                root = self.tmp / "roots" / f"{target}-{len(content)}"
+                shutil.rmtree(root, ignore_errors=True)
+                self.make_skill(f"roots/{target}-{len(content)}", name=name,
+                                content=content)
+                results, err = self.cleanup(target, root,
+                                            cali_rows=rows("ok", name))
+                self.assertTrue((root / name / "SKILL.md").is_file())
+                self.assertEqual(results, [])
+                self.assertIn(f"{root / name} is left over", err)
+                self.assertIn("delete it if it is stale", err)
+                self.assertEqual(err.count("[ warn ]"), 1)
+                self.assertFalse(self.backups.exists())
+
+    def test_retired_skill_we_installed_is_moved_to_a_backup(self):
+        for target, name in (("copilot", "roj-tour-codebase"),
+                             ("copilot", "roj-code-review-pr-fast"),
+                             ("claude", "debian-linux-triage")):
+            with self.subTest(target=target, name=name):
+                root = self.tmp / "roots" / f"{target}-{name}"
+                self.make_skill(f"roots/{target}-{name}", name=name,
+                                content=OWNED.format(name) + "body\n")
+                results, err = self.cleanup(target, root,
+                                            cali_rows=rows("ok", name))
+                kept = self.backups / target / name
+                self.assertFalse((root / name).exists())
+                self.assertEqual((kept / "SKILL.md").read_text(encoding="utf-8"),
+                                 OWNED.format(name) + "body\n")
+                self.assertEqual(results, [(target, name,
+                                            f"moved to {kept} (retired skill)")])
+                self.assertEqual(err, "")
+
+    def test_retired_skill_dry_run_lists_the_move_and_moves_nothing(self):
+        root = self.tmp / "copilot"
+        self.make_skill("copilot", name="roj-tour-codebase",
+                        content=OWNED.format("roj-tour-codebase"))
+        results, err = self.cleanup("copilot", root, dry_run=True)
+        self.assertTrue((root / "roj-tour-codebase" / "SKILL.md").is_file())
+        self.assertFalse(self.backups.exists())
+        self.assertEqual(results, [(
+            "copilot", "roj-tour-codebase",
+            f"moved to {self.backups / 'copilot' / 'roj-tour-codebase'} "
+            "(retired skill)")])
+        self.assertEqual(err, "")
+
+    def test_retired_move_leaves_other_folders_untouched(self):
+        root = self.tmp / "copilot"
+        for name in ("roj-tour-codebase", "my-own", "graphify", "roj-a"):
+            self.make_skill("copilot", name=name, content=OWNED.format(name))
+        self.make_skill("copilot", name="roj-tour-codebase-2",
+                        content=OWNED.format("roj-tour-codebase-2"))
+        results, _ = self.cleanup("copilot", root, cali_rows=rows("ok", "roj-a"))
+        self.assertEqual([n for _, n, _ in results], ["roj-tour-codebase"])
+        for name in ("my-own", "graphify", "roj-a", "roj-tour-codebase-2"):
+            self.assertTrue((root / name / "SKILL.md").is_file(), name)
 
     def test_copilot_only_skill_copy_kept_for_claude(self):
         self.make_skill("claude", name="caveman", content=OWNED.format("caveman"))
@@ -1550,7 +1594,7 @@ class TestMain(TempDirTest):
 
     def run_main(self, argv, cali="/bin/cali", cali_code=0, lock=False,
                  wsl=False, externals=(), bootstrap=None, token="tok",
-                 cali_rows=None):
+                 cali_rows=None, userprofile=None):
         home = self.tmp / "home"
         (home / ".apm").mkdir(parents=True, exist_ok=True)
         if lock:
@@ -1579,7 +1623,10 @@ class TestMain(TempDirTest):
                            return_value=home / "commands"),
                 mock.patch("install.claude_rules_path",
                            return_value=home / "rules" / "personal.md"),
-                mock.patch("install.backup_dir", return_value=home / "backups"),
+                mock.patch("install.backup_dir",
+                           side_effect=lambda h=None: (h or home) / "backups"),
+                mock.patch("install.windows_userprofile",
+                           return_value=userprofile),
                 mock.patch("install.find_cli",
                            side_effect=lambda n: cali if n == "cali" else None),
                 mock.patch("install.run_cali", side_effect=fake_run),
@@ -1781,7 +1828,7 @@ class TestMain(TempDirTest):
 
     def test_wsl_hint_printed(self):
         _, _, out, _ = self.run_main([], wsl=True)
-        self.assertIn("run install.py from Git Bash too", out)
+        self.assertIn("run install.py from Git Bash for those", out)
 
     def write_shipped_rules(self):
         rules = self.tmp / "home" / "rules" / "personal.md"
@@ -1835,6 +1882,325 @@ class TestMain(TempDirTest):
         _, _, _, err = self.run_main(["--status", "--target", "claude"])
         self.assertIn("roj-explain-logic", err)
         self.assertIn("re-run install.py", err)
+
+class TestWindowsHomeResolution(TempDirTest):
+    def fake_run(self, stdout=b"", code=0):
+        return mock.Mock(stdout=stdout, returncode=code)
+
+    def test_userprofile_read_through_cmd_exe(self):
+        cmd = self.tmp / "cmd.exe"
+        cmd.write_text("")
+        for out in (b"C:\\Users\\rcarranz\r\n",
+                    b"Active code page: 65001\r\nC:\\Users\\rcarranz\r\n"):
+            with self.subTest(out=out), \
+                 mock.patch("install.shutil.which", return_value=str(cmd)), \
+                 mock.patch("install.subprocess.run",
+                            return_value=self.fake_run(out)) as run:
+                self.assertEqual(install.windows_userprofile(),
+                                 "C:\\Users\\rcarranz")
+                self.assertEqual(run.call_args[0][0][:2], [str(cmd), "/c"])
+
+    def test_userprofile_none_without_interop_or_when_cmd_fails(self):
+        with mock.patch("install.shutil.which", return_value=None), \
+             mock.patch("install.os.path.isfile", return_value=False):
+            self.assertIsNone(install.windows_userprofile())
+        cmd = self.tmp / "cmd.exe"
+        cmd.write_text("")
+        with mock.patch("install.shutil.which", return_value=str(cmd)):
+            for run in (mock.Mock(return_value=self.fake_run(b"%USERPROFILE%\r\n")),
+                        mock.Mock(return_value=self.fake_run(b"x", code=1)),
+                        mock.Mock(side_effect=OSError("no interop"))):
+                with mock.patch("install.subprocess.run", run), \
+                     mock.patch("install.os.path.isfile",
+                                side_effect=lambda f: f == str(cmd)):
+                    self.assertIsNone(install.windows_userprofile())
+
+    def test_wsl_path_converts_through_wslpath(self):
+        with mock.patch("install.shutil.which", return_value="/bin/wslpath"), \
+             mock.patch("install.subprocess.run", return_value=mock.Mock(
+                 stdout="/mnt/c/Users/rcarranz\n", returncode=0)) as run:
+            self.assertEqual(install.wsl_path("C:\\Users\\rcarranz"),
+                             Path("/mnt/c/Users/rcarranz"))
+            self.assertEqual(run.call_args[0][0],
+                             ["/bin/wslpath", "-u", "C:\\Users\\rcarranz"])
+        with mock.patch("install.shutil.which", return_value=None):
+            self.assertIsNone(install.wsl_path("C:\\Users\\x"))
+
+    def test_resolve_converts_windows_paths_and_accepts_posix_ones(self):
+        win = self.tmp / "Users" / "rcarranz"
+        win.mkdir(parents=True)
+        with mock.patch("install.wsl_path", return_value=win) as conv:
+            self.assertEqual(install.resolve_windows_home("C:\\Users\\r"),
+                             (win, None))
+            conv.assert_called_once_with("C:\\Users\\r")
+        self.assertEqual(install.resolve_windows_home(str(win)), (win, None))
+        with mock.patch("install.windows_userprofile", return_value=str(win)):
+            self.assertEqual(install.resolve_windows_home(), (win, None))
+
+    def test_resolve_explains_each_failure(self):
+        for override, userprofile, wsl, expect in (
+                (None, None, None, "cmd.exe interop"),
+                ("C:\\Users\\r", None, None, "wslpath could not convert"),
+                (str(self.tmp / "nope"), None, None, "is not a directory"),
+                (str(self.tmp), None, None, "is the Linux home")):
+            with self.subTest(expect=expect), \
+                 mock.patch("install.windows_userprofile", return_value=userprofile), \
+                 mock.patch("install.wsl_path", return_value=wsl), \
+                 mock.patch("install.Path.home", return_value=self.tmp):
+                home, why = install.resolve_windows_home(override)
+                self.assertIsNone(home)
+                self.assertIn(expect, why)
+
+
+class TestWindowsLeg(TempDirTest):
+    """A WSL run delivers the Copilot skills to the Windows home."""
+
+    run_main = TestMain.run_main
+    cali = TestMain.cali
+
+    def setUp(self):
+        super().setUp()
+        self.win = self.tmp / "mnt-c" / "Users" / "rcarranz"
+        self.win.mkdir(parents=True)
+        self.skills = self.win / ".copilot" / "skills"
+        self.linux = self.tmp / "home" / "copilot"
+        # What `cali sync` leaves in the Linux home, per the real cali.yaml.
+        self.managed = sorted(install.managed_skill_names("copilot"))
+        for name in self.managed:
+            self.make_skill("home/copilot", name=name,
+                            content=OWNED.format(name) + "new\n")
+        (self.linux / "roj-onboard-repo" / "references").mkdir()
+        (self.linux / "roj-onboard-repo" / "references" / "map.md").write_text("m")
+
+    def wsl_main(self, *argv, **kw):
+        kw.setdefault("userprofile", str(self.win))
+        return self.run_main(list(argv), wsl=True, **kw)
+
+    def test_regression_windows_home_gets_onboard_repo_and_loses_tour_codebase(self):
+        # The captain's report: the Windows home had no roj-onboard-repo and
+        # still had the retired roj-tour-codebase, so JetBrains showed old skills.
+        self.skills.mkdir(parents=True)
+        self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
+                        name="roj-tour-codebase",
+                        content=OWNED.format("roj-tour-codebase"))
+        self.make_skill("mnt-c/Users/rcarranz/.copilot/skills", name="my-own",
+                        content=OWNED.format("my-own"))
+        code, _, out, err = self.wsl_main()
+        self.assertEqual(code, 0)
+        self.assertEqual((self.skills / "roj-onboard-repo" / "SKILL.md").read_text(
+            encoding="utf-8"), OWNED.format("roj-onboard-repo") + "new\n")
+        self.assertEqual((self.skills / "roj-onboard-repo" / "references"
+                          / "map.md").read_text(), "m")
+        for name in self.managed:
+            self.assertTrue((self.skills / name / "SKILL.md").is_file(), name)
+        self.assertFalse((self.skills / "roj-tour-codebase").exists())
+        self.assertTrue((self.win / "backups" / "copilot" / "roj-tour-codebase"
+                         / "SKILL.md").is_file())
+        self.assertTrue((self.skills / "my-own" / "SKILL.md").is_file())
+        self.assertIn("windows  roj-onboard-repo", out)
+        self.assertEqual(err, "")
+        # Claude stays on the Linux side.
+        self.assertFalse((self.win / ".claude").exists())
+
+    def test_rerun_changes_nothing(self):
+        self.wsl_main()
+        before = {p: p.stat().st_mtime_ns for p in self.skills.rglob("*")}
+        _, _, out, _ = self.wsl_main()
+        self.assertEqual({p: p.stat().st_mtime_ns for p in self.skills.rglob("*")},
+                         before)
+        self.assertNotIn("windows ", out)
+        self.assertFalse((self.win / "backups").exists())
+
+    def test_differing_windows_copy_is_backed_up_then_replaced(self):
+        old = self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
+                              name="roj-onboard-repo", content="old and edited")
+        code, _, out, _ = self.wsl_main()
+        self.assertEqual(code, 0)
+        self.assertEqual((old / "SKILL.md").read_text(encoding="utf-8"),
+                         OWNED.format("roj-onboard-repo") + "new\n")
+        self.assertEqual((self.win / "backups" / "copilot" / "roj-onboard-repo"
+                          / "SKILL.md").read_text(), "old and edited")
+        self.assertIn("updated (old copy moved to", out)
+
+    def test_crlf_copy_of_an_unchanged_skill_is_not_recopied_or_backed_up(self):
+        # A Git Bash clone with core.autocrlf=true installs CRLF copies.
+        crlf = self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
+                               name="roj-onboard-repo")
+        (crlf / "SKILL.md").write_bytes(
+            (OWNED.format("roj-onboard-repo") + "new\n").replace("\n", "\r\n")
+            .encode())
+        (crlf / "references").mkdir()
+        (crlf / "references" / "map.md").write_text("m")
+        code, _, out, _ = self.wsl_main()
+        self.assertEqual(code, 0)
+        self.assertIn(b"\r\n", (crlf / "SKILL.md").read_bytes())
+        self.assertNotIn("windows  roj-onboard-repo", out)
+        self.assertFalse((self.win / "backups" / "copilot"
+                          / "roj-onboard-repo").exists())
+
+    def test_second_wsl_run_makes_no_new_backup(self):
+        self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
+                        name="roj-onboard-repo", content="from git bash")
+        self.wsl_main()
+        backups = sorted((self.win / "backups").rglob("*"))
+        self.assertTrue(backups)
+        _, _, out, _ = self.wsl_main()
+        self.assertEqual(sorted((self.win / "backups").rglob("*")), backups)
+        self.assertNotIn("windows ", out)
+
+    def git_bash_main(self, *argv):
+        """A WSL run, then a Git Bash run whose home is that Windows home."""
+        self.wsl_main()
+        self.assertTrue((self.skills / install.WSL_OWNER_MARKER).is_file())
+        shutil.rmtree(self.linux)
+        shutil.copytree(str(self.skills), str(self.linux))
+        (self.linux / "roj-onboard-repo" / "SKILL.md").write_text("wsl copy")
+        self.claude_dir = self.tmp / "clone" / ".cali-claude"
+        self.claude_dir.parent.mkdir()
+        with mock.patch("install.CLAUDE_MANIFEST_DIR", self.claude_dir):
+            return self.run_main(list(argv), wsl=False,
+                                 cali_rows=rows("unlocked", *self.managed))
+
+    def assert_copilot_left_alone(self):
+        self.assertEqual((self.linux / "roj-onboard-repo" / "SKILL.md")
+                         .read_text(), "wsl copy")
+        self.assertFalse((self.tmp / "home" / "backups").exists())
+
+    def test_git_bash_run_syncs_claude_only_when_wsl_owns_copilot(self):
+        code, calls, _, _ = self.git_bash_main()
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [install.cali_argv(
+            "/bin/cali", "sync", manifest=self.claude_dir / "cali.yaml")])
+        self.assert_copilot_left_alone()
+        home = self.tmp / "home"
+        self.assertTrue((home / "instr" / "copilot.md").is_file())
+        self.assertTrue((home / "mcp-copilot.json").is_file())
+        self.assertTrue((home / "mcp-claude.json").is_file())
+        # cali.yaml: "only roj-idea-to-project also targets Claude".
+        deps = install.parse_manifest(
+            (self.claude_dir / "cali.yaml").read_text(encoding="utf-8"))
+        self.assertEqual([(d["name"], d["source"], d["targets"]) for d in deps],
+                         [("roj-idea-to-project", ".//skills/roj-idea-to-project",
+                           ("claude",))])
+        lock = json.loads((self.claude_dir / "cali.lock").read_text())
+        repo_lock = json.loads((install.REPO_ROOT / "cali.lock").read_text())
+        self.assertEqual(lock["skills"], {"roj-idea-to-project":
+                                          repo_lock["skills"]["roj-idea-to-project"]})
+
+    def test_git_bash_claude_target_still_syncs_when_wsl_owns_copilot(self):
+        code, calls, out, _ = self.git_bash_main("--target", "claude")
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [install.cali_argv(
+            "/bin/cali", "sync", manifest=self.claude_dir / "cali.yaml")])
+        self.assertNotIn("skipped", out)
+        self.assert_copilot_left_alone()
+
+    def test_git_bash_copilot_target_skips_sync_when_wsl_owns_copilot(self):
+        code, calls, out, _ = self.git_bash_main("--target", "copilot")
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [])
+        self.assertIn("skipped (Copilot skills come from WSL)", out)
+        self.assertFalse(self.claude_dir.exists())
+        self.assert_copilot_left_alone()
+        self.assertTrue((self.tmp / "home" / "mcp-copilot.json").is_file())
+
+    def test_windows_home_flag_names_the_home(self):
+        other = self.tmp / "d-drive" / "me"
+        other.mkdir(parents=True)
+        self.wsl_main("--windows-home", str(other), userprofile=None)
+        self.assertTrue((other / ".copilot" / "skills" / "roj-onboard-repo"
+                         / "SKILL.md").is_file())
+
+    def test_unresolvable_home_is_loud_and_specific_but_linux_still_installs(self):
+        code, calls, out, err = self.wsl_main(userprofile=None)
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [self.cali("sync")])
+        self.assertIn("could not find the Windows home", err)
+        self.assertIn("cmd.exe interop", err)
+        self.assertIn("--windows-home /mnt/c/Users/", err)
+        self.assertIn("Git Bash", err)
+        self.assertFalse((self.win / ".copilot").exists())
+
+    def test_claude_only_run_skips_the_windows_leg(self):
+        code, _, _, err = self.wsl_main("--target", "claude")
+        self.assertEqual(code, 0)
+        self.assertFalse((self.win / ".copilot").exists())
+        self.assertNotIn("Windows home", err)
+
+    def test_not_wsl_never_touches_a_windows_home(self):
+        self.run_main([], wsl=False, userprofile=str(self.win))
+        self.assertFalse((self.win / ".copilot").exists())
+
+    def test_cali_failure_skips_the_windows_leg(self):
+        code, _, _, _ = self.wsl_main(cali_code=2)
+        self.assertEqual(code, 2)
+        self.assertFalse((self.win / ".copilot").exists())
+
+    def test_dry_run_lists_both_moves_and_writes_nothing(self):
+        self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
+                        name="roj-tour-codebase",
+                        content=OWNED.format("roj-tour-codebase"))
+        before = sorted(p.relative_to(self.win) for p in self.win.rglob("*"))
+        code, _, out, _ = self.wsl_main("--dry-run")
+        self.assertEqual(code, 0)
+        self.assertEqual(sorted(p.relative_to(self.win) for p in self.win.rglob("*")),
+                         before)
+        self.assertIn("windows  roj-tour-codebase", out)
+        self.assertIn("retired skill", out)
+        self.assertIn("windows  roj-onboard-repo", out)
+        self.assertIn("would be copied", out)
+
+    def test_status_shows_both_homes(self):
+        self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
+                        name="roj-tour-codebase",
+                        content=OWNED.format("roj-tour-codebase"))
+        code, _, out, err = self.wsl_main("--status")
+        self.assertEqual(code, 0)
+        self.assertIn(f"windows home: {self.win}", out)
+        self.assertRegex(err, r"windows: \d+ skill\(s\) missing or out of date "
+                              r"\(.*roj-onboard-repo.*\)")
+        self.assertIn(f"windows: roj-tour-codebase left over in {self.skills}"
+                      " - re-run install.py to move it", err)
+        self.assertTrue((self.skills / "roj-tour-codebase").is_dir())
+        self.assertFalse((self.skills / "roj-onboard-repo").exists())
+        self.wsl_main()
+        _, _, out, err = self.wsl_main("--status")
+        self.assertIn("no conflicts detected", out)
+
+    def test_status_reports_an_unresolvable_windows_home(self):
+        _, _, _, err = self.wsl_main("--status", userprofile=None)
+        self.assertIn("could not find the Windows home", err)
+
+    def test_copy_failure_is_reported_and_keeps_the_old_copy(self):
+        old = self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
+                              name="roj-onboard-repo", content="old")
+        real = os.replace
+
+        def locked(src, dest):
+            if str(self.skills) in str(dest):
+                raise PermissionError("locked")
+            return real(src, dest)
+
+        with mock.patch("install.os.replace", side_effect=locked):
+            code, _, out, err = self.wsl_main()
+        self.assertEqual(code, 0)
+        self.assertEqual((old / "SKILL.md").read_text(), "old")
+        self.assertIn("could not copy roj-onboard-repo", err)
+        self.assertRegex(out, r"windows  roj-onboard-repo +failed")
+        self.assertFalse((self.skills / ".roj-onboard-repo.tmp").exists())
+
+    def test_partial_copy_leaves_no_half_skill(self):
+        def disk_full(src, dest):
+            Path(dest).mkdir()
+            (Path(dest) / "SKILL.md").write_text("half")
+            raise shutil.Error("disk full")
+
+        with mock.patch("install.shutil.copytree", side_effect=disk_full):
+            code, _, out, err = self.wsl_main()
+        self.assertEqual(code, 0)
+        self.assertRegex(out, r"windows  roj-onboard-repo +failed")
+        self.assertEqual([p.name for p in self.skills.iterdir()
+                          if p.name.endswith(".tmp")], [])
 
 
 if __name__ == "__main__":

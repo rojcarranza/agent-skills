@@ -27,8 +27,15 @@ installed by [Cali](https://github.com/rojcarranza/cali).
    python3 install.py --update             # which skills have newer versions
    ```
 
-   On Windows use Git Bash and `python`; on WSL run it inside WSL, and
-   again from Git Bash for Windows-side VS Code and JetBrains.
+   On Windows use Git Bash and `python`. On WSL run it inside WSL: it
+   installs into the Linux home and also copies the Copilot skills to your
+   Windows home (`%USERPROFILE%`), which Windows-side VS Code and JetBrains
+   read, and moves retired skills such as `roj-tour-codebase` out of both.
+   `--windows-home PATH` names that home if it cannot be found. The WSL run
+   then owns the Windows Copilot skills folder, so WSL users run it from Git
+   Bash only for the extras it does not copy - `graphify`, the instructions,
+   the GitHub MCP server and the Claude Code skills; that run leaves the
+   Copilot skills alone.
    `install.py` runs `cali sync -g --manifest <clone>/cali.yaml`, writes the
    personal instructions and the GitHub MCP server entry, and installs
    `graphify` (a CLI Cali does not install).

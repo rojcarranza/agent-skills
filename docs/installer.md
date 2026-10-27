@@ -19,6 +19,7 @@ python3 install.py --status          # what is installed where, leftovers
 python3 install.py --update          # skills with newer versions (reports only)
 python3 install.py --upgrade         # newer graphify, then refresh its skill
 python3 install.py --skills-only     # skip graphify (e.g. PyPI blocked)
+python3 install.py --windows-home /mnt/c/Users/me   # WSL: name the Windows home
 ```
 
 | Flag | Meaning |
@@ -29,18 +30,22 @@ python3 install.py --skills-only     # skip graphify (e.g. PyPI blocked)
 | `--update` | run `cali status`: lists skills with local edits or newer upstream versions; changes nothing |
 | `--upgrade` | upgrade external CLIs (`graphify`) before refreshing their skill files |
 | `--skills-only` | skip `graphify` (e.g. PyPI blocked) |
+| `--windows-home PATH` | WSL only: the Windows home to copy the Copilot skills to (default: `%USERPROFILE%`, read through `cmd.exe`) |
 
 Run order: stop with install instructions if `cali` is missing (a dry run
 only says so), remove what older installs left (see "Old installs"), deploy
 the personal instructions, register the GitHub MCP server, run
-`cali sync -g --manifest <clone>/cali.yaml`, then install `graphify`. Every
+`cali sync -g --manifest <clone>/cali.yaml`, copy the Copilot skills to the
+Windows home (WSL only), then install `graphify`. Every
 `cali` command `install.py` runs takes `-g --manifest <clone>/cali.yaml`:
 skills land in `~/.claude/skills` and `~/.copilot/skills`, and `cali.lock`
-is read and written next to `cali.yaml` in the clone.
+is read and written next to `cali.yaml` in the clone. The one exception is
+a Git Bash run when a WSL run owns the Windows Copilot skills: it syncs a
+Claude-only manifest instead (see "WSL: two homes").
 
 `--target` limits the cleanup, instructions, MCP servers and `graphify`.
 `cali sync` has no target option, so it always installs every target
-`cali.yaml` names.
+`cali.yaml` names, apart from that Git Bash exception.
 
 The GitHub MCP server is registered only when a GitHub login exists:
 `$token`, else `gh auth token`; with neither, `install.py` skips MCP servers
@@ -142,11 +147,17 @@ skills in `cali.yaml` for that target.
   `~/.apm/apm.lock.yaml` lists them; anything else there (other tools use
   that folder) is left alone.
 
-- A skill Cali no longer installs for that agent - a Copilot-only skill in
-  `~/.claude/skills` (every one but `roj-idea-to-project`), and the pruned
-  community skills (`RETIRED_SKILLS` in `install.py`) in either agent - is
-  only moved to the same backup folder when it is a link an older installer
-  made (into a checkout of this repo, or dangling). A real folder is kept:
+- A retired skill (`RETIRED_SKILLS` in `install.py`: the pruned community
+  skills, `roj-tour-codebase`, `roj-code-review-pr-fast`) in either agent is
+  moved to the same backup folder when it is a real folder whose `SKILL.md`
+  declares that name - only our own installs and `cali.yaml` ever put a skill
+  of that name there - or a link an older installer made. A folder of that
+  name declaring another name is kept with the left-over warning below.
+- A skill Cali no longer installs for that agent but that is not retired -
+  a Copilot-only skill in `~/.claude/skills` (every one but
+  `roj-idea-to-project`) - is only moved to the same backup folder when it is
+  a link an older installer made (into a checkout of this repo, or
+  dangling). A real folder is kept:
   Cali keeps no record of the agents a skill was dropped from, so nothing
   shows who put it there. The run and `--status` print its full path with a
   warning that it is left over; delete it by hand if it is stale. Skills
@@ -178,7 +189,77 @@ its README); it needs `git` on PATH. On Ubuntu 24.04 (WSL) a plain
 | Run as | `python3 install.py` | `python install.py` (Windows Python) | `python3 install.py` |
 | Home | `$HOME` | `%USERPROFILE%` | Linux `$HOME` |
 | `cali` lookup | `PATH`, `~/.local/bin` | `PATH` plus `.exe`/`.cmd` suffixes and the pip user Scripts dir | as Linux |
-| Serves | Claude Code, Copilot CLI/VS Code/JetBrains | the same, Windows side | Claude Code and Copilot CLI inside WSL; Windows-side IDEs need a Git Bash run too |
+| Serves | Claude Code, Copilot CLI/VS Code/JetBrains | the same, Windows side | Claude Code and Copilot CLI inside WSL (Linux home) and, through the Windows leg below, Windows-side VS Code and JetBrains (Copilot skills only) |
+
+### WSL: two homes
+
+A WSL run installs into the Linux home with Cali, as on Linux. Windows-side
+VS Code and JetBrains do not read it: they run on Windows and read
+`%USERPROFILE%` (`~/.copilot/skills` there). Installed from WSL alone, a
+Windows IDE keeps showing whatever an earlier Windows install left, and a
+skill added since (say `roj-onboard-repo`) never appears. So when WSL is
+detected and Copilot is a target, `install.py` also delivers to the Windows
+home, after `cali sync` succeeds:
+
+- The home is `%USERPROFILE%`, asked of Windows through `cmd.exe` interop and
+  converted with `wslpath -u`, or the path given to `--windows-home`.
+- It copies each skill Cali manages for Copilot from the Linux
+  `~/.copilot/skills` to `<Windows home>/.copilot/skills`. A folder that
+  already matches, ignoring CRLF versus LF line endings (a Git Bash clone
+  with `core.autocrlf` checks skills out with CRLF), is left alone, so a
+  re-run changes nothing and makes no new backup.
+  One that differs is moved to
+  `<Windows home>/.agent-skills-backups/<UTC time>/copilot/<name>` first,
+  and the copy is built beside it and renamed into place, so an interrupted
+  run leaves no half skill.
+- The run owns that folder from then on: it writes
+  `<Windows home>/.copilot/skills/.installed-from-wsl`, and a Git Bash run
+  that finds the file skips Copilot skill delivery and the clean-up of
+  Copilot skill folders, so the two runs never undo each other. A Git Bash copy the WSL
+  run finds that differs is taken over once: moved to the backup folder and
+  replaced. Delete the file to hand the folder back to Git Bash.
+- Retired skills in the Windows skills folder are moved to the same backup
+  as above, so `roj-tour-codebase` stops showing there.
+- `--dry-run` lists the copies and moves; `--status` prints the Windows home
+  and what a run would still change.
+- If the Windows home cannot be resolved (interop off, `wslpath` missing, the
+  path not a directory) the run still installs the Linux home, then prints a
+  warning saying why and how to fix it: pass `--windows-home
+  /mnt/c/Users/<you>`, or run `install.py` from Git Bash.
+
+Not delivered to Windows: Claude Code (out of scope: Claude on Windows is a
+Git Bash run), `graphify` (its CLI has to be on the Windows PATH too), the
+personal instructions and the GitHub MCP server. Run `install.py` from Git
+Bash for those extras: with WSL owning the Copilot skills it installs them
+and the Claude Code skills, and no Copilot skills (with `--target copilot`
+it runs no `cali sync` at all).
+
+`cali sync` has no option to install one target, and a second manifest
+next to `cali.yaml` would share and prune `cali.lock`. So that Git Bash run
+writes `<clone>/.cali-claude/` (git-ignored): a `cali.yaml` holding the
+`cali.yaml` skills that target Claude, limited to Claude, and a `cali.lock`
+holding their `cali.lock` pins, then runs
+`cali sync -g --manifest <clone>/.cali-claude/cali.yaml`. The folder sits in
+the clone because Cali resolves a `.//` source to the repo that holds the
+manifest. Cali keys its pristine copies by tree, so the main manifest and
+this one share them.
+
+Why a copy and not `cali sync` with `HOME` set to the Windows home: Cali
+honours `HOME`, but it would also install the Claude target there, write its
+pristine copies and cache under `/mnt/c/Users/<you>/.local` and treat every
+folder a Git Bash run left (which keeps its pristine copies elsewhere) as
+not its own. Copying the Cali-installed folders is the simpler, more robust
+route; a Cali option to install one target into a given home would let
+this leg use Cali later (follow-up, not done here).
+
+Which Copilot surface reads which folder (checked against the GitHub and VS
+Code docs): personal skills are read from `~/.copilot/skills`,
+`~/.claude/skills` and `~/.agents/skills` by Copilot CLI and agent mode in
+VS Code; JetBrains lists skills as a preview feature. The docs do not say
+how VS Code with Remote - WSL or JetBrains opening a WSL project resolve `~`.
+The two homes cover every case: Copilot CLI in WSL reads the Linux home,
+Windows IDEs the Windows one (the Linux home is also the one the Remote - WSL
+extension host should see; this is untested here).
 
 Legacy cleanup on Windows handles copies, never assumes symlinks. Every file
 the installer writes is UTF-8 with `\n` line endings. CI runs the unit tests
