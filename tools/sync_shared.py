@@ -68,6 +68,9 @@ SHARED = {
         "roj-explain-logic/references",
         "roj-explain-feature-changes/references",
     ),
+    "roj-onboard-repo/references/html-page.md": (
+        "roj-explain-logic/references",
+    ),
 }
 
 

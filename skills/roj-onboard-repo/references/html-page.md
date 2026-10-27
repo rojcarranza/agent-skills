@@ -6,6 +6,11 @@ navigation across README, flows, modules and reviewing PRs, cards, tables,
 readable light and dark themes, and rendered diagrams. The Markdown files stay
 the checked source; the page is the same content in a nicer frame.
 
+`roj-explain-logic` reuses this contract for a PR brief:
+`.pr-review/pr-<n>/brief.md` and `brief.html`, one `<section class="doc"
+id="brief">`. Wherever this file says "the guide", read "the Markdown the page
+is built from".
+
 ## Contents
 
 - Contract
@@ -45,8 +50,8 @@ the checked source; the page is the same content in a nicer frame.
 
 | Markdown | HTML |
 | --- | --- |
-| each file | one `<section class="doc" id="readme">`, `id="flow-01-<slug>"`, `id="modules"`, `id="reviewing-prs"`, in that order, with the file's title as `<h2>` |
-| the header `> Built from commit ...` line | `<p class="stamp">` under the title, same words |
+| each file | one `<section class="doc" id="readme">`, `id="flow-01-<slug>"`, `id="modules"`, `id="reviewing-prs"`, in that order, with the file's title as `<h2>`; any other file: `<section class="doc" id="<file stem>">` (`brief.md` is `id="brief"`) |
+| the header `> Built from ...` lines | one `<p class="stamp">` each under the title, same words |
 | `## N. Heading` | `<article class="card"><h3>N. Heading</h3>...</article>` |
 | `### Heading` | `<h4>` inside the card |
 | paragraph, list | `<p>`, `<ol>` or `<ul>`, inline `` `code` `` as `<code>` |
@@ -74,7 +79,7 @@ styles and the script as they are, adjusting only what the repository needs.
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>REPO - onboarding guide</title>
+<title>TITLE</title>
 <style>
   :root {
     --bg: #f7f7f5; --panel: #ffffff; --text: #1d2125; --muted: #5b6570;
@@ -136,8 +141,8 @@ styles and the script as they are, adjusting only what the repository needs.
 </head>
 <body>
 <div class="layout">
-  <nav class="side" aria-label="Guide sections">
-    <h1>REPO</h1>
+  <nav class="side" aria-label="Page sections">
+    <h1>NAME</h1>
     <!-- one <a href="#readme"> per section, nested <a class="sub"> per README card -->
     <a href="#readme">README</a>
     <a class="sub" href="#readme-system-map">2. System map</a>
@@ -149,8 +154,9 @@ styles and the script as they are, adjusting only what the repository needs.
   <main>
     <div id="mermaid-banner" role="status">Diagrams could not load from cdn.jsdelivr.net, so each one is shown as Mermaid source.</div>
     <section class="doc" id="readme">
-      <h2>REPO - onboarding guide</h2>
+      <h2>TITLE</h2>
       <p class="stamp">Built from commit <code>SHA</code> (DATE, branch <code>BRANCH</code>). Every claim cites <code>path:line</code>.</p>
+      <!-- brief.html: the same stamp, then the intent and repo-map lines as <p class="stamp"> -->
       <article class="card" id="readme-system-map">
         <h3>2. System map</h3>
         <figure class="diagram">
@@ -172,7 +178,7 @@ styles and the script as they are, adjusting only what the repository needs.
 <script>
 (function () {
   var root = document.documentElement;
-  try { var saved = localStorage.getItem("onboard-theme"); if (saved) root.setAttribute("data-theme", saved); } catch (e) {}
+  try { var saved = localStorage.getItem("doc-theme"); if (saved) root.setAttribute("data-theme", saved); } catch (e) {}
   function theme() {
     return root.getAttribute("data-theme") ||
       (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
@@ -197,7 +203,7 @@ styles and the script as they are, adjusting only what the repository needs.
   document.getElementById("theme-toggle").addEventListener("click", function () {
     var next = theme() === "dark" ? "light" : "dark";
     root.setAttribute("data-theme", next);
-    try { localStorage.setItem("onboard-theme", next); } catch (e) {}
+    try { localStorage.setItem("doc-theme", next); } catch (e) {}
     draw();
   });
   draw();
@@ -222,7 +228,13 @@ Save it to a scratch file outside the repository and run it with `python3`
 
 ```
 python3 check-html.py <ROOT>/.onboarding
+python3 check-html.py <ROOT>/.pr-review/pr-<n> brief.html
 ```
+
+With no page name the page is `index.html` and the Markdown is `README.md`,
+`flows/*.md`, `modules.md` and `reviewing-prs.md`. With a page name, the Markdown is the file with the same
+stem (`brief.html` against `brief.md`), so other files in the folder, such as a
+review report, are not compared.
 
 `check-html.py`:
 
@@ -231,9 +243,13 @@ import html, re, sys
 from pathlib import Path
 
 d = Path(sys.argv[1])
-page = (d / "index.html").read_text(encoding="utf-8")
-mds = [d / "README.md"] + sorted((d / "flows").glob("*.md")) + [
-    p for p in (d / "modules.md", d / "reviewing-prs.md") if p.is_file()]
+name = sys.argv[2] if len(sys.argv) > 2 else "index.html"
+page = (d / name).read_text(encoding="utf-8")
+if name == "index.html":
+    mds = [d / "README.md"] + sorted((d / "flows").glob("*.md")) + [
+        p for p in (d / "modules.md", d / "reviewing-prs.md") if p.is_file()]
+else:
+    mds = [d / (Path(name).stem + ".md")]
 md = "\n".join(p.read_text(encoding="utf-8") for p in mds)
 
 def norm(s):
@@ -271,8 +287,9 @@ the page is regenerated from it.
 Print one of these in the handoff, with the real absolute path:
 
 - `lavish-axi` on `PATH` (check with `command -v lavish-axi`; never run it
-  yourself): `lavish-axi <ROOT>/.onboarding/index.html`, which opens it in
-  Lavish with annotation and feedback.
+  yourself): `lavish-axi <path of the page>` (`<ROOT>/.onboarding/index.html`,
+  `<ROOT>/.pr-review/pr-<n>/brief.html`), which opens it in Lavish with
+  annotation and feedback.
 - Otherwise open the file in a browser (`open` on macOS, `xdg-open` on Linux,
   `start` on Windows), or from the IDE: right-click the file, Open in Browser.
 

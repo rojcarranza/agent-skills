@@ -1,8 +1,8 @@
 # Mermaid diagrams
 
-Every diagram a skill writes — in chat, in a report, in `.onboarding/` — is
-a fenced ```` ```mermaid ```` block. No ASCII art, no indented trees, no
-images. Mermaid renders on GitHub and in the IDE preview, and stays a
+Every diagram a skill writes — in chat, in a report, in `.onboarding/` or
+`.pr-review/` — is a fenced ```` ```mermaid ```` block. No ASCII art, no
+indented trees, no images. Mermaid renders on GitHub and in the IDE preview, and stays a
 reviewable text diff.
 
 ## Contents
@@ -10,6 +10,7 @@ reviewable text diff.
 - Pick the diagram for the job
 - Draw from evidence
 - The safe subset
+- Flow diff: a sequence diagram of what a change touches
 - Syntax that renders the first time
 - Pitfalls
 - Validate
@@ -27,6 +28,7 @@ reviewable text diff.
 | a lifecycle: job, order, deployment states | state | `stateDiagram-v2` (only when a state field or enum exists) |
 | data shapes and their relations | entity-relationship | `erDiagram` (only when real tables or models exist) |
 | before/after of a structure | two flowcharts | `flowchart LR` each |
+| what a PR changes, step by step | flow diff | `sequenceDiagram` with `rect` blocks (see below) |
 
 One diagram answers one question. At most 15 nodes and 25 edges per diagram;
 when a picture needs more, split it (one per layer, or one overview plus one
@@ -50,12 +52,39 @@ zoom) rather than shrink it. At most eight diagrams per run.
 Five types, tested to parse on Mermaid 8.14.0, 9.4.3, 10.9.3 and 11.12.0,
 which covers every IDE bundle seen so far: `flowchart` (`TD` or `LR`, with
 subgraphs, cylinders and edge labels), `sequenceDiagram` (`autonumber`,
-`alt`, `Note`), `classDiagram`, `stateDiagram-v2`, `erDiagram`.
+`alt`, `Note`, `rect`), `classDiagram`, `stateDiagram-v2`, `erDiagram`.
 
 Use `flowchart`, not `graph`. Never use `architecture-beta`, `block-beta`,
 `mindmap`, C4 diagrams, `zenuml`, `@{ shape: ... }` nodes, `fa:` icons,
 `%%{init}%%`, `click` or HTML in labels: each fails or renders differently on
 at least one host.
+
+## Flow diff: a sequence diagram of what a change touches
+
+The one place colour carries meaning. A diagram of a PR draws only the steps
+the change adds, alters or removes, in run order, each class in its own
+`rect` block (a translucent fill, so it reads in light and dark themes):
+
+```text
+rect rgba(0,180,0,0.12)      new
+rect rgba(255,190,0,0.15)    changed
+rect rgba(220,0,0,0.12)      removed
+```
+
+Colour is not the only signal, because a host may ignore it. Every message
+and note starts with a tag, `+` new, `~` changed, `-` removed, and ends with
+its evidence tier word (`read`, `inferred` or `ran`):
+
+```text
+A->>S: + token-status, read
+Note over A,G: - removed: gh pr diff and gh api reviews POST, read
+```
+
+A removed step has nothing left to call, so it is a `Note over` inside a red
+block, not a message, and not numbered. `autonumber` numbers messages only,
+so the numbers line up with the proof list. At most 12 steps and 5
+participants. `rect` takes `rgba(...)` or `rgb(...)` only, no `%%{init}%%`
+and no `classDef`.
 
 ## Syntax that renders the first time
 
@@ -68,7 +97,8 @@ at least one host.
 - In `sequenceDiagram`, declare `participant` lines first, in the order the
   reader meets them, and alias long names: `participant OS as OrderService`.
 - No theme, `%%{init}%%` or `classDef` colour styling. Diagrams must read in
-  light and dark themes with the renderer's defaults.
+  light and dark themes with the renderer's defaults; the only colour is the
+  `rect` blocks of a flow diff, which carry a `+` `~` `-` tag as well.
 - One blank line before and after the fence; nothing else on the fence line
   but `` ```mermaid ``.
 
@@ -88,6 +118,7 @@ Each row was run against Mermaid 11.12 unless marked "documented".
 | More than 50,000 characters | documented: "Maximum text size in diagram exceeded", with no way to raise it in some JetBrains builds | split; the 15-node rule keeps a block near 1 KB |
 | `A---oB` | documented: `---o` is the circle edge, not an edge to `oB` | put a space before an id that starts with `o` or `x` |
 | `<br/>`, `click`, `fa:` icons | parse, but render differs by host | do not use |
+| Emoji in a label | parses on 8.14.0, 10.9.3 and 11.12.0; glyph support in an IDE preview unverified | keep emoji in the prose, use `+` `~` `-` in labels |
 | `@{ shape: cyl }`, `architecture-beta` | fail on 8.14, 9.4.3, 10.9.3 | use `[( )]` for a cylinder, a flowchart for the rest |
 | `block-beta`, `mindmap` | fail on 8.14.0 and 9.4.3 | do not use |
 | `C4Context`, `zenuml` | fail on 8.14 and 11.12 respectively | do not use |

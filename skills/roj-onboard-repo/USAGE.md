@@ -152,7 +152,8 @@ The detail lives in `references/` as prose checklists - edit them directly:
   stack (Java/Spring, Python, Go, Node/TypeScript, Bash, Bamboo,
   Docker/Kubernetes/Helm).
 - `html-page.md` - the `index.html` contract, page skeleton and the check
-  script that compares it with the Markdown.
+  script that compares it with the Markdown. Shared with `roj-explain-logic`
+  (its PR brief page): edit it here, then run `python3 tools/sync_shared.py`.
 - `mermaid.md` - the diagram subset, syntax, pitfalls, the optional parse
   check, viewing. Shared: edit it here, then run
   `python3 tools/sync_shared.py`.

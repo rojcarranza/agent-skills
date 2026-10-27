@@ -73,7 +73,7 @@ tools, is in [docs/workflow.md](docs/workflow.md).
 | --- | --- |
 | [`roj-code-review-pr`](skills/roj-code-review-pr/USAGE.md) | Reviews a branch, a teammate's branch or a Bitbucket Data Center PR, without a checkout: `auto` picks a quick chat-only pass or a full review (change summary, severity/confidence-tagged findings, a `-review.md` report) from the size and risk of the diff. Optional intent source (PR text, Jira story, SB acceptance criteria). Loads language/platform rules (Java, Python, Bash, Go, Bamboo, Docker, k8s, Helm) only for stacks the diff touches. Git-only. |
 | [`roj-review-pr-comment`](skills/roj-review-pr-comment/USAGE.md) | Reviews a Bitbucket Data Center PR with the same method, fetched by ref with no checkout, and drafts the findings as pasteable `path:line` comments. Posts them through the Bitbucket REST API only when asked and a `BITBUCKET_TOKEN` is set. The only skill that writes to the PR host. |
-| [`roj-explain-logic`](skills/roj-explain-logic/USAGE.md) | Guided walkthrough of a PR, branch, file or function: big picture → execution flow → why → gotchas, with language lenses. Optional explain-and-review mode. |
+| [`roj-explain-logic`](skills/roj-explain-logic/USAGE.md) | Guided walkthrough of a PR, branch, file or function: big picture → execution flow → why → gotchas, with language lenses. A PR or branch is written as a brief in `.pr-review/pr-<n>/` (`brief.md` plus a one-page `brief.html`) with a flow diagram of what the change touches. Optional explain-and-review mode. |
 | [`roj-explain-feature-changes`](skills/roj-explain-feature-changes/USAGE.md) | Explains your own branch against `develop`/`main` with traced before/after behaviour, then writes PR-ready text and per-change comments. |
 | [`roj-onboard-repo`](skills/roj-onboard-repo/USAGE.md) | Onboarding into an unfamiliar repo: a Markdown guide in `.onboarding/` plus a one-page `index.html` (open it in Lavish or a browser) with Mermaid diagrams of the architecture and a core flow, a code walkthrough anchored to `path:line`, a reading order, and a page on reviewing a colleague's PR. Stops on a failed read instead of guessing. CodeTour only on request. |
 | [`roj-investigate-issue`](skills/roj-investigate-issue/USAGE.md) | Problem `.md` in, validated root cause and fix steps out (Bamboo, Java, Python, Bash, Go, Docker, k8s). |
@@ -83,7 +83,8 @@ tools, is in [docs/workflow.md](docs/workflow.md).
 | [`roj-interview-prep`](skills/roj-interview-prep/USAGE.md) | DevOps technical-interview document generated from a candidate's CV. |
 
 Diagrams are always Mermaid: `roj-onboard-repo` puts a system map and a
-core-flow diagram in `.onboarding/README.md`, and the explain skills draw
+core-flow diagram in `.onboarding/README.md`, `roj-explain-logic` puts a flow
+diff of a PR in `.pr-review/pr-<n>/brief.md`, and the explain skills draw
 flows and before/after structure the same way. GitHub renders them; VS Code
 1.121 and later renders them in the built-in Markdown preview, JetBrains in
 the Markdown preview with its Mermaid plugin ticked.
