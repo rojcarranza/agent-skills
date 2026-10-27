@@ -20,7 +20,6 @@ python3 install.py --update          # skills with newer versions (reports only)
 python3 install.py --upgrade         # newer graphify, then refresh its skill
 python3 install.py --skills-only     # skip graphify (e.g. PyPI blocked)
 python3 install.py --windows-home /mnt/c/Users/me   # WSL: name the Windows home
-python3 install.py --no-windows-home                # WSL: Linux home only
 ```
 
 | Flag | Meaning |
@@ -32,7 +31,6 @@ python3 install.py --no-windows-home                # WSL: Linux home only
 | `--upgrade` | upgrade external CLIs (`graphify`) before refreshing their skill files |
 | `--skills-only` | skip `graphify` (e.g. PyPI blocked) |
 | `--windows-home PATH` | WSL only: the Windows home to copy the Copilot skills to (default: `%USERPROFILE%`, read through `cmd.exe`) |
-| `--no-windows-home` | WSL only: install into the Linux home only |
 
 Run order: stop with install instructions if `cali` is missing (a dry run
 only says so), remove what older installs left (see "Old installs"), deploy
@@ -203,14 +201,21 @@ home, after `cali sync` succeeds:
 
 - The home is `%USERPROFILE%`, asked of Windows through `cmd.exe` interop and
   converted with `wslpath -u`, or the path given to `--windows-home`.
-  `--no-windows-home` skips the leg.
 - It copies each skill Cali manages for Copilot from the Linux
   `~/.copilot/skills` to `<Windows home>/.copilot/skills`. A folder that
-  already matches byte for byte is left alone, so a re-run changes nothing.
+  already matches, ignoring CRLF versus LF line endings (a Git Bash clone
+  with `core.autocrlf` checks skills out with CRLF), is left alone, so a
+  re-run changes nothing and makes no new backup.
   One that differs is moved to
   `<Windows home>/.agent-skills-backups/<UTC time>/copilot/<name>` first,
   and the copy is built beside it and renamed into place, so an interrupted
   run leaves no half skill.
+- The run owns that folder from then on: it writes
+  `<Windows home>/.copilot/skills/.installed-from-wsl`, and a Git Bash run
+  that finds the file skips `cali sync` and the clean-up of Copilot skill
+  folders, so the two runs never undo each other. A Git Bash copy the WSL
+  run finds that differs is taken over once: moved to the backup folder and
+  replaced. Delete the file to hand the folder back to Git Bash.
 - Retired skills in the Windows skills folder are moved to the same backup
   as above, so `roj-tour-codebase` stops showing there.
 - `--dry-run` lists the copies and moves; `--status` prints the Windows home
@@ -223,7 +228,9 @@ home, after `cali sync` succeeds:
 Not delivered to Windows: Claude Code (out of scope: Claude on Windows is a
 Git Bash run), `graphify` (its CLI has to be on the Windows PATH too), the
 personal instructions and the GitHub MCP server. Run `install.py` from Git
-Bash for those.
+Bash for those extras only: with WSL owning the Copilot skills it installs
+them and nothing from `cali.yaml` (so Claude Code on Windows gets no Cali
+skills either).
 
 Why a copy and not `cali sync` with `HOME` set to the Windows home: Cali
 honours `HOME`, but it would also install the Claude target there, write its

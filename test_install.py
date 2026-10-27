@@ -2022,12 +2022,52 @@ class TestWindowsLeg(TempDirTest):
                           / "SKILL.md").read_text(), "old and edited")
         self.assertIn("updated (old copy moved to", out)
 
-    def test_no_windows_home_flag_opts_out(self):
-        code, _, out, err = self.wsl_main("--no-windows-home")
+    def test_crlf_copy_of_an_unchanged_skill_is_not_recopied_or_backed_up(self):
+        # A Git Bash clone with core.autocrlf=true installs CRLF copies.
+        crlf = self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
+                               name="roj-onboard-repo")
+        (crlf / "SKILL.md").write_bytes(
+            (OWNED.format("roj-onboard-repo") + "new\n").replace("\n", "\r\n")
+            .encode())
+        (crlf / "references").mkdir()
+        (crlf / "references" / "map.md").write_text("m")
+        code, _, out, _ = self.wsl_main()
         self.assertEqual(code, 0)
-        self.assertFalse((self.win / ".copilot").exists())
+        self.assertIn(b"\r\n", (crlf / "SKILL.md").read_bytes())
+        self.assertNotIn("windows  roj-onboard-repo", out)
+        self.assertFalse((self.win / "backups" / "copilot"
+                          / "roj-onboard-repo").exists())
+
+    def test_second_wsl_run_makes_no_new_backup(self):
+        self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
+                        name="roj-onboard-repo", content="from git bash")
+        self.wsl_main()
+        backups = sorted((self.win / "backups").rglob("*"))
+        self.assertTrue(backups)
+        _, _, out, _ = self.wsl_main()
+        self.assertEqual(sorted((self.win / "backups").rglob("*")), backups)
         self.assertNotIn("windows ", out)
-        self.assertNotIn("Windows home", err)
+
+    def test_git_bash_run_leaves_wsl_owned_copilot_skills_alone(self):
+        self.wsl_main()
+        marker = self.skills / install.WSL_OWNER_MARKER
+        self.assertTrue(marker.is_file())
+        # The Git Bash run's home is the Windows home the WSL run wrote to.
+        shutil.rmtree(self.linux)
+        shutil.copytree(str(self.skills), str(self.linux))
+        (self.linux / "roj-onboard-repo" / "SKILL.md").write_text("wsl copy")
+        code, calls, out, _ = self.run_main([], wsl=False,
+                                            cali_rows=rows("unlocked",
+                                                           *self.managed))
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [])
+        self.assertIn("skipped (skills come from WSL)", out)
+        self.assertEqual((self.linux / "roj-onboard-repo" / "SKILL.md")
+                         .read_text(), "wsl copy")
+        home = self.tmp / "home"
+        self.assertFalse((home / "backups").exists())
+        self.assertTrue((home / "instr" / "copilot.md").is_file())
+        self.assertTrue((home / "mcp-copilot.json").is_file())
 
     def test_windows_home_flag_names_the_home(self):
         other = self.tmp / "d-drive" / "me"
@@ -2084,7 +2124,8 @@ class TestWindowsLeg(TempDirTest):
         self.assertIn(f"windows home: {self.win}", out)
         self.assertRegex(err, r"windows: \d+ skill\(s\) missing or out of date "
                               r"\(.*roj-onboard-repo.*\)")
-        self.assertIn("windows: roj-tour-codebase moved to", err)
+        self.assertIn(f"windows: roj-tour-codebase left over in {self.skills}"
+                      " - re-run install.py to move it", err)
         self.assertTrue((self.skills / "roj-tour-codebase").is_dir())
         self.assertFalse((self.skills / "roj-onboard-repo").exists())
         self.wsl_main()
@@ -2112,6 +2153,19 @@ class TestWindowsLeg(TempDirTest):
         self.assertIn("could not copy roj-onboard-repo", err)
         self.assertRegex(out, r"windows  roj-onboard-repo +failed")
         self.assertFalse((self.skills / ".roj-onboard-repo.tmp").exists())
+
+    def test_partial_copy_leaves_no_half_skill(self):
+        def disk_full(src, dest):
+            Path(dest).mkdir()
+            (Path(dest) / "SKILL.md").write_text("half")
+            raise shutil.Error("disk full")
+
+        with mock.patch("install.shutil.copytree", side_effect=disk_full):
+            code, _, out, err = self.wsl_main()
+        self.assertEqual(code, 0)
+        self.assertRegex(out, r"windows  roj-onboard-repo +failed")
+        self.assertEqual([p.name for p in self.skills.iterdir()
+                          if p.name.endswith(".tmp")], [])
 
 
 if __name__ == "__main__":
