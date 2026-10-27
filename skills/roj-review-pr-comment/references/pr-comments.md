@@ -51,7 +51,7 @@ A suggestion (non-blocking, never a Bitbucket task or a blocker comment):
 
 Cost of leaving it: <sentence>.
 
-Instead: <existing helper path:line, or a plain fenced block of at most 6 lines>.
+Instead: <existing helper path:line, or a plain fenced block of at most 6 lines>. Same behaviour because: <sentence>.
 ```
 
 ## Layout

@@ -83,8 +83,8 @@ generated, vendored and lockfile paths:
 - a deploy or CI file: Bamboo spec, Kubernetes manifest, Helm chart,
   Dockerfile or compose file, `Jenkinsfile`, `bitbucket-pipelines.yml`,
   `.github/workflows`;
-- Ansible: a playbook, role, inventory or `ansible.cfg`, or any `*.yml` under
-  a `playbooks/` or `roles/` directory;
+- Ansible: a playbook, role, inventory or `ansible.cfg`, or any `*.yml` or
+  `*.yaml` under a `playbooks/` or `roles/` directory at any depth;
 - auth, secrets, credentials, permissions or crypto code or config;
 - a schema or data migration (`migrations/`, `*.sql`);
 - a contract file (`*.proto`, `openapi*`, `swagger*`).

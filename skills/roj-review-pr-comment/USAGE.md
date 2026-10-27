@@ -39,7 +39,8 @@ which calls the script makes.
 |---|---|
 | VS Code Copilot | `/roj-review-pr-comment 142` or `/roj-review-pr-comment https://bitbucket.example.com/projects/KEY/repos/slug/pull-requests/142/overview` |
 | JetBrains Copilot | `/skill:roj-review-pr-comment 142` |
-| Plain English | `Review PR 142, it merges into develop` (draft) or `Review PR 142 and post the comments` |
+| Plain English | `Review PR 142, it merges into develop` (draft) or `Review PR 142 and post the comments` (posts the defects) |
+| Post suggestions too | `Review PR 142 and post the comments, improve` |
 | Defects only | `Review PR 142 and comment, no suggestions` |
 
 A bare PR id takes the project and repository from the `origin` remote. The
@@ -70,7 +71,8 @@ never guessed from `origin/HEAD`.
 5. Prints the draft: a summary comment and up to 15 inline comments, each in
    its own block. Findings without a commentable line, and any past 15, go in
    the summary.
-6. On an explicit request, or a yes: posts the inline comments and then one
+6. On an explicit request, or a yes: posts the inline defect comments (and
+   the suggestion comments only when you said `improve`) and then one
    PR-level summary comment ending in ``Reviewed commit `<sha>` ``. That line
    stops a second run from reviewing the same commit; a newer commit is
    reviewed again and skips what was already said.
@@ -86,7 +88,9 @@ the inline slots first; suggestions take at most 5 of the slots left, and the
 rest go to the summary under *Further suggestions*. A suggestion comment starts
 `💡 **Suggestion (non-blocking)**`, names its lens (Reuse, Simplify, Clarity,
 Convention) and gives the cost of leaving it and the concrete change. They are
-plain comments, never Bitbucket tasks. With `no suggestions` nothing is
+plain comments, never Bitbucket tasks. A post publishes the defects only and
+leaves the suggestions in the draft, listed in the closing line, unless the
+request or your yes says `improve`. With `no suggestions` nothing is
 suggested and nothing like it is posted. The rules are in
 `references/improvement-pass.md`; the text of every comment is
 `references/pr-comments.md`, the format `roj-code-review-pr` also ends a PR

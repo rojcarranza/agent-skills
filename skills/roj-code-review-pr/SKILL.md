@@ -23,7 +23,7 @@ Read them before reviewing; run the self-check below before printing.
 1. **Header line** - `<target> vs <base> @ <sha12> · mode: <quick|full> (<why>) · improve: <on|off> · <n> files · +<a>/-<b> · lens: <names or none>`
 2. **Verdict line** - `Verdict: <approve | approve with nits | changes requested | blocked> - <n> Blocker, <n> Major (+ <s> suggestions)`; full mode adds Minor and Nit counts.
 3. **Findings**, worst first, each with all four parts: marker (🔴 Blocker, 🟠 Major, 🟡 Minor, 🔵 Nit - never "High", "Medium" or "Low"), `path:line`, the defect with its confidence, `Fails when:` and `Fix:` (the concrete change, in code when it is a few lines).
-4. **Suggestions** when `improve` is on, after the defects: `💡 path:line · <Lens> · <Confidence> - <what>. Cost of leaving it: ... Instead: ...`; nothing to suggest: `Suggestions: none worth suggesting`.
+4. **Suggestions** when `improve` is on, after the defects: `💡 path:line · <Lens> · <Confidence> - <what>. Cost of leaving it: ... Instead: ... Same behaviour because: ...`; nothing to suggest: `Suggestions: none worth suggesting`.
 5. **Full mode:** `.pr-review/.../review.md` written first, then chat; a PR target also ends both with `### Comments to paste`.
 
 Quick, in chat, nothing written:
@@ -36,7 +36,7 @@ Verdict: changes requested - 0 Blocker, 2 Major (+ 1 suggestions)
 🟠 `path:line` · Confirmed - <defect>. Fails when: <scenario>. Fix: <change>.
 
 Suggestions (non-blocking, not in the verdict):
-💡 `path:line` · Reuse · Confirmed - <what>. Cost of leaving it: <sentence>. Instead: <change>.
+💡 `path:line` · Reuse · Confirmed - <what>. Cost of leaving it: <sentence>. Instead: <change>. Same behaviour because: <sentence>.
 
 Diff-local pass only - callers, config coupling and tests were not checked.
 Say `full` for the full review.

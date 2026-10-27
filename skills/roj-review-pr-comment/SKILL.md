@@ -1,6 +1,6 @@
 ---
 name: roj-review-pr-comment
-description: "Review a Bitbucket Data Center pull request without checking it out and write the findings as ready-to-paste inline comments (file:line plus text), defects first, then non-blocking improvement suggestions. Posts them to the PR through the Bitbucket REST API only when the user says post or comment, or answers yes, and a Bitbucket access token is configured in BITBUCKET_TOKEN; otherwise it stays a draft. Use when the user asks to \"review PR 123 and comment\", \"draft review comments for PR 42\", \"post the review on this PR\", or gives a Bitbucket PR URL and wants comments. Say no suggestions for defects only. Reuses a full review of the same head instead of reviewing twice. Uses the roj-code-review-pr method. For a review with no comments, or a branch without a PR, use roj-code-review-pr."
+description: "Review a Bitbucket Data Center pull request without checking it out and write the findings as ready-to-paste inline comments (file:line plus text), defects first, then non-blocking improvement suggestions. Posts the defect comments to the PR through the Bitbucket REST API only when the user says post or comment, or answers yes, and a Bitbucket access token is configured in BITBUCKET_TOKEN; otherwise it stays a draft. Suggestions are posted too only when the request says improve. Use when the user asks to \"review PR 123 and comment\", \"draft review comments for PR 42\", \"post the review on this PR\", or gives a Bitbucket PR URL and wants comments. Say no suggestions for defects only. Reuses a full review of the same head instead of reviewing twice. Uses the roj-code-review-pr method. For a review with no comments, or a branch without a PR, use roj-code-review-pr."
 license: MIT
 compatibility: Requires git. Posting also needs Python 3 and network access to the Bitbucket server. Works from bash, PowerShell and cmd.
 allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git show *) Bash(git fetch origin *) Bash(git rev-parse *) Bash(git remote get-url *) Bash(python3 *bitbucket_pr.py *) Bash(python *bitbucket_pr.py *) Bash(py *bitbucket_pr.py *) Bash(graphify query *) Bash(graphify explain *) Bash(graphify path *) Bash(graphify affected *)
@@ -23,6 +23,9 @@ Rules for the whole run:
   when the request says to post or comment ("review PR 7 and comment",
   "post it"), or after the user answers yes to the offer in step 7. "Review
   PR 7" alone never posts. A yes to one PR is not a yes to another.
+- **Suggestions stay in the draft unless asked.** A post publishes the
+  defect comments only. Suggestion comments are posted too only when the
+  request, or the yes, says `improve` or asks to post the suggestions.
 - **The token stays out of sight.** Posting and every REST read use
   `BITBUCKET_TOKEN` and `BITBUCKET_URL`, read by the script from the
   environment. Never print, echo, log, store or request the token, never put
@@ -83,6 +86,8 @@ Suggestions (`improve`) are on by default, since this skill only ever reviews
 a PR: read `references/improvement-pass.md` and `references/pr-comments.md`.
 `no suggestions` in the request turns them off: read nothing of the pass and
 make no suggestion, so the draft and anything posted hold defects only.
+With suggestions on, the draft shows them; whether they are posted is the
+rule above and step 8.
 
 ## 2. Resolve the PR
 
@@ -250,7 +255,9 @@ never part of a posted comment.
 Close the draft with exactly one line:
 
 - Explicit post request and REST available: skip the line and go to step 8.
-- REST available otherwise: "Post these to PR <id>? Say yes."
+- REST available otherwise: "Post the <n> defect comments to PR <id>? Say
+  yes; say yes, improve to post the <s> suggestions too." (no suggestions
+  in the draft: "Post these to PR <id>? Say yes.")
 - No token: "Nothing posted. To post, set `BITBUCKET_TOKEN` and
   `BITBUCKET_URL` (see `references/bitbucket-rest.md`) and say post;
   otherwise paste the comments above."
@@ -262,9 +269,11 @@ only. Never ask for the token in chat.
 
 Build the payload as JSON shaped as `references/bitbucket-rest.md` shows
 (`head`, `summary`, `comments`); summary and comment texts are exactly what
-the draft shows, suggestion comments included only when the draft has them.
-The defects come first in `comments`, then the suggestions; the script is
-unchanged. Pipe it to the script on stdin with `--findings -`; no file
+the draft shows. Without `improve` in the request or the yes, `comments`
+holds the defects only and the summary is posted in its `no suggestions`
+shape (no `· <s> suggestions` count, no `Further suggestions` block); the
+suggestions stay in the draft. With `improve`, the defects come first in
+`comments`, then the suggestions, and the summary is posted as drafted. Pipe it to the script on stdin with `--findings -`; no file
 is written and nothing is escaped by hand, the script builds the requests.
 Validate with `--dry-run`, then post with the same input:
 
@@ -308,4 +317,7 @@ Failures, and what to do (details in `references/bitbucket-rest.md`):
 One or two lines in chat: `<head12>` reviewed (or `reused from review.md`),
 finding counts (and suggestion counts, unless `no suggestions`), and either
 "nothing posted" or the number of comments posted and the PR URL, then the
-`Graph:` line when the rule above prints one.
+`Graph:` line when the rule above prints one. A post without `improve`
+says so in its line - `<n> defect comments posted, suggestions not posted
+(say improve to post them)` - and lists the suggestion comments left in the
+draft, one `path:line` each.
