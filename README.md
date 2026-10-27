@@ -128,7 +128,7 @@ flowchart LR
   rev -->|"full review writes"| report[("pr-n/review.md")]
   report -.->|"reused when head matches"| cmt
   cmt -->|"posts only when asked"| bb["Bitbucket Data Center PR"]
-  feat -->|"writes"| own[("branch-changes.md")]
+  feat -->|"writes"| own[("branch-slug-changes.md")]
 ```
 
 Solid arrows are writes, dotted arrows are reads. `.pr-review/` holds the
