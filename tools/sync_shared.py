@@ -50,6 +50,11 @@ SHARED = {
         "roj-review-pr-comment/references",
         "roj-explain-logic/references",
     ),
+    REVIEW + "repo-map.md": (
+        "roj-review-pr-comment/references",
+        "roj-explain-logic/references",
+        "roj-explain-feature-changes/references",
+    ),
     REVIEW + "graph-first.md": (
         "roj-review-pr-comment/references",
         "roj-onboard-repo/references",

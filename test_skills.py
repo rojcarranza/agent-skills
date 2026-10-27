@@ -415,6 +415,56 @@ class TestReviewModes(unittest.TestCase):
                                  "base-resolution.md").is_file())
 
 
+class TestRepoMap(unittest.TestCase):
+    """The PR skills read the .onboarding/ map roj-onboard-repo writes. The
+    map orients and never counts as evidence, and an untracked guide is never
+    reviewed as if it were the change."""
+
+    OWNER = SKILLS / "roj-code-review-pr" / "references" / "repo-map.md"
+    CONSUMERS = ("roj-code-review-pr", "roj-explain-logic",
+                 "roj-review-pr-comment", "roj-explain-feature-changes")
+    OUTPUT_DIRS = (".onboarding/", ".pr-review/")
+
+    def test_every_consumer_names_the_reference_and_ships_it(self):
+        for name in self.CONSUMERS:
+            with self.subTest(skill=name):
+                skill = SKILLS / name
+                self.assertIn("references/repo-map.md",
+                              (skill / "SKILL.md").read_text("utf-8"))
+                self.assertEqual((skill / "references" / "repo-map.md")
+                                 .read_text("utf-8"),
+                                 self.OWNER.read_text("utf-8"))
+
+    def test_reference_states_the_freshness_states_and_the_authority_rule(self):
+        flat = " ".join(self.OWNER.read_text("utf-8").split())
+        for state in ("(fresh)", "(<n> commits behind)",
+                      "(stale, 50+ commits behind)", "(unknown commit)"):
+            self.assertIn(state, flat)
+        self.assertIn("git log --oneline --max-count=51 <sha>..<base>", flat)
+        self.assertIn("The code decides", flat)
+        self.assertIn("Never cite the map as evidence", flat)
+        self.assertIn("never reads the map", flat)       # quick mode
+
+    def test_review_skill_keeps_agent_output_folders_out_of_the_change(self):
+        for rel in ("SKILL.md", "references/full-review.md"):
+            text = (SKILLS / "roj-code-review-pr" / rel).read_text("utf-8")
+            flat = " ".join(text.split())
+            for folder in self.OUTPUT_DIRS:
+                with self.subTest(file=rel, folder=folder):
+                    self.assertIn(folder, flat)
+
+    def test_reference_commands_stay_inside_each_skills_allowed_tools(self):
+        """The two commands the reference runs must pass the review skills'
+        allow-lists, so reading the map never triggers an approval stop."""
+        for name in ("roj-code-review-pr", "roj-review-pr-comment"):
+            fm, _ = frontmatter((SKILLS / name / "SKILL.md").read_text("utf-8"))
+            tools = fm["allowed-tools"]
+            with self.subTest(skill=name):
+                self.assertIn("Bash(git log *)", tools)
+                self.assertIn("Bash(git diff *)", tools)
+                self.assertIn("Bash(git rev-parse *)", tools)
+
+
 class TestSoundboarding(unittest.TestCase):
     """The example SB is what the model copies: it must hold the template's
     sections and no others, and its tables must carry the evidence columns."""

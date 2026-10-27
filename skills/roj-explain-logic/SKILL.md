@@ -43,6 +43,10 @@ A diff alone lies. Always:
 - Read the PR description and commit messages.
 - Note config/CI in the diff (Bamboo specs, pipelines, Dockerfiles, Helm) —
   these change runtime behavior, not just code.
+- Read the repo map when one exists, as `references/repo-map.md` says: name
+  the areas, flows and dependents the change touches in the big picture (for
+  a file or function, the file's area). The code wins when they disagree, and
+  the map is never the evidence for a step.
 
 ## Step 3 — Structure: Concept → Code → Why
 

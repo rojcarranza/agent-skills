@@ -56,3 +56,11 @@ a clearly separated review phase applies the shared review method of
 `roj-code-review-pr`: findings carry a severity (Blocker / Major / Minor /
 Nit) and a confidence (Confirmed / Probable), and a Major or Blocker states
 the concrete input that fails.
+
+## Repo map (optional)
+
+When the repository has an `.onboarding/` guide (`roj-onboard-repo` writes
+it), the big picture names the areas, flows and dependents the change
+touches, and says how fresh the guide is: `Repo map: .onboarding @ a1b2c3d
+(fresh) - areas: uploads`. The guide only orients the walkthrough; every step
+still cites the code, and the code wins when the two disagree.

@@ -142,6 +142,10 @@ input*. Say what is missing, never "the author forgot".
   crash halfway through.
 - **Rolling deploys.** Is the change safe while the old and new versions run
   concurrently?
+- **Repo map.** When `repo-map.md` found a map: the dependents of the touched
+  areas, the hotspot files and the silent seams inside the diff are places to
+  look, not findings. Check each in the code; a finding rests on a diff line
+  or a file read in this run, never on the map.
 
 ## Tests
 
@@ -166,6 +170,7 @@ Not coverage percentage. Ask:
 mode: full · stage: pre-PR | post-PR
 Uncommitted: <n staged/unstaged, n untracked reviewed | none>
 Intent: <source, n criteria | none>
+Repo map: <.onboarding @ sha7 (fresh | n commits behind | stale | unknown) - areas: a, b | none>
 Excluded: <generated/vendored paths>
 
 ### What this branch does

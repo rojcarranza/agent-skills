@@ -41,6 +41,9 @@ Rules that hold for the whole run:
 Always load `references/review-method.md` and `references/cross-cutting.md`
 from this skill's own directory before reviewing. Load technology lenses
 (`lang-*.md`, `platform-*.md`) as the method's *Lens selection* picks them.
+Full mode also reads the repo map as `references/repo-map.md` says: the
+`.onboarding/` guide, advisory, never evidence for a finding. Quick mode
+never reads it.
 
 The skill needs a terminal to run `git`. If the agent cannot run commands,
 say so and ask the user to paste `git diff <base>...HEAD`, the output of
@@ -111,8 +114,9 @@ spans several, load none.
    `git diff -U10 <base>...<head>`. On the current checkout also run
    `git status --porcelain --untracked-files=all`; when it lists changes, add
    `git diff -U10 HEAD` and read each untracked file as new code, except this
-   skill's own `*-review.md` output. On the base branch itself, the working
-   tree alone is the review.
+   skill's own `*-review.md` output and agent output folders (`.onboarding/`,
+   `.pr-review/`, `.mermaidiff/`, `.tours/`), which are neither read nor
+   counted. On the base branch itself, the working tree alone is the review.
 2. **Review** the changed hunks only: no caller search, no system pass. With
    an intent source, also check the hunks against its criteria.
 3. **Verify** each candidate before printing: re-read its lines and check the
@@ -169,12 +173,15 @@ findings. Never fetch one from a host.
   approve, and the working tree is as it was.
 - [ ] Quick: at most five findings, Blocker and Major only, the closing line
   present. Full: the summary comes before the findings and they agree.
+- [ ] Full: the header has the `Repo map:` line, and no finding rests on the
+  map alone.
 
 ## Companion skills - use if installed
 
 | Skill | When |
 |---|---|
 | `code-tour` | full mode, only after the user accepts the tour offer |
+| `roj-onboard-repo` | the repository is unfamiliar and has no `.onboarding/` map: write one first |
 | `roj-explain-logic` | the changed logic is hard to follow: trace it, then review |
 | `context-map` | the diff touches many files and the relationships are unclear |
 | `roj-investigate-issue` | a finding turns out to be an already-failing build |
