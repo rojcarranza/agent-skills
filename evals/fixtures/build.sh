@@ -271,6 +271,162 @@ bb_pr() { # a Bitbucket Data Center PR: source only under refs/pull-requests/7/f
   git update-ref -d refs/remotes/origin/feature/retry-uploads
 }
 
+ansible_base() { # a backup playbook set under a playbooks/ folder, as an installer ships it
+  local d=installer/src/main/resources/playbooks/postgres-backup
+  mkdir -p "$d"
+  cat > "$d/prepare-filesystems.yml" <<'EOF'
+---
+- name: Prepare the backup filesystems
+  hosts: postgres
+  become: true
+  vars:
+    hdfs_min_free_gb: 200
+  tasks:
+    - name: Read the free space on the HDFS mount
+      ansible.builtin.shell: df --output=avail -BG /hdfs | tail -1 | tr -dc '0-9'
+      register: hdfs_free
+      changed_when: false
+
+    - name: Fail when HDFS lacks space for the compressed dump
+      ansible.builtin.fail:
+        msg: "HDFS has {{ hdfs_free.stdout }}G free, the dump needs {{ hdfs_min_free_gb }}G"
+      when: hdfs_free.stdout | int < hdfs_min_free_gb | int
+
+    - name: Create the backup directory
+      ansible.builtin.file:
+        path: /hdfs/backups/postgres
+        state: directory
+        mode: "0750"
+EOF
+  cat > "$d/function_library.sh" <<'EOF'
+#!/usr/bin/env bash
+# Shared functions for the Postgres backup playbooks. The workflow is only
+# supported on Postgres 11.
+
+log_error() { echo "ERROR: $*" >&2; }
+log_info() { echo "INFO: $*"; }
+
+check_pg_version() {
+  local pg_version="$1"
+  if [[ "$pg_version" != "11" ]]; then
+    log_error "Postgres version $pg_version is not eligible for this workflow. Expected 11."
+    return 1
+  fi
+}
+
+cmd_backup() {
+  local pg_version="$1" target="$2"
+  check_pg_version "$pg_version" || return 1
+  pg_dump -Fc -f "$target/dump.pgc" appdb
+}
+EOF
+  cat > "$d/backup.yml" <<'EOF'
+---
+- name: Back up Postgres to HDFS
+  hosts: postgres
+  become: true
+  become_user: postgres
+  tasks:
+    - name: Run the backup
+      ansible.builtin.shell: |
+        source {{ playbook_dir }}/function_library.sh
+        cmd_backup "{{ pg_version }}" /hdfs/backups/postgres
+      args:
+        executable: /bin/bash
+EOF
+  G add -A; G commit -qm "Add the Postgres backup playbooks"
+}
+
+ansible_feature() { # moves the HDFS guard into the library and adds verify and restore
+  local d=installer/src/main/resources/playbooks/postgres-backup
+  G checkout -qb feature/hdfs-guard-in-library
+  cat > "$d/prepare-filesystems.yml" <<'EOF'
+---
+- name: Prepare the backup filesystems
+  hosts: postgres
+  become: true
+  tasks:
+    - name: Create the backup directory
+      ansible.builtin.file:
+        path: /hdfs/backups/postgres
+        state: directory
+        mode: "0750"
+EOF
+  cat > "$d/function_library.sh" <<'EOF'
+#!/usr/bin/env bash
+# Shared functions for the Postgres backup playbooks. The workflow is only
+# supported on Postgres 11.
+
+log_error() { echo "ERROR: $*" >&2; }
+log_info() { echo "INFO: $*"; }
+
+check_pg_version() {
+  local pg_version="$1"
+  if [[ "$pg_version" != "11" ]]; then
+    if [[ "$pg_version" == "17" ]]; then
+      log_error "Postgres version $pg_version is not eligible for this workflow. Expected 11."
+      return 1
+    fi
+  fi
+}
+
+check_hdfs_space() {
+  local free_gb
+  free_gb=$(df --output=avail -BG /hdfs | tail -1 | tr -dc '0-9')
+  if [[ "$free_gb" -lt "${HDFS_MIN_FREE_GB:-0}" ]]; then
+    log_error "HDFS has ${free_gb}G free, the dump needs ${HDFS_MIN_FREE_GB}G"
+    return 1
+  fi
+}
+
+cmd_backup() {
+  local pg_version="$1" target="$2"
+  if [[ -z "$target" || ! -d "$target" ]]; then
+    log_error "Target directory $target does not exist"
+    return 1
+  fi
+  check_pg_version "$pg_version" || return 1
+  check_hdfs_space || return 1
+  pg_dump -Fc -f "$target/dump.pgc" appdb
+}
+
+cmd_verify() {
+  local target="$1"
+  if [[ -z "$target" || ! -d "$target" ]]; then
+    log_error "Target directory $target does not exist"
+    return 1
+  fi
+  pg_restore --list "$target/dump.pgc" > /dev/null
+}
+
+cmd_restore() {
+  local target="$1"
+  if [[ -z "$target" || ! -d "$target" ]]; then
+    log_error "Target directory $target does not exist"
+    return 1
+  fi
+  pg_restore -d appdb --clean "$target/dump.pgc"
+}
+EOF
+  G add -A; G commit -qm "Move the HDFS space guard into the function library
+
+The guard lives next to the other backup checks. Add verify and restore
+commands that reuse the same target checks."
+}
+
+ansible_bb_pr() { # the Ansible change as a Bitbucket Data Center PR 7 into develop
+  init_repo main; ansible_base
+  G checkout -qb develop
+  printf '# Changelog\n' > CHANGELOG.md
+  G add -A; G commit -qm "Start the changelog"
+  ansible_feature
+  push_all
+  git -C ../origin.git update-ref refs/pull-requests/7/from "$(git rev-parse feature/hdfs-guard-in-library)"
+  git -C ../origin.git update-ref -d refs/heads/feature/hdfs-guard-in-library
+  G checkout -q main; G branch -q -D feature/hdfs-guard-in-library
+  git update-ref -d refs/remotes/origin/feature/hdfs-guard-in-library
+}
+
 onboarding_map() { # $1 = the commit the guide says it was built from. Written
   # untracked, as a real .onboarding/ is, with the files a PR skill reads.
   mkdir -p .onboarding/flows
@@ -477,6 +633,9 @@ pyrepo-bb-pr-stale)  # the guide is 50+ commits behind the target branch
   bb_pr 55; onboarding_map "$(git rev-parse main)" ;;
 pyrepo-bb-pr-unknown)  # the guide names a commit this clone does not have
   bb_pr; onboarding_map 0123456789abcdef0123456789abcdef01234567 ;;
+ansible)       # the Ansible change on a branch, checkout sitting on it
+  init_repo main; ansible_base; ansible_feature; push_all ;;
+ansible-bb-pr) ansible_bb_pr ;;
 pyrepo-clean)  init_repo main; py_base
   G checkout -qb feature/slugify
   cat > app/slug.py <<'EOF'

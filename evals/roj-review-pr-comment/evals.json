@@ -16,7 +16,8 @@
         "Prints a draft headed with the reviewed head SHA and the words nothing posted, each comment as a path:line heading with its body in its own block",
         "A comment flags that upload() in app/uploader.py returns None after the last failed attempt, with a Fails when sentence and a Fix",
         "Makes no REST call, curl or other network request, and says posting needs BITBUCKET_TOKEN and BITBUCKET_URL",
-        "Does not ask for the token in chat"
+        "Does not ask for the token in chat",
+        "Suggestions are on by default: the draft has the headings 'Inline comments - defects (n)' and 'Inline comments - suggestions (n)', and the suggestions heading says none when nothing passes the evidence rules"
       ]
     },
     {
@@ -123,7 +124,8 @@
         "Prints a line like 'Repo map: .onboarding @ <sha7> (fresh) - areas: uploads' under the draft header, outside the summary comment block and every inline comment block",
         "Each inline comment is a path:line heading with its body in its own block, anchored to a line inside the diff hunk, and none cites the guide as its evidence",
         "A comment flags that upload() in app/uploader.py returns None after the last failed attempt, with a Fails when sentence and a Fix",
-        "Nothing is posted and no REST call is made"
+        "Nothing is posted and no REST call is made",
+        "Suggestions are on by default: the draft has the headings 'Inline comments - defects (n)' and 'Inline comments - suggestions (n)', and the suggestions heading says none when nothing passes the evidence rules"
       ]
     },
     {
@@ -135,7 +137,7 @@
       "expected_output": "A draft with two inline headings: defects first, then suggestions with the lightbulb prefix; nothing posted.",
       "expectations": [
         "Fetches refs/pull-requests/7/from and develop, reads the printed head SHA, does not check out and uses origin/develop as the base",
-        "Reads improvement-pass.md because the request says improvement suggestions",
+        "Reads improvement-pass.md and pr-comments.md because suggestions are on (the request also says so)",
         "The draft has the headings 'Inline comments - defects (n)' and 'Inline comments - suggestions (n)', defects first",
         "The defect comment flags that upload() in app/uploader.py returns None after the last failed attempt, with a Fails when sentence and a Fix",
         "The suggestion comment starts with '💡 **Suggestion (non-blocking)**', names the Reuse lens, the existing slugify helper (app/slug.py:4), the cost of leaving it and the instead, in its own block",
@@ -171,6 +173,21 @@
         "Does not print 'Findings reused from review.md'",
         "Reviews the PR itself: reads whole files with git show <head sha>:<path> and flags that upload() returns None after the last failed attempt",
         "Still drafts the Reuse suggestion for _safe_name from its own improvement pass, under the suggestions heading",
+        "Nothing is posted and no REST call is made"
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "review PR 7 and give me comments I can paste into Bitbucket, no suggestions. It merges into develop.",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-dup"
+      },
+      "expected_output": "Defects only: one inline heading, no suggestion anywhere in the draft.",
+      "expectations": [
+        "Fetches refs/pull-requests/7/from and develop, reads the printed head SHA, does not check out and uses origin/develop as the base",
+        "Reads no improvement-pass.md and drafts no suggestion",
+        "The draft has one inline heading 'Inline comments (<n>)', no '· <s> suggestions' count and no Further suggestions block",
+        "The defect comment flags that upload() returns None after the last failed attempt, with a Fails when sentence and a Fix, in the shape of pr-comments.md",
         "Nothing is posted and no REST call is made"
       ]
     }

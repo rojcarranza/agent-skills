@@ -142,5 +142,21 @@
   {
     "query": "post the review on this PR",
     "should_trigger": false
+  },
+  {
+    "query": "review the PR here's the link https://bitbucket.example.com/projects/WR/repos/deployer-tooling/pull-requests/250/overview",
+    "should_trigger": true
+  },
+  {
+    "query": "review my branch before I push, it changes Ansible playbooks and a shell function library for the postgres backup",
+    "should_trigger": true
+  },
+  {
+    "query": "review PR 250, no suggestions please - defects only",
+    "should_trigger": true
+  },
+  {
+    "query": "review PR 250 and tell me how to improve the code, not just what is broken",
+    "should_trigger": true
   }
 ]

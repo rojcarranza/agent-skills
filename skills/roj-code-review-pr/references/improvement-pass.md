@@ -1,8 +1,9 @@
 # Improvement pass (`improve`)
 
-Optional. Loaded only when the request asks for it. It adds non-blocking
-suggestions to a review and keeps them apart from the defects: the author
-fixes what is wrong first, then sees what could be cleaner. Defects keep every
+Loaded when `improve` is on: always for a PR target, on request elsewhere. It
+adds non-blocking suggestions to a review and keeps them apart from the
+defects: the author fixes what is wrong first, then sees what could be
+cleaner. Defects keep every
 slot, every severity and the whole verdict; a suggestion takes none of them.
 
 ## Contents
@@ -19,9 +20,11 @@ slot, every severity and the whole verdict; a suggestion takes none of them.
 
 `improve` is an axis word like `quick` and `full`. It also means "suggest
 improvements", "feedback on the code", "polish", "simplify", "readability".
-Default **off**: without it this file is not loaded, nothing in this file
-applies and the output keeps its usual shape. A bare "review" never turns it
-on.
+Default **off** for a branch or the current checkout: without it this file is
+not loaded, nothing in this file applies and the output keeps its usual
+shape; a bare "review" there never turns it on. Default **on** for a PR
+target (a Bitbucket PR URL or id), where the author gets one pass of
+feedback; `no suggestions` turns it off for any target.
 
 ## When it runs
 
@@ -82,12 +85,15 @@ All seven are required. A candidate that fails one is dropped, not softened.
   the full caps.
 - **The verdict ignores suggestions.** `Changes requested - 1 Blocker, 2
   Major, 0 Minor, 0 Nits` stays as it is, with `+ 3 suggestions` appended.
-- **A Blocker comes first.** With a Blocker among the defects, chat shows no
-  suggestion at all: not as a list, not as a one-line example. Chat carries
-  only `+ <n> suggestions` on the verdict and one line, `<n> suggestions in
-  the report file - fix the Blocker first`; the report file holds them in
-  full. Quick mode writes no file, so it prints `<n> suggestions held back -
-  fix the Blocker first` and nothing else.
+- **A Blocker comes first** on a branch or the current checkout. With a
+  Blocker among the defects, chat shows no suggestion at all: not as a list,
+  not as a one-line example. Chat carries only `+ <n> suggestions` on the
+  verdict and one line, `<n> suggestions in the report file - fix the Blocker
+  first`; the report file holds them in full. Quick mode writes no file, so
+  it prints `<n> suggestions held back - fix the Blocker first` and nothing
+  else. A PR target has no such hold: its suggestions are comments to paste,
+  they follow the defects and say non-blocking, so they print in chat and in
+  the report whatever the defects are.
 - The report header carries `improve: on` and `suggestions: <n>`.
 - Praise stays where it is (*Good*, 1 to 3 items); no praise is added.
 - Nothing worth suggesting: print `Improvements: none worth suggesting`. Never
@@ -109,20 +115,15 @@ Cost of leaving it: ... Instead: ... Same behaviour because: ...` under
 
 ## Bitbucket comments
 
-Used by `roj-review-pr-comment`. Suggestions are posted only when `improve`
-was requested; they are never Bitbucket tasks or "blocker" comments.
+Used by `roj-review-pr-comment`, and by the `### Comments to paste` section of
+a PR review. The text of a comment, the layout and the slot rules are in
+`pr-comments.md`, the one format both use. Suggestions are posted only by
+`roj-review-pr-comment` and only on request; they are never Bitbucket tasks
+or "blocker" comments.
 
 - Defect comments keep their shape (`🟠 **Major** · Probable - ...`).
-- A suggestion comment is plain text, in the sense of Conventional Comments:
-
-```text
-💡 **Suggestion (non-blocking)** · Reuse · Confirmed - <what>.
-
-Cost of leaving it: <sentence>.
-
-Instead: <existing helper path:line, or a plain fenced block of at most 6 lines>.
-```
-
+- A suggestion comment is plain text, in the sense of Conventional Comments,
+  and starts `💡 **Suggestion (non-blocking)**`.
 - Inline slots are the script's 15. Defects take slots first. Suggestions get
   at most 5 of what remains. The rest go to the summary under *Further
   suggestions*. A suggestion never displaces a defect.

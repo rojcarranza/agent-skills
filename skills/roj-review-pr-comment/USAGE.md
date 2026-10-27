@@ -40,7 +40,7 @@ which calls the script makes.
 | VS Code Copilot | `/roj-review-pr-comment 142` or `/roj-review-pr-comment https://bitbucket.example.com/projects/KEY/repos/slug/pull-requests/142/overview` |
 | JetBrains Copilot | `/skill:roj-review-pr-comment 142` |
 | Plain English | `Review PR 142, it merges into develop` (draft) or `Review PR 142 and post the comments` |
-| With suggestions | `Review PR 142 and comment, include improvement suggestions` (the word `improve` does it) |
+| Defects only | `Review PR 142 and comment, no suggestions` |
 
 A bare PR id takes the project and repository from the `origin` remote. The
 PR's target branch comes from the URL, the REST lookup, or a question; it is
@@ -79,14 +79,18 @@ A clean PR is reported as "No findings." - the skill never invents findings.
 
 ## Suggestions (`improve`)
 
-Off unless you ask. With `improve` the draft has two headings, `Inline
+On by default, as in `roj-code-review-pr` for a PR; say `no suggestions` for
+defects only. The draft has two headings, `Inline
 comments - defects (n)` and `Inline comments - suggestions (n)`. Defects fill
 the inline slots first; suggestions take at most 5 of the slots left, and the
 rest go to the summary under *Further suggestions*. A suggestion comment starts
 `💡 **Suggestion (non-blocking)**`, names its lens (Reuse, Simplify, Clarity,
 Convention) and gives the cost of leaving it and the concrete change. They are
-plain comments, never Bitbucket tasks. Without `improve` nothing is suggested
-and nothing like it is posted. The rules are in `references/improvement-pass.md`.
+plain comments, never Bitbucket tasks. With `no suggestions` nothing is
+suggested and nothing like it is posted. The rules are in
+`references/improvement-pass.md`; the text of every comment is
+`references/pr-comments.md`, the format `roj-code-review-pr` also ends a PR
+review with.
 
 Works the same from bash and PowerShell: git commands are single lines, and
 the findings JSON is piped to the one script that talks to Bitbucket, which

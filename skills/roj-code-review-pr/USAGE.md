@@ -2,14 +2,17 @@
 
 Reviews a Git change for defects: your own branch (uncommitted work
 included), a teammate's branch, or a Bitbucket Data Center pull request,
-without checking anything out. One skill, two depths, picked for you:
+without checking anything out. One skill, two depths:
 
 - **quick** - chat only, Blocker and Major findings only, diff-local, `git`
   commands only, at most five findings.
 - **full** - change summary, severity-and-confidence-tagged findings, the
   system pass (callers, config-to-code coupling, idempotency, rolling
   deploys), a Markdown report and an optional CodeTour.
-- **auto** (the default) - quick unless the change is large or risky.
+- **auto** - quick unless the change is large or risky. It applies to your own
+  branch. A **PR** (a Bitbucket Data Center URL or id) skips auto: it gets
+  **full** with improvement suggestions, so `review.md` and paste-ready PR
+  comments are always written. Say `quick` or `no suggestions` to opt out.
 
 It never calls a Bitbucket or GitHub API, never posts comments, and never
 asks for or pins a model: it runs on whatever the agent already selected
@@ -39,7 +42,10 @@ Plain English works everywhere - the skill triggers from its description:
     review origin/feature/PROJ-123-retry      # a branch, no checkout
     review PR 214, it merges into develop     # Bitbucket Data Center PR
     review my branch, the story says: <text>  # with an intent source
-    review PR 214 and suggest improvements    # defects, then non-blocking suggestions
+    review PR 214                             # full, with suggestions and comments to paste
+    review PR 214, quick                      # chat only; still up to 3 suggestions
+    review PR 214, no suggestions             # full, defects only
+    review my branch and suggest improvements # own branch: suggestions are opt-in
 
 Explicit invocation differs per agent:
 
@@ -58,7 +64,7 @@ with no per-repository seeding.
 | nothing | the current branch and all local changes |
 | `against <base>` | the same, with that base |
 | `<branch>` or `origin/<branch>` | that branch, read with `git diff <base>...<ref>` and `git show <ref>:<path>`; local changes are not part of it |
-| a PR id or URL | the PR head, fetched with `git fetch origin refs/pull-requests/<id>/from`, nothing checked out |
+| a PR id or URL | the PR head, fetched with `git fetch origin refs/pull-requests/<id>/from`, nothing checked out; full and `improve` by default |
 
 The base of a PR is its target branch: take it from the URL or tell it, or it
 asks. It never guesses `origin/HEAD` for a PR. Without a stated base, it picks
@@ -69,13 +75,16 @@ about them, are in `references/forge-bitbucket-dc.md`.
 
 ## Depth: how auto chooses
 
-Auto picks **full** when any of these holds, measured on the change without
+A PR target is **full** unless you say `quick`. For any other target, auto
+picks **full** when any of these holds, measured on the change without
 generated, vendored and lockfile paths:
 
 - more than 10 files, or more than 400 changed lines (added plus deleted);
 - a deploy or CI file: Bamboo spec, Kubernetes manifest, Helm chart,
   Dockerfile or compose file, `Jenkinsfile`, `bitbucket-pipelines.yml`,
   `.github/workflows`;
+- Ansible: a playbook, role, inventory or `ansible.cfg`, or any `*.yml` under
+  a `playbooks/` or `roles/` directory;
 - auth, secrets, credentials, permissions or crypto code or config;
 - a schema or data migration (`migrations/`, `*.sql`);
 - a contract file (`*.proto`, `openapi*`, `swagger*`).
@@ -83,6 +92,11 @@ generated, vendored and lockfile paths:
 Otherwise it is **quick**; a borderline change is quick, and the quick output
 offers `full`. It prints the choice and why in one line. Saying `quick` or
 `full` always wins.
+
+Small models can skip a format. The top of `SKILL.md` holds the exact output
+shapes (header line, `Verdict:` line, a marker, `path:line` and `Fix:` on
+every finding, suggestions, `review.md`, comments to paste) and a self-check
+the run ticks before it prints, so a skipped piece is noticed.
 
 ## Intent source (optional)
 
@@ -109,9 +123,10 @@ is never reviewed as code.
 
 ## Improvement suggestions (`improve`)
 
-Off unless you ask: say `improve` ("suggest improvements", "feedback on the
-code", "polish"). The review is the same, and after the defects are final it
-adds non-blocking suggestions kept apart from them:
+On for a PR, off for your own branch unless you ask: say `improve` ("suggest
+improvements", "feedback on the code", "polish"); `no suggestions` turns it
+off anywhere. The review is the same, and after the defects are final it adds
+non-blocking suggestions kept apart from them:
 
 - **Four lenses, nothing else:** Reuse (the diff re-implements something that
   exists), Simplify (duplication or dead code the diff adds), Clarity (a name
@@ -126,8 +141,9 @@ adds non-blocking suggestions kept apart from them:
   more in the summary only. Quick: at most 3, after the findings, outside the
   five-finding cap.
 - **The verdict is unchanged** and counts defects only (`+ 3 suggestions`
-  is appended). With a Blocker, suggestions are in the report file and not in
-  chat: fix the Blocker first.
+  is appended). On a branch with a Blocker, suggestions are in the report file
+  and not in chat: fix the Blocker first. A PR has no such hold: its
+  suggestions are comments to paste, after the defects, marked non-blocking.
 
 The rules are in `references/improvement-pass.md`.
 
@@ -146,7 +162,9 @@ branch or PR target.
 
 Quick: chat only, in the six-line shape described in `SKILL.md`.
 
-Full: chat gets the verdict, one line per finding and the report path. Files:
+Full, own branch: chat gets the verdict, one line per finding and the report
+path. Full, PR: chat gets the header, the verdict and the comments to paste,
+then the report path. Files:
 
 - `.pr-review/pr-<id>/review.md` for a PR, `.pr-review/branch-<slug>/review.md`
   for a branch or the current checkout, in the repository under review: the
@@ -163,8 +181,18 @@ Full: chat gets the verdict, one line per finding and the report path. Files:
 
 Report sections: header, **what this branch does**, verdict, findings by
 severity, intent check, tests, runtime and deploy impact, improvements (only
-with `improve`), questions that need your input, pre-existing issues, and what
-was done well.
+with `improve` on), questions that need your input, pre-existing issues, what
+was done well and, for a PR, **Comments to paste**.
+
+### Comments to paste (PR)
+
+The last section of `review.md` and of the chat answer for a PR: a summary
+comment and one block per defect and per suggestion, each headed by its exact
+`path:line` on the PR head, written to the PR author (what is wrong, when it
+fails, the concrete fix or improved code), defects first, suggestions marked
+non-blocking. Copy a block into the Bitbucket comment box at that line. The
+format is `references/pr-comments.md`, the same one `roj-review-pr-comment`
+drafts and posts, which it does only when you ask.
 
 Every finding carries a severity (Blocker / Major / Minor / Nit - impact if
 shipped) and a confidence (Confirmed / Probable / Speculative). A Blocker
@@ -180,8 +208,9 @@ PR exists, so a pushed branch is not assumed to have one.
 
 - **Pre-PR** - drafts a PR description from the change summary, and may offer
   to apply fixes after asking.
-- **Post-PR** - shapes findings as pasteable review comments split into
-  requested changes versus nits, and never suggests rewriting history.
+- **Post-PR** - ends with the **Comments to paste** section: pasteable review
+  comments, defects first, then non-blocking suggestions, and never suggests
+  rewriting history.
 
 ## Customising
 
@@ -197,10 +226,12 @@ checklists, not code.
   `platform-docker.md`.
 - `full-review.md` - the full-mode procedure, checks and report rules.
 - `improvement-pass.md` - the `improve` lenses, evidence rules and caps.
+- `pr-comments.md` - the comment text and layout shared with
+  `roj-review-pr-comment`.
 - `base-resolution.md`, `forge-bitbucket-dc.md`.
 
 `review-method.md`, `cross-cutting.md`, the lens files, `base-resolution.md`,
-`forge-bitbucket-dc.md`, `repo-map.md` and `improvement-pass.md` are copied into the skills that use them by
+`forge-bitbucket-dc.md`, `repo-map.md`, `improvement-pass.md` and `pr-comments.md` are copied into the skills that use them by
 `tools/sync_shared.py`: edit them here, then run the sync.
 
 Each lens ends with a "not a finding here" list. That list is what keeps the

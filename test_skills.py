@@ -563,7 +563,8 @@ class TestImprovementPass(unittest.TestCase):
             self.assertIn(phrase, flat)
 
     def test_comment_draft_has_two_headings_and_defects_take_slots_first(self):
-        flat = self.flat(self.COMMENT / "SKILL.md")
+        flat = (self.flat(self.COMMENT / "SKILL.md") + " " + self.flat(
+            self.COMMENT / "references" / "pr-comments.md"))
         for phrase in ("Inline comments - defects (<n>)",
                        "Inline comments - suggestions (<n>)",
                        "Defects take the inline slots first, up to 15",
@@ -579,6 +580,84 @@ class TestImprovementPass(unittest.TestCase):
         self.assertGreaterEqual(
             kinds, {"pyrepo-bb-pr-dup", "pyrepo-bb-pr-review",
                     "pyrepo-bb-pr-review-old", "pyrepo-dirty-dup"})
+
+
+class TestPrReviewDefaults(unittest.TestCase):
+    """A colleague's PR (a Bitbucket URL or id) gets a full review with
+    suggestions and paste-ready comments by default, Ansible is a risk path,
+    and the exact output shape sits at the top of SKILL.md, where a small
+    model reads it before it reviews."""
+
+    REVIEW = SKILLS / "roj-code-review-pr"
+    COMMENT = SKILLS / "roj-review-pr-comment"
+    FORMAT = REVIEW / "references" / "pr-comments.md"
+
+    def flat(self, path):
+        return " ".join(path.read_text("utf-8").split())
+
+    def test_pr_target_defaults_to_full_with_suggestions(self):
+        flat = self.flat(self.REVIEW / "SKILL.md")
+        for phrase in ("nothing, and the target is a PR | **full**",
+                       "`Mode: full (PR target - default)`",
+                       "are on for a PR target and off for any other target",
+                       "`no suggestions` turns them off for any target",
+                       "a quick PR review still prints up to three suggestions"):
+            self.assertIn(phrase, flat)
+        self.assertIn("Default **on** for a PR target",
+                      self.flat(self.REVIEW / "references"
+                                / "improvement-pass.md"))
+
+    def test_ansible_is_a_full_mode_risk_path(self):
+        flat = self.flat(self.REVIEW / "SKILL.md")
+        self.assertIn("Ansible (a playbook, role, inventory or `ansible.cfg`, "
+                      "or any `*.yml` or `*.yaml` under a `playbooks/` or "
+                      "`roles/` directory at any depth)", flat)
+        self.assertIn("Ansible: a playbook, role, inventory",
+                      self.flat(self.REVIEW / "USAGE.md"))
+
+    def test_output_contract_and_self_check_come_before_the_procedure(self):
+        text = (self.REVIEW / "SKILL.md").read_text("utf-8")
+        contract = text.index("## Output contract")
+        for later in ("## Rules", "## 1. Target", "## 3. Mode"):
+            self.assertLess(contract, text.index(later), later)
+        head = text[contract:text.index("## Rules")]
+        for needle in ("**Header line**", "**Verdict line**",
+                       "never \"High\", \"Medium\" or \"Low\"",
+                       "`Fix:`", "Self-check", "`review.md` is written",
+                       "### Comments to paste",
+                       "`Suggestions: none worth suggesting`"):
+            self.assertIn(needle, head)
+        self.assertLess(len(text.splitlines()), 300)
+
+    def test_comment_format_has_one_owner_and_one_copy(self):
+        self.assertEqual(
+            self.FORMAT.read_text("utf-8"),
+            (self.COMMENT / "references" / "pr-comments.md").read_text("utf-8"))
+        for skill in (self.REVIEW, self.COMMENT):
+            self.assertIn("references/pr-comments.md",
+                          (skill / "SKILL.md").read_text("utf-8"))
+
+    def test_review_ends_a_pr_with_the_comments_section(self):
+        full = self.flat(self.REVIEW / "references" / "full-review.md")
+        for phrase in ("Write the report **before** printing the chat answer",
+                       "**Post-PR** ends the report, after *Good*, with "
+                       "`### Comments to paste`",
+                       "**Chat, PR target.**",
+                       "Comments pass"):
+            self.assertIn(phrase, full)
+        fmt = self.flat(self.FORMAT)
+        for phrase in ("### Comments to paste", "`path:line`",
+                       "Every comment has a `Fix:` line",
+                       "Defects first, worst first"):
+            self.assertIn(phrase, fmt)
+
+    def test_evals_cover_the_defaults_and_the_ansible_fixtures(self):
+        data = json.loads((ROOT / "evals" / "roj-code-review-pr"
+                           / "evals.json").read_text("utf-8"))
+        fixtures = {e["fixture"]["repo"] for e in data["evals"]}
+        self.assertGreaterEqual(fixtures, {"ansible", "ansible-bb-pr"})
+        prompts = " ".join(e["prompt"] for e in data["evals"])
+        self.assertIn("no suggestions", prompts)
 
 
 class TestSoundboarding(unittest.TestCase):
