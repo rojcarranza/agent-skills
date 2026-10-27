@@ -1,7 +1,8 @@
 # Full review
 
-Loaded only in full mode. The target, base and mode are already settled
-(`SKILL.md` steps 1 to 3).
+Loaded only in full mode, which a PR target gets by default. The target, base,
+mode and `improve` are already settled (`SKILL.md` steps 1 to 3); the output
+contract and self-check at the top of `SKILL.md` apply to everything below.
 
 ## Contents
 
@@ -82,8 +83,10 @@ evidence. Quick mode skips all of this.
 With no intent source from the user, look for
 `.pr-review/pr-<id>/brief.md` (a branch: `branch-<slug>`) and read it only
 when its header `head` equals `<head>`, as `SKILL.md` section 6 says. With
-`improve`, load `improvement-pass.md` now so the per-file pass can note
-candidates; nothing is reported from it until the verification pass of step 5 is done.
+`improve` on (always for a PR target), load `improvement-pass.md` now so the
+per-file pass can note candidates; nothing is reported from it until the
+verification pass of step 5 is done. For a PR target also load
+`pr-comments.md`.
 
 ## 4. Opt in to running checks
 
@@ -121,9 +124,13 @@ registry or server, or the whole integration suite.
 4. **Verification pass** - re-read each candidate finding against the whole
    file and drop the ones the surrounding code already handles.
 
-5. **Improvement pass** - only with `improve`, and only after the defects
+5. **Improvement pass** - only with `improve` on, and only after the defects
    are final: read `improvement-pass.md` and add the suggestions it admits.
    They never change a finding, a severity or the verdict.
+6. **Comments pass** - a PR target only, after the defects and suggestions are
+   final: for each, read the anchored line with `git show <head>:<path>`, check
+   the quoted code is on it, and write the comment as `pr-comments.md` says.
+   A finding whose line cannot be confirmed goes in the summary comment.
 
 Scope discipline: a finding may anchor only to a line inside a diff hunk.
 Pre-existing defects go in a separate note, at most three, never in the
@@ -161,7 +168,8 @@ List every command run, with its exit status, under *Tests* in the report.
 
 Follow the output skeleton in `review-method.md`.
 
-- **File.** Write the report to `<ROOT>/.pr-review/pr-<id>/review.md` for a PR
+- **File.** Write the report **before** printing the chat answer, to
+  `<ROOT>/.pr-review/pr-<id>/review.md` for a PR
   and `<ROOT>/.pr-review/branch-<slug>/review.md` for a branch or the current
   checkout, where `ROOT` is `git rev-parse --show-toplevel` and `<slug>` is the
   branch name in lower case with every run of other characters turned into
@@ -179,22 +187,30 @@ echo '.pr-review/' >> .git/info/exclude
 
   The user may ask for chat only instead: print the whole report and write
   nothing.
-- **Chat.** The verdict (with `+ <n> suggestions` when `improve` is on), one
-  line per finding (`severity path:line - defect`), the `Repo map:` line and
-  the report path. With `improve` and no Blocker, add one line per suggestion
-  under `Improvements (non-blocking)`. With a Blocker, print no suggestion
-  line at all, only `<n> suggestions in the report file - fix the Blocker
-  first`. Not the whole report twice.
+- **Chat, branch or current checkout.** The verdict (with `+ <n> suggestions`
+  when `improve` is on), one line per finding (`marker path:line - defect.
+  Fix: <change>`), the `Repo map:` line and the report path. With `improve`
+  on and no Blocker, add one line per suggestion under `Improvements
+  (non-blocking)`. With a Blocker, print no suggestion line at all, only `<n>
+  suggestions in the report file - fix the Blocker first`. Not the whole
+  report twice.
+- **Chat, PR target.** The PR shape of the output contract in `SKILL.md`: the
+  header line, the verdict, the `Repo map:` line, `### Comments to paste`
+  exactly as written to the file, the report path and the Next line. The
+  comments carry the findings, so there is no separate one-line list; with no
+  Blocker hold, the suggestions print.
 - **Pre-PR** adds a drafted PR description built from the change summary, and
   may offer to apply fixes - after asking.
-- **Post-PR** shapes findings as pasteable review comments, one `path:line`
-  entry each, split into requested changes versus nits, and never suggests
-  rewriting history. With `improve`, suggestions are a third group after
-  them, labelled non-blocking.
+- **Post-PR** ends the report, after *Good*, with `### Comments to paste`
+  (`pr-comments.md`): the findings as pasteable review comments written to the
+  PR author, one `path:line` block each, defects first, then the suggestions
+  marked non-blocking. It never suggests rewriting history. The report keeps
+  its other sections for the reader; the comments section is what is pasted.
 - **Next.** One line, with both prefixes, when the target is a Bitbucket PR:
-  `/skill:roj-review-pr-comment PR <id> improve` (JetBrains) or
-  `/roj-review-pr-comment PR <id> improve` (VS Code), dropping `improve` when
-  the review ran without it.
+  `/skill:roj-review-pr-comment PR <id>` (JetBrains) or
+  `/roj-review-pr-comment PR <id>` (VS Code), adding `no suggestions` when the
+  review ran without them. That skill drafts the same comments and posts them
+  only on request.
 - Close with the `Graph:` line from `SKILL.md`.
 
 ## 8. Tour (ask first)

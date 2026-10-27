@@ -78,8 +78,8 @@ tools, is in [docs/workflow.md](docs/workflow.md).
 
 | Skill | What it does |
 | --- | --- |
-| [`roj-code-review-pr`](skills/roj-code-review-pr/USAGE.md) | Reviews a branch, a teammate's branch or a Bitbucket Data Center PR, without a checkout: `auto` picks a quick chat-only pass or a full review (change summary, severity/confidence-tagged findings, a report in `.pr-review/pr-<n>/review.md`) from the size and risk of the diff. Say `improve` for non-blocking suggestions kept apart from the defects. Optional intent source (PR text, Jira story, SB acceptance criteria). Loads language/platform rules (Java, Python, Bash, Go, Bamboo, Docker, k8s, Helm) only for stacks the diff touches. Git-only. |
-| [`roj-review-pr-comment`](skills/roj-review-pr-comment/USAGE.md) | Reviews a Bitbucket Data Center PR with the same method, fetched by ref with no checkout, and drafts the findings as pasteable `path:line` comments. Posts them through the Bitbucket REST API only when asked and a `BITBUCKET_TOKEN` is set. Reuses the findings of a full review of the same head from `.pr-review/pr-<n>/review.md` instead of reviewing twice; `improve` adds non-blocking suggestion comments. The only skill that writes to the PR host. |
+| [`roj-code-review-pr`](skills/roj-code-review-pr/USAGE.md) | Reviews a branch, a teammate's branch or a Bitbucket Data Center PR, without a checkout: A PR gets a full review by default (change summary, severity/confidence-tagged findings, a report in `.pr-review/pr-<n>/review.md`) with non-blocking improvement suggestions and a `Comments to paste` section of `path:line` comments for the author; say `quick` or `no suggestions` to opt out. For your own branch `auto` picks a quick chat-only pass or a full review from the size and risk of the diff (deploy, CI, Ansible, auth, migrations); `improve` adds suggestions there. Optional intent source (PR text, Jira story, SB acceptance criteria). Loads language/platform rules (Java, Python, Bash, Go, Bamboo, Docker, k8s, Helm) only for stacks the diff touches. Git-only. |
+| [`roj-review-pr-comment`](skills/roj-review-pr-comment/USAGE.md) | Reviews a Bitbucket Data Center PR with the same method, fetched by ref with no checkout, and drafts the findings as pasteable `path:line` comments. Posts them through the Bitbucket REST API only when asked and a `BITBUCKET_TOKEN` is set; a post holds the defects only unless you say `improve`. Reuses the findings of a full review of the same head from `.pr-review/pr-<n>/review.md` instead of reviewing twice; non-blocking suggestion comments are on by default (`no suggestions` for defects only), in the comment format `roj-code-review-pr` shares. The only skill that writes to the PR host. |
 | [`roj-explain-logic`](skills/roj-explain-logic/USAGE.md) | Guided walkthrough of a PR, branch, file or function: big picture → execution flow → why → gotchas, with language lenses. A PR or branch is written as a brief in `.pr-review/pr-<n>/` (`brief.md` plus a one-page `brief.html`) with a flow diagram of what the change touches. Optional explain-and-review mode. |
 | [`roj-explain-feature-changes`](skills/roj-explain-feature-changes/USAGE.md) | Explains your own branch against `develop`/`main` with traced before/after behaviour, then writes PR-ready text and per-change comments. |
 | [`roj-onboard-repo`](skills/roj-onboard-repo/USAGE.md) | Onboarding into an unfamiliar repo: a Markdown guide in `.onboarding/` plus a one-page `index.html` (open it in Lavish or a browser) with Mermaid diagrams of the architecture and a core flow, a code walkthrough anchored to `path:line`, a reading order, and a page on reviewing a colleague's PR. Stops on a failed read instead of guessing. CodeTour only on request. |
@@ -190,15 +190,18 @@ Stay on the target branch. Every step takes the PR URL or id.
 
 1. `roj-explain-logic PR <n>` writes `.pr-review/pr-<n>/brief.md` and
    `brief.html`: what the change does, with a flow diagram.
-2. `roj-code-review-pr PR <n>` reviews the PR head. Auto mode picks a quick
-   chat pass or a full review that writes `.pr-review/pr-<n>/review.md` and
-   uses `brief.md` as the intent source. Add `improve` for non-blocking
-   suggestions kept apart from the defects.
+2. `roj-code-review-pr PR <n>` reviews the PR head in full: it writes
+   `.pr-review/pr-<n>/review.md`, uses `brief.md` as the intent source, adds
+   non-blocking suggestions kept apart from the defects, and ends with a
+   `Comments to paste` section, one `path:line` block per defect and per
+   suggestion, ready for Bitbucket. Say `quick` for a chat-only pass or
+   `no suggestions` for defects only.
 3. `roj-review-pr-comment PR <n>` drafts pasteable `path:line` comments. It
-   reuses `review.md` when its head SHA matches the PR head and `improve` was
-   covered, so the PR is not reviewed twice.
+   reuses `review.md` when its head SHA matches the PR head and suggestions
+   were covered, so the PR is not reviewed twice.
 4. Post only when you ask for it and `BITBUCKET_URL` and `BITBUCKET_TOKEN`
-   are set; otherwise paste the draft into Bitbucket yourself.
+   are set; otherwise paste the draft into Bitbucket yourself. A post holds
+   the defect comments only; add `improve` to post the suggestions too.
 
 ### Workflow 3: review your own branch before the PR
 

@@ -206,6 +206,68 @@ Not suggested: renaming `ErrWaitTimeout` (a preference), swapping the `for`
 loop in `client.go` for `slices.ContainsFunc` (an idiom swap), and a
 `fmt.Errorf` wrapper helper (one site, no repeat).
 
+## The same review as a PR target
+
+A Bitbucket PR (`review PR 31`) skips auto: mode is **full**
+(`Mode: full (PR target - default)`) and `improve` is on, with no checks
+question because the PR is not checked out. Another change, an Ansible PR that
+moves a free-space guard into a shell library, ends `review.md` and the chat
+answer with this section (the rest of the report is the shape above):
+
+````
+### Comments to paste
+
+Summary comment:
+```text
+Moves the HDFS free-space guard out of the playbook into the function library.
+
+2 findings: 0 🔴 · 2 🟠 · 0 🟡 · 0 🔵 · 1 suggestions
+
+Further suggestions:
+none
+```
+
+Inline comments - defects (2):
+
+`playbooks/db-backup/function_library.sh:24`
+```text
+🟠 **Major** · Confirmed - the new space check can never fail: `HDFS_MIN_FREE_GB` defaults to 0 and nothing sets it any more.
+
+Fails when: the HDFS mount has 3G free and the dump needs 200G; `3 -lt 0` is false, `check_hdfs_space` returns 0 and the backup starts, then dies mid-dump.
+
+Fix: require the threshold and pass it from the playbook.
+
+    free_min="${HDFS_MIN_FREE_GB:?set HDFS_MIN_FREE_GB}"
+```
+
+`playbooks/db-backup/function_library.sh:16`
+```text
+🟠 **Major** · Confirmed - the version gate only rejects 17, so 12 to 16 pass although the header comment says the workflow supports 11 only.
+
+Fails when: `pg_version` is 15; both `if` tests are false and the function returns 0.
+
+Fix: reject everything but 11 again.
+
+    [[ "$pg_version" == "11" ]] || { log_error "Postgres $pg_version is not supported, expected 11"; return 1; }
+```
+
+Inline comments - suggestions (1):
+
+`playbooks/db-backup/function_library.sh:44`
+```text
+💡 **Suggestion (non-blocking)** · Simplify · Confirmed - the "target directory does not exist" check is copied into `cmd_backup`, `cmd_verify` and `cmd_restore`.
+
+Cost of leaving it: the next command copies it a fourth time and can drop the `-z` test.
+
+Instead: one helper called at the three sites.
+
+    require_dir() { [[ -n "$1" && -d "$1" ]] || { log_error "Target directory $1 does not exist"; return 1; }; }
+```
+````
+
+Chat shows the same section under the header, the verdict and the `Repo map:`
+line, then `Report: .pr-review/pr-31/review.md`.
+
 ## What was deliberately not reported
 
 - `cmd/deploy.go:44` uses `:=` where the file elsewhere uses `var` — style,

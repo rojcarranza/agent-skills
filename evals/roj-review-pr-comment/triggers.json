@@ -78,5 +78,9 @@
   {
     "query": "suggest improvements to my local branch, there's no PR",
     "should_trigger": false
+  },
+  {
+    "query": "review PR 250 and write the comments with the fix for each so I can paste them into the pull request",
+    "should_trigger": true
   }
 ]

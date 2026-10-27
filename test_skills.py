@@ -562,23 +562,30 @@ class TestImprovementPass(unittest.TestCase):
                        "Re-validate each candidate against the `-U3` diff"):
             self.assertIn(phrase, flat)
 
-    def test_comment_draft_has_two_headings_and_defects_take_slots_first(self):
-        flat = self.flat(self.COMMENT / "SKILL.md")
-        for phrase in ("Inline comments - defects (<n>)",
-                       "Inline comments - suggestions (<n>)",
-                       "Defects take the inline slots first, up to 15",
-                       "at most 5 inline",
-                       "never more than 15 inline in all",
-                       "Further suggestions",
-                       "\U0001F4A1 **Suggestion (non-blocking)**",
-                       "never a Bitbucket task or a blocker comment"):
-            self.assertIn(phrase, flat)
-
     def test_fixtures_for_the_improve_evals_exist(self):
         kinds = TestEvals().fixture_kinds()
         self.assertGreaterEqual(
             kinds, {"pyrepo-bb-pr-dup", "pyrepo-bb-pr-review",
                     "pyrepo-bb-pr-review-old", "pyrepo-dirty-dup"})
+
+
+class TestPrReviewDefaults(unittest.TestCase):
+    """A colleague's PR (a Bitbucket URL or id) gets a full review with
+    suggestions and paste-ready comments by default, Ansible is a risk path,
+    and the exact output shape sits at the top of SKILL.md, where a small
+    model reads it before it reviews."""
+
+    def test_skill_md_stays_short_enough_for_a_small_model(self):
+        text = (SKILLS / "roj-code-review-pr" / "SKILL.md").read_text("utf-8")
+        self.assertLess(len(text.splitlines()), 300)
+
+    def test_evals_cover_the_defaults_and_the_ansible_fixtures(self):
+        data = json.loads((ROOT / "evals" / "roj-code-review-pr"
+                           / "evals.json").read_text("utf-8"))
+        fixtures = {e["fixture"]["repo"] for e in data["evals"]}
+        self.assertGreaterEqual(fixtures, {"ansible", "ansible-bb-pr"})
+        prompts = " ".join(e["prompt"] for e in data["evals"])
+        self.assertIn("no suggestions", prompts)
 
 
 class TestSoundboarding(unittest.TestCase):

@@ -147,14 +147,19 @@
       "fixture": {
         "repo": "pyrepo-bb-pr"
       },
-      "expected_output": "The PR head is fetched by ref without a checkout and diffed against its target branch, not origin/HEAD.",
+      "expected_output": "A PR target defaults to a full review with suggestions: the PR head is fetched by ref without a checkout and diffed against its target branch (not origin/HEAD), review.md is written and the answer ends with paste-ready comments.",
       "expectations": [
         "Runs git fetch origin refs/pull-requests/7/from (and fetches develop) and reads the printed head SHA",
         "Uses origin/develop as the base, never origin/main, so the CHANGELOG.md line is not reviewed",
         "Reads whole files with git show <head sha>:<path>, not from the working tree, which is on main and has the old uploader",
         "Does not check out, switch or create a branch and makes no REST call, curl or other network request",
         "Treats the review as post-PR and prints the reviewed head SHA in the header",
-        "Flags that upload() in app/uploader.py returns None after the last failed attempt"
+        "Flags that upload() in app/uploader.py returns None after the last failed attempt",
+        "Prints a one-line mode choice naming full and that a PR target is the default (not auto's quick), with no checks question because the PR is not checked out",
+        "Header line names mode: full and improve: on; the Verdict line is present and findings use the markers 🔴/🟠/🟡/🔵, never the words High or Medium",
+        "Every finding has a Fix: line and the Major or Blocker findings a Fails when: sentence",
+        "Writes .pr-review/pr-7/review.md before the chat answer, with head <sha12> in its header, and prints the ignore line without running it",
+        "Both review.md and the chat answer end with '### Comments to paste': one block per defect headed by its path:line (app/uploader.py at the line of the missing final raise), defects first, then the suggestions marked non-blocking, or 'none worth suggesting'"
       ]
     },
     {
@@ -230,7 +235,8 @@
         "Flags that upload() in app/uploader.py returns None after the last failed attempt, anchored to a line inside the diff hunk",
         "No finding cites the guide as its evidence (the guide's silent seam about app/cli.py is checked in the code, not quoted as the reason)",
         "Does not run the area's `python -m pytest` command: the PR is not checked out and no checks were opted in",
-        "Does not edit, refresh or repair anything under .onboarding/"
+        "Does not edit, refresh or repair anything under .onboarding/",
+        "Ends review.md and the chat answer with '### Comments to paste', each block headed by a path:line on the PR head and each with a Fix"
       ]
     },
     {
@@ -281,12 +287,14 @@
       "fixture": {
         "repo": "pyrepo-bb-pr-mapped"
       },
-      "expected_output": "Quick mode is diff-local: it never reads the repo map and prints no Repo map line.",
+      "expected_output": "An explicit quick on a PR target is honoured: quick mode is diff-local, never reads the repo map and prints no Repo map line; suggestions stay on (at most 3) unless the request opts out.",
       "expectations": [
         "Prints a header naming mode: quick",
         "Does not open any file under .onboarding/ and prints no 'Repo map:' line",
         "Flags that upload() in app/uploader.py returns None after the last failed attempt",
-        "Ends by saying callers, config coupling and tests were not checked and that 'full' gives the full review"
+        "Ends by saying callers, config coupling and tests were not checked and that 'full' gives the full review",
+        "Prints the quick shape: header line with improve: on, a Verdict line, findings with the 🟠 marker and a Fix:, and writes no file and no review.md",
+        "After the findings prints at most 3 suggestions under 'Suggestions (non-blocking, not in the verdict):' or the line 'Suggestions: none worth suggesting'"
       ]
     },
     {
@@ -295,10 +303,10 @@
       "fixture": {
         "repo": "pyrepo-bb-pr-dup"
       },
-      "expected_output": "Defects first, then the Reuse suggestion naming the existing helper in the report file; the verdict counts defects only; chat shows no suggestion while a Blocker is among the findings.",
+      "expected_output": "Defects first, then the Reuse suggestion naming the existing helper in the report file and in the comments to paste; the verdict counts defects only; a PR target has no Blocker hold, so the suggestion is in chat too.",
       "expectations": [
         "Fetches refs/pull-requests/7/from and develop, reads the printed head SHA, does not check out and uses origin/develop as the base",
-        "Loads improvement-pass.md because the request says improve",
+        "Loads improvement-pass.md because improve is on (the request says it, and it is the default for a PR target)",
         "Findings come first: upload() in app/uploader.py returns None after the last failed attempt, Blocker or Major, anchored to a line inside the diff hunk",
         "One suggestion is a Reuse suggestion on the _safe_name copy in app/cli.py that names the existing slugify helper by path:line (app/slug.py:4), found by search or graph in this run",
         "Every suggestion has a line inside a diff hunk, the concrete change (at most 6 lines or the existing helper's path:line), a 'Cost of leaving it' sentence, a 'Same behaviour because' sentence and a Confirmed or Probable tag",
@@ -306,7 +314,7 @@
         "The verdict line counts defects only and ends with '+ <n> suggestions'; suggestions are not counted as Minor or Nit",
         "The report file .pr-review/pr-7/review.md has a separate '### Improvements (non-blocking)' section after the defects, with at most 5 inline suggestions plus 3 summary-only, and 'improve: on', 'suggestions: <n>' and 'head <sha12>' in its header",
         "Prints the ignore line echo '.pr-review/' >> .git/info/exclude without running it",
-        "When the findings include a Blocker, chat prints no suggestion line, only '+ <n> suggestions' on the verdict and one line saying they are in the report file; when none is a Blocker, chat lists the suggestions under Improvements (non-blocking)"
+        "Because the target is a PR, chat prints the suggestion even when a Blocker is among the findings: it is in '### Comments to paste' after the defects, headed by its path:line, marked non-blocking, with Cost of leaving it and Instead"
       ]
     },
     {
@@ -352,6 +360,98 @@
         "Each suggestion printed (if any) is anchored in the diff and has the concrete change, a cost sentence, a 'Same behaviour because' sentence and a confidence tag; if there is nothing, it says nothing is worth suggesting",
         "Does not suggest a rename for taste, a constant, a library, an idiom swap or anything a linter would flag",
         "The header says improve: on and suggestions: <n> matching what is listed"
+      ]
+    },
+    {
+      "id": 24,
+      "prompt": "review the PR here's the link https://bitbucket.example.com/projects/APP/repos/uploader/pull-requests/7/overview - it merges into develop",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-dup"
+      },
+      "expected_output": "The bare review request on a PR URL gives the whole contract: full mode, defects with Fix lines, suggestions, review.md, and paste-ready comments written to the PR author.",
+      "expectations": [
+        "Prints 'Mode: full (PR target - default)' or equivalent, fetches refs/pull-requests/7/from and develop and uses origin/develop as the base",
+        "Header line, then 'Verdict: changes requested - ... (+ <n> suggestions)', then the comments: each finding has a marker (🔴 or 🟠), a path:line, a confidence, a Fails when: sentence and a Fix: line",
+        "Flags that upload() in app/uploader.py returns None after the last failed attempt, as Blocker or Major",
+        "Has a Reuse suggestion for the _safe_name copy in app/cli.py naming the existing slugify (app/slug.py:4), after the defects",
+        ".pr-review/pr-7/review.md exists with 'improve: on', 'suggestions: <n>' and 'head <sha12>' in its header and ends with '### Comments to paste'",
+        "The comments to paste are written to the PR author ('you'), defects under 'Inline comments - defects (<n>)' before suggestions under 'Inline comments - suggestions (<n>)', each in its own block headed by path:line; the suggestion block starts with '💡 **Suggestion (non-blocking)**'",
+        "Every path:line heading points at a line that holds the quoted code on the PR head",
+        "Runs no command other than git and posts nothing"
+      ]
+    },
+    {
+      "id": 25,
+      "prompt": "review PR 7 on our bitbucket data center, it merges into develop, quick and no suggestions",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-dup"
+      },
+      "expected_output": "Both opt-outs honoured: quick mode, no suggestion anywhere, nothing written.",
+      "expectations": [
+        "Prints a header naming mode: quick and improve: off, and a Verdict line",
+        "Flags that upload() returns None after the last failed attempt with a Fails when: and a Fix:",
+        "Prints no suggestion, no 'Suggestions' line and no 'held back' line, and loads no improvement-pass.md",
+        "Writes no file, so there is no review.md and no Comments to paste section",
+        "Ends by saying callers, config coupling and tests were not checked and that 'full' gives the full review"
+      ]
+    },
+    {
+      "id": 26,
+      "prompt": "review PR 7 on our bitbucket data center, it merges into develop, no suggestions",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-dup"
+      },
+      "expected_output": "Full by default but with suggestions off: review.md and comments hold defects only.",
+      "expectations": [
+        "Mode is full (PR target default) and the header says improve: off",
+        ".pr-review/pr-7/review.md header says 'improve: off' and 'suggestions: 0' and has no '### Improvements (non-blocking)' section",
+        "Ends with '### Comments to paste' with one heading 'Inline comments (<n>)', defects only, each with a Fix",
+        "The _safe_name duplicate is not mentioned anywhere as a suggestion"
+      ]
+    },
+    {
+      "id": 27,
+      "prompt": "review my branch",
+      "fixture": {
+        "repo": "ansible"
+      },
+      "expected_output": "Auto picks full because Ansible playbooks are a risk path, so a written review.md exists even for a two-file change.",
+      "expectations": [
+        "Prints 'Mode: full (auto - ...)' naming the Ansible playbooks under playbooks/ as the risk path, though the diff is two files and about 50 lines",
+        "Loads lang-bash.md for function_library.sh and asks the checks question once, before reviewing",
+        "Writes .pr-review/branch-feature-hdfs-guard-in-library/review.md",
+        "Flags that the HDFS free-space guard no longer guards: prepare-filesystems.yml no longer sets the threshold and check_hdfs_space in function_library.sh defaults HDFS_MIN_FREE_GB to 0, so the check never fails",
+        "Flags that check_pg_version only rejects version 17 although the comment and the previous code say the workflow supports 11 only",
+        "Every finding has a marker, a path:line inside a hunk and a Fix:; the report is not a PR comments section because the target is a branch"
+      ]
+    },
+    {
+      "id": 28,
+      "prompt": "review the PR here's the link https://bitbucket.example.com/projects/APP/repos/installer/pull-requests/7/overview - it merges into develop",
+      "fixture": {
+        "repo": "ansible-bb-pr"
+      },
+      "expected_output": "The Ansible PR from the field report: full review, both defects with a concrete fix, a Simplify suggestion, and paste-ready comments.",
+      "expectations": [
+        "Prints 'Mode: full (PR target - default)' and fetches refs/pull-requests/7/from, with origin/develop as the base",
+        "Flags the HDFS space guard removed from prepare-filesystems.yml whose replacement check_hdfs_space (function_library.sh) defaults HDFS_MIN_FREE_GB to 0 and so never fails, as Blocker or Major, with a Fix that sets or requires the threshold (for example ${HDFS_MIN_FREE_GB:?}) and passes it from the playbook",
+        "Flags that check_pg_version in function_library.sh only rejects 17, so 12 to 16 pass although only 11 is supported, with the corrected condition in the Fix",
+        "A Simplify suggestion names the three copies of the 'Target directory ... does not exist' check in cmd_backup, cmd_verify and cmd_restore with a helper as the Instead, and says it is non-blocking",
+        "Header line, Verdict line, 🔴/🟠 markers (never High), a Fix: on every finding, and review.md written at .pr-review/pr-7/review.md",
+        "Ends review.md and chat with '### Comments to paste': defects first, each block headed by its exact path:line on the PR head, written to the PR author with the fix or improved code"
+      ]
+    },
+    {
+      "id": 29,
+      "prompt": "quick review of my branch",
+      "fixture": {
+        "repo": "ansible"
+      },
+      "expected_output": "An explicit quick wins over the Ansible risk path, with one line naming what quick skips.",
+      "expectations": [
+        "Prints a one-line mode choice that honours quick and names what the quick pass skips for an Ansible change (callers, config coupling such as the variable the playbook used to pass, tests)",
+        "Writes no file and runs no command other than git",
+        "Prints the header line, a Verdict line and findings with markers and Fix: lines; no suggestions because improve is off for a branch"
       ]
     }
   ]

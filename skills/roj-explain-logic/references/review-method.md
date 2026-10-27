@@ -11,7 +11,7 @@ rules, the system pass, the output skeleton, and calibration.
 - Intent (optional source)
 - System pass (uses `graph-first.md` when the repo has a graph)
 - Tests
-- Improvements (only with `improve`)
+- Improvements (only with `improve` on)
 - Output skeleton
 - Calibration
 
@@ -91,10 +91,10 @@ Gates:
 - Pre-existing defects the branch did not touch (they go in their own note,
   max 3, outside the verdict).
 
-When the request says `improve` and the skill ships `improvement-pass.md`,
-that pass admits four lenses under its own evidence rules, and these entries
-still bar everything else. Without `improve`, or in a skill that does not ship
-the pass, no suggestion is made.
+When `improve` is on and the skill ships `improvement-pass.md`, that pass
+admits four lenses under its own evidence rules, and these entries still bar
+everything else. With `improve` off, or in a skill that does not ship the
+pass, no suggestion is made.
 
 ## Two gates before printing
 
@@ -166,9 +166,10 @@ Not coverage percentage. Ask:
 - Bugfix with no regression test → **Major**.
 - New branch logic with no test → **Minor**.
 
-## Improvements (only with `improve`)
+## Improvements (only with `improve` on)
 
-Non-blocking suggestions, never findings. They come after the verification
+On for a PR target, on request elsewhere. Non-blocking suggestions, never
+findings. They come after the verification
 pass and the failure-scenario rule, sit in their own section, have their own
 caps, and are not in the verdict count. `improvement-pass.md` has the lenses,
 the seven evidence rules and the caps. Defects keep every slot they have.
@@ -215,7 +216,7 @@ here, with the `path:line` that shows it>
 <only when CI/CD or infrastructure changed>
 
 ### Improvements (non-blocking)
-<only with `improve`: defects first, then these. Each suggestion: `path:line`,
+<only with `improve` on: defects first, then these. Each suggestion: `path:line`,
 lens, confidence, what, Cost of leaving it, Instead, Same behaviour because>
 
 ### Needs your input
@@ -226,11 +227,16 @@ lens, confidence, what, Cost of leaving it, Instead, Same behaviour because>
 
 ### Good
 - <1-3 real strengths, one line each>
+
+### Comments to paste
+<PR target only, last, and only in a skill that ships `pr-comments.md`: the
+findings as comments to the PR author, one block per defect and per
+suggestion, in that file's layout>
 ```
 
 The change summary is written **before** the findings, and every finding must
 be consistent with it. The verdict counts defects only; the `(+ n
-suggestions)` part appears only with `improve`. Apply no fix without asking.
+suggestions)` part appears only with `improve` on. Apply no fix without asking.
 
 ## Calibration
 
