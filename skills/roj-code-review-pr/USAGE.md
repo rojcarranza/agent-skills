@@ -39,6 +39,7 @@ Plain English works everywhere - the skill triggers from its description:
     review origin/feature/PROJ-123-retry      # a branch, no checkout
     review PR 214, it merges into develop     # Bitbucket Data Center PR
     review my branch, the story says: <text>  # with an intent source
+    review PR 214 and suggest improvements    # defects, then non-blocking suggestions
 
 Explicit invocation differs per agent:
 
@@ -90,6 +91,8 @@ with acceptance criteria. The review then also reports **acceptance criterion
 not met** and **out-of-scope change** findings, and a short *Intent check*
 lists each criterion as met, not met or not verifiable here. Without one,
 commit messages are the only intent evidence and no intent findings are made.
+A `brief.md` from `roj-explain-logic` for the same head is read as extra
+context (its claims check and open questions), never as acceptance criteria.
 
 ## Repo map (optional)
 
@@ -103,6 +106,30 @@ when the two disagree. A guide 50 or more commits behind the base, or one that
 names a commit this clone does not have, is used only to name areas. Quick
 mode never reads it, and an untracked `.onboarding/` or `.pr-review/` folder
 is never reviewed as code.
+
+## Improvement suggestions (`improve`)
+
+Off unless you ask: say `improve` ("suggest improvements", "feedback on the
+code", "polish"). The review is the same, and after the defects are final it
+adds non-blocking suggestions kept apart from them:
+
+- **Four lenses, nothing else:** Reuse (the diff re-implements something that
+  exists), Simplify (duplication or dead code the diff adds), Clarity (a name
+  or comment that contradicts the code, a magic value) and Convention (a rule
+  file or two sibling call sites the diff departs from).
+- **Evidence or nothing.** Each suggestion is anchored to a line in the diff,
+  names the concrete change (at most 6 lines, or the existing helper's
+  `path:line`), says what leaving it costs and why behaviour stays the same,
+  and carries a confidence tag. Linter rules, library swaps, idiom swaps and
+  pre-existing code are never suggested.
+- **Caps.** Full: at most 5 inline in `### Improvements (non-blocking)` plus 3
+  more in the summary only. Quick: at most 3, after the findings, outside the
+  five-finding cap.
+- **The verdict is unchanged** and counts defects only (`+ 3 suggestions`
+  is appended). With a Blocker, suggestions are in the report file and not in
+  chat: fix the Blocker first.
+
+The rules are in `references/improvement-pass.md`.
 
 ## Running checks (full mode)
 
@@ -121,17 +148,23 @@ Quick: chat only, in the six-line shape described in `SKILL.md`.
 
 Full: chat gets the verdict, one line per finding and the report path. Files:
 
-- `<branch-slug>-review.md` (`pr-<id>-review.md` for a PR) at the repository
-  root, where `<branch-slug>` is the branch name with `/` replaced by `-`.
-  The skill offers once to add that name to `.git/info/exclude` so
-  `git add -A` skips it; it never edits `.gitignore`. Ask for "chat only"
-  and nothing is written.
+- `.pr-review/pr-<id>/review.md` for a PR, `.pr-review/branch-<slug>/review.md`
+  for a branch or the current checkout, in the repository under review: the
+  folder `roj-explain-logic` writes its brief to. The header records the head
+  SHA, so `roj-review-pr-comment` can reuse the findings for the same head
+  instead of reviewing again. `.pr-review/` stays out of Git: when it is not
+  ignored the skill prints `echo '.pr-review/' >> .git/info/exclude` for you
+  to run, never runs it, and never edits `.gitignore`. Ask for "chat only"
+  and nothing is written. Reports from earlier versions
+  (`<branch-slug>-review.md` at the repository root) are still never reviewed
+  as code.
 - `.tours/review-<branch-slug>.tour`, persona `pr-reviewer`, only if you
   accept the offer. `.tours/` is in the global Git ignore, so tours stay local.
 
 Report sections: header, **what this branch does**, verdict, findings by
-severity, intent check, tests, runtime and deploy impact, questions that need
-your input, pre-existing issues, and what was done well.
+severity, intent check, tests, runtime and deploy impact, improvements (only
+with `improve`), questions that need your input, pre-existing issues, and what
+was done well.
 
 Every finding carries a severity (Blocker / Major / Minor / Nit - impact if
 shipped) and a confidence (Confirmed / Probable / Speculative). A Blocker
@@ -163,10 +196,11 @@ checklists, not code.
 - `platform-bamboo.md`, `platform-k8s.md`, `platform-helm.md`,
   `platform-docker.md`.
 - `full-review.md` - the full-mode procedure, checks and report rules.
+- `improvement-pass.md` - the `improve` lenses, evidence rules and caps.
 - `base-resolution.md`, `forge-bitbucket-dc.md`.
 
-`review-method.md`, `cross-cutting.md`, the lens files, `base-resolution.md`
-and `forge-bitbucket-dc.md` are copied into the skills that use them by
+`review-method.md`, `cross-cutting.md`, the lens files, `base-resolution.md`,
+`forge-bitbucket-dc.md`, `repo-map.md` and `improvement-pass.md` are copied into the skills that use them by
 `tools/sync_shared.py`: edit them here, then run the sync.
 
 Each lens ends with a "not a finding here" list. That list is what keeps the

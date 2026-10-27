@@ -64,9 +64,9 @@ after.
 ```
 ## Review — feature/PROJ-4471-atomic-upgrade vs origin/main
 
-deploy-cli · base `origin/main` @ `9f31c0a` · 4 commits ·
+deploy-cli · base `origin/main` @ `9f31c0a` · head `4b1e7a9c02d3` · 4 commits ·
 6 files · +119/-21 · lenses: lang-go, platform-helm ·
-mode: full · stage: pre-PR
+mode: full · stage: pre-PR · improve: off · suggestions: 0
 Uncommitted: none
 Intent: none
 Excluded: none
@@ -169,9 +169,42 @@ releases upgrade in place.
   distinguish it from a genuine failure.
 - The test covers the failure path, not just the happy one.
 
-Report: `feature-PROJ-4471-atomic-upgrade-review.md`
+Report: `.pr-review/branch-feature-proj-4471-atomic-upgrade/review.md`
 Tour: `.tours/review-feature-PROJ-4471-atomic-upgrade.tour`
 ```
+
+The report is written to the branch's folder under `.pr-review/`, and the run
+printed `echo '.pr-review/' >> .git/info/exclude` because the folder was not
+ignored. It did not run it.
+
+## The same run with `improve`
+
+The request says `improve`, so `improvement-pass.md` is loaded and the pass
+runs after the defects are final. The header reads `improve: on ·
+suggestions: 1` and the verdict reads `Changes requested — 1 Blocker, 1
+Major, 1 Minor, 0 Nits (+ 1 suggestions)`; nothing else above changes. This
+branch has a Blocker, so chat carries only the count (`1 suggestion, in the
+report file - fix the Blocker first`) and the file gains this section, between
+*Runtime / deploy impact* and *Needs your input*:
+
+```
+### Improvements (non-blocking)
+
+**`cmd/deploy.go:121`** · Reuse · Confirmed
+The diff adds a second switch that maps errors to exit codes, but
+`exitCodeFor` already does that for every other error (`cmd/errors.go:12`).
+Cost of leaving it: the next new error type needs a case in two places, and
+the two tables can drift.
+Instead: add `case errors.Is(err, helm.ErrWaitTimeout): return 4` to
+`exitCodeFor` (`cmd/errors.go:12-24`) and call `os.Exit(exitCodeFor(err))`
+here.
+Same behaviour because the new switch maps `ErrWaitTimeout` to 4 and every
+other error to 1, and `exitCodeFor` already returns 1 for the rest.
+```
+
+Not suggested: renaming `ErrWaitTimeout` (a preference), swapping the `for`
+loop in `client.go` for `slices.ContainsFunc` (an idiom swap), and a
+`fmt.Errorf` wrapper helper (one site, no repeat).
 
 ## What was deliberately not reported
 

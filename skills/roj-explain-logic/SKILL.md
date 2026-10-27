@@ -145,8 +145,8 @@ failure-scenario rule, its never-report list and its verification pass, and
 print findings in its format (`path:line`, severity, confidence, "Fails when",
 fix). For a PR the brief is written first; the review prints in chat after its
 summary and is never written into the brief. The callers and tests you already traced for the explanation are the
-system pass. Run no command beyond `git`. Solid code: say so plainly - never
-invent findings.
+system pass. Run no command beyond `git`. The review stays defects-only: no
+improvement pass here. Solid code: say so plainly - never invent findings.
 
 ## Rules
 

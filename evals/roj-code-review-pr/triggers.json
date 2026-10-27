@@ -126,5 +126,21 @@
   {
     "query": "run golangci-lint on my branch and fix what it finds",
     "should_trigger": false
+  },
+  {
+    "query": "suggest improvements to this PR",
+    "should_trigger": true
+  },
+  {
+    "query": "give me feedback on this code to improve it - it's the branch I'm on, compare against develop",
+    "should_trigger": true
+  },
+  {
+    "query": "explain this PR",
+    "should_trigger": false
+  },
+  {
+    "query": "post the review on this PR",
+    "should_trigger": false
   }
 ]

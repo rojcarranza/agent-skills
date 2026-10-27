@@ -11,6 +11,7 @@ rules, the system pass, the output skeleton, and calibration.
 - Intent (optional source)
 - System pass (uses `graph-first.md` when the repo has a graph)
 - Tests
+- Improvements (only with `improve`)
 - Output skeleton
 - Calibration
 
@@ -50,7 +51,7 @@ never load a lens no changed file justifies.
 |---|---|---|
 | 🔴 Blocker | breaks at runtime or deploy, loses data, exposes a secret, or breaks a consumer contract | must fix before merge |
 | 🟠 Major | a real defect on a plausible input or failure path; bounded wrong behavior, or missing error handling on an operation that fails in production | fix before merge |
-| 🟡 Minor | correctness-neutral but costly later: a misleading name, duplicated logic, a missing test for new branch logic | author's call |
+| 🟡 Minor | correctness-neutral but costly later: a misleading name, duplicated logic, a missing test for new branch logic (with `improve`, a name, duplication or magic value with no failure scenario is a suggestion instead) | author's call |
 | 🔵 Nit | style or preference, and only when no linter covers it | never blocks; **max 3 per review** |
 
 Severity measures impact, never certainty. "I am not sure" is confidence, and
@@ -89,6 +90,11 @@ Gates:
 - Anything that cannot be tied to a line inside a diff hunk.
 - Pre-existing defects the branch did not touch (they go in their own note,
   max 3, outside the verdict).
+
+When the request says `improve` and the skill ships `improvement-pass.md`,
+that pass admits four lenses under its own evidence rules, and these entries
+still bar everything else. Without `improve`, or in a skill that does not ship
+the pass, no suggestion is made.
 
 ## Two gates before printing
 
@@ -160,14 +166,21 @@ Not coverage percentage. Ask:
 - Bugfix with no regression test → **Major**.
 - New branch logic with no test → **Minor**.
 
+## Improvements (only with `improve`)
+
+Non-blocking suggestions, never findings. They come after the verification
+pass and the failure-scenario rule, sit in their own section, have their own
+caps, and are not in the verdict count. `improvement-pass.md` has the lenses,
+the seven evidence rules and the caps. Defects keep every slot they have.
+
 ## Output skeleton
 
 ```
 ## Review — <branch> vs <base>
 
-<repo> · base `<base>` @ `<merge-base sha>` · <n> commits ·
+<repo> · base `<base>` @ `<merge-base sha>` · head `<sha12>` · <n> commits ·
 <n> files · +<a>/-<b> · lenses: <loaded> (skipped: <if any>) ·
-mode: full · stage: pre-PR | post-PR
+mode: full · stage: pre-PR | post-PR · improve: on | off · suggestions: <n>
 Uncommitted: <n staged/unstaged, n untracked reviewed | none>
 Intent: <source, n criteria | none>
 Repo map: <.onboarding @ sha7 (fresh | n commits behind | stale | unknown) - areas: a, b | none>
@@ -179,7 +192,7 @@ Excluded: <generated/vendored paths>
 <new behavior walked in execution order>
 
 ### Verdict
-Changes requested — 1 Blocker, 2 Major, 1 Minor, 0 Nits
+Changes requested — 1 Blocker, 2 Major, 1 Minor, 0 Nits (+ 3 suggestions)
 
 ### Findings
 #### 🔴 Blocker
@@ -201,6 +214,10 @@ here, with the `path:line` that shows it>
 ### Runtime / deploy impact
 <only when CI/CD or infrastructure changed>
 
+### Improvements (non-blocking)
+<only with `improve`: defects first, then these. Each suggestion: `path:line`,
+lens, confidence, what, Cost of leaving it, Instead, Same behaviour because>
+
 ### Needs your input
 - <speculative question>
 
@@ -212,7 +229,8 @@ here, with the `path:line` that shows it>
 ```
 
 The change summary is written **before** the findings, and every finding must
-be consistent with it. Apply no fix without asking.
+be consistent with it. The verdict counts defects only; the `(+ n
+suggestions)` part appears only with `improve`. Apply no fix without asking.
 
 ## Calibration
 

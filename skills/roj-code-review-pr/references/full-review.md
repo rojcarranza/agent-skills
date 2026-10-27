@@ -38,8 +38,8 @@ generated files (`*.pb.go`, `*_generated.go`), lockfiles, binaries.
    run `git diff --stat HEAD` and `git diff -U15 HEAD` (staged and unstaged
    edits), and read every untracked file it lists (`??`) as new code, except
    this skill's own output from an earlier run (`<branch-slug>-review.md`,
-   `pr-<id>-review.md` and `.tours/review-*.tour`) and the agent output
-   folders `.onboarding/`, `.pr-review/`, `.mermaidiff/` and `.tours/`, which
+   `pr-<id>-review.md` from before the report moved, and
+   `.tours/review-*.tour`) and the agent output folders `.onboarding/`, `.pr-review/`, `.mermaidiff/` and `.tours/`, which
    are neither listed, reviewed nor counted. Add these files and lines to the header counts and mark each
    finding that anchors to one as uncommitted. On the base branch itself (no
    commits past the base), the working tree alone is the review: say so in the
@@ -79,6 +79,12 @@ put its one-line result in the report header. Its dependents, hotspots and
 silent seams feed the system pass in step 5; they are places to look, never
 evidence. Quick mode skips all of this.
 
+With no intent source from the user, look for
+`.pr-review/pr-<id>/brief.md` (a branch: `branch-<slug>`) and read it only
+when its header `head` equals `<head>`, as `SKILL.md` section 6 says. With
+`improve`, load `improvement-pass.md` now so the per-file pass can note
+candidates; nothing is reported from it until the verification pass of step 5 is done.
+
 ## 4. Opt in to running checks
 
 Ask once, up front, in the same message that announces the mode, and wait for
@@ -114,6 +120,10 @@ registry or server, or the whole integration suite.
    hunk as the method's *Intent* section says.
 4. **Verification pass** - re-read each candidate finding against the whole
    file and drop the ones the surrounding code already handles.
+
+5. **Improvement pass** - only with `improve`, and only after the defects
+   are final: read `improvement-pass.md` and add the suggestions it admits.
+   They never change a finding, a severity or the verdict.
 
 Scope discipline: a finding may anchor only to a line inside a diff hunk.
 Pre-existing defects go in a separate note, at most three, never in the
@@ -151,20 +161,40 @@ List every command run, with its exit status, under *Tests* in the report.
 
 Follow the output skeleton in `review-method.md`.
 
-- **File.** Write the report to `<branch-slug>-review.md` at the root of the
-  repository under review (`pr-<id>-review.md` for a PR), where `<branch-slug>`
-  is the branch name with `/` replaced by `-`. Then offer once, in one line, to
-  add that name to the repository's local exclude file so `git add -A` skips
-  it; the path is the output of `git rev-parse --git-path info/exclude`. Append
-  to it only on a yes, and never edit `.gitignore`. The user may ask for chat
-  only instead: print the whole report and write nothing.
-- **Chat.** The verdict, one line per finding (`severity path:line - defect`),
-  the `Repo map:` line and the report path. Not the whole report twice.
+- **File.** Write the report to `<ROOT>/.pr-review/pr-<id>/review.md` for a PR
+  and `<ROOT>/.pr-review/branch-<slug>/review.md` for a branch or the current
+  checkout, where `ROOT` is `git rev-parse --show-toplevel` and `<slug>` is the
+  branch name in lower case with every run of other characters turned into
+  `-` (a detached HEAD: `head-<sha7>`). It is the same folder
+  `roj-explain-logic` writes its brief to, and the file
+  `roj-review-pr-comment` reuses for the same head. Create the folders; write
+  nothing else. The header carries `head <sha12>`, `improve: on | off` and
+  `suggestions: <n>`. `.pr-review/` is personal and stays out of Git: run
+  `git check-ignore -q .pr-review/`, and when it is not ignored print this
+  line for the reader, never run it and never edit `.gitignore`:
+
+```
+echo '.pr-review/' >> .git/info/exclude
+```
+
+  The user may ask for chat only instead: print the whole report and write
+  nothing.
+- **Chat.** The verdict (with `+ <n> suggestions` when `improve` is on), one
+  line per finding (`severity path:line - defect`), the `Repo map:` line and
+  the report path. With `improve` and no Blocker, add one line per suggestion
+  under `Improvements (non-blocking)`. With a Blocker, print no suggestion
+  line at all, only `<n> suggestions in the report file - fix the Blocker
+  first`. Not the whole report twice.
 - **Pre-PR** adds a drafted PR description built from the change summary, and
   may offer to apply fixes - after asking.
 - **Post-PR** shapes findings as pasteable review comments, one `path:line`
   entry each, split into requested changes versus nits, and never suggests
-  rewriting history.
+  rewriting history. With `improve`, suggestions are a third group after
+  them, labelled non-blocking.
+- **Next.** One line, with both prefixes, when the target is a Bitbucket PR:
+  `/skill:roj-review-pr-comment PR <id> improve` (JetBrains) or
+  `/roj-review-pr-comment PR <id> improve` (VS Code), dropping `improve` when
+  the review ran without it.
 - Close with the `Graph:` line from `SKILL.md`.
 
 ## 8. Tour (ask first)

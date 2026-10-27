@@ -465,6 +465,122 @@ class TestRepoMap(unittest.TestCase):
                 self.assertIn("Bash(git rev-parse *)", tools)
 
 
+class TestImprovementPass(unittest.TestCase):
+    """`improve` is an opt-in axis of the two review skills: non-blocking
+    suggestions kept apart from the defects, under hard evidence rules. The
+    full review report lives in .pr-review/pr-<n>/review.md, where the comment
+    skill finds it for the same head instead of reviewing twice."""
+
+    REVIEW = SKILLS / "roj-code-review-pr"
+    COMMENT = SKILLS / "roj-review-pr-comment"
+    OWNER = REVIEW / "references" / "improvement-pass.md"
+
+    def flat(self, path):
+        return " ".join(path.read_text("utf-8").split())
+
+    def test_both_review_skills_name_the_pass_and_ship_the_same_copy(self):
+        for skill in (self.REVIEW, self.COMMENT):
+            with self.subTest(skill=skill.name):
+                self.assertIn("references/improvement-pass.md",
+                              (skill / "SKILL.md").read_text("utf-8"))
+                self.assertEqual(
+                    (skill / "references" / "improvement-pass.md")
+                    .read_text("utf-8"), self.OWNER.read_text("utf-8"))
+
+    def test_skills_that_never_suggest_do_not_ship_the_pass(self):
+        for name in ("roj-explain-logic", "roj-explain-feature-changes",
+                     "roj-onboard-repo"):
+            with self.subTest(skill=name):
+                self.assertFalse((SKILLS / name / "references" /
+                                  "improvement-pass.md").exists())
+
+    def test_pass_states_the_lenses_the_seven_rules_and_the_caps(self):
+        text = self.OWNER.read_text("utf-8")
+        flat = " ".join(text.split())
+        for lens in ("Reuse", "Simplify", "Clarity", "Convention"):
+            self.assertRegex(text, re.compile(rf"^\| {lens} \|", re.M),
+                             f"lens {lens}")
+        rules = re.search(r"## Evidence rules\n(.*?)\n## ", text, re.S).group(1)
+        self.assertEqual(re.findall(r"^(\d)\. ", rules, re.M),
+                         list("1234567"))
+        for phrase in ("Cost of leaving it", "Same behaviour because",
+                       "at most 6 lines", "Confirmed or Probable",
+                       "at most 3 suggestions", "never counted toward the",
+                       "at most 5 inline suggestions plus 3 more",
+                       "The verdict ignores suggestions",
+                       "With a Blocker among the defects, chat shows no "
+                       "suggestion at all", "the report file holds them in "
+                       "full", "Sort once, never both",
+                       "never Bitbucket tasks", "Default **off**"):
+            self.assertIn(phrase, flat)
+
+    def test_pass_runs_only_after_the_defects_are_final(self):
+        flat = self.flat(self.OWNER)
+        self.assertIn("After the verification pass and the failure-scenario "
+                      "rule, never before", flat)
+        self.assertIn("Pre-existing code is not a suggestion target", flat)
+
+    def test_method_skeleton_keeps_suggestions_out_of_the_verdict(self):
+        text = (self.REVIEW / "references" / "review-method.md"
+                ).read_text("utf-8")
+        skeleton = text[text.index("## Output skeleton"):]
+        self.assertIn("### Improvements (non-blocking)", skeleton)
+        self.assertIn("head `<sha12>`", skeleton)
+        self.assertIn("improve: on | off \u00b7 suggestions: <n>", skeleton)
+        flat = " ".join(skeleton.split())
+        self.assertIn("The verdict counts defects only", flat)
+        # Improvements sit after Tests and before Needs your input.
+        self.assertLess(skeleton.index("### Tests"),
+                        skeleton.index("### Improvements (non-blocking)"))
+        self.assertLess(skeleton.index("### Improvements (non-blocking)"),
+                        skeleton.index("### Needs your input"))
+
+    def test_description_budget_and_the_improve_word(self):
+        for skill in (self.REVIEW, self.COMMENT):
+            fm, _ = frontmatter((skill / "SKILL.md").read_text("utf-8"))
+            with self.subTest(skill=skill.name):
+                self.assertLessEqual(len(fm["description"]), 1024)
+                self.assertIn("improve", fm["description"])
+
+    def test_report_moved_into_the_pr_folder(self):
+        full = self.flat(self.REVIEW / "references" / "full-review.md")
+        self.assertIn(".pr-review/pr-<id>/review.md", full)
+        self.assertIn(".pr-review/branch-<slug>/review.md", full)
+        self.assertIn("never run it and never edit `.gitignore`", full)
+        self.assertNotIn("Write the report to `<branch-slug>-review.md`",
+                         full)
+        usage = self.flat(self.REVIEW / "USAGE.md")
+        self.assertIn(".pr-review/pr-<id>/review.md", usage)
+
+    def test_comment_skill_reuses_a_review_of_the_same_head(self):
+        flat = self.flat(self.COMMENT / "SKILL.md")
+        for phrase in ("Findings reused from review.md @ <head12>",
+                       ".pr-review/pr-<id>/review.md",
+                       "equal the first 12 of `<head>`",
+                       "do not run a second review",
+                       "Report no finding that is not in the file",
+                       "Re-validate each candidate against the `-U3` diff"):
+            self.assertIn(phrase, flat)
+
+    def test_comment_draft_has_two_headings_and_defects_take_slots_first(self):
+        flat = self.flat(self.COMMENT / "SKILL.md")
+        for phrase in ("Inline comments - defects (<n>)",
+                       "Inline comments - suggestions (<n>)",
+                       "Defects take the inline slots first, up to 15",
+                       "at most 5 inline",
+                       "never more than 15 inline in all",
+                       "Further suggestions",
+                       "\U0001F4A1 **Suggestion (non-blocking)**",
+                       "never a Bitbucket task or a blocker comment"):
+            self.assertIn(phrase, flat)
+
+    def test_fixtures_for_the_improve_evals_exist(self):
+        kinds = TestEvals().fixture_kinds()
+        self.assertGreaterEqual(
+            kinds, {"pyrepo-bb-pr-dup", "pyrepo-bb-pr-review",
+                    "pyrepo-bb-pr-review-old", "pyrepo-dirty-dup"})
+
+
 class TestSoundboarding(unittest.TestCase):
     """The example SB is what the model copies: it must hold the template's
     sections and no others, and its tables must carry the evidence columns."""
@@ -836,11 +952,13 @@ ROUTES = {
         "review my pull request before I merge",
         "do a code review of this branch and find defects",
         "quick review of my uncommitted changes",
+        "review PR 42 and suggest improvements",
     ],
     "roj-review-pr-comment": [
         "review PR 123 and comment on it",
         "post a review on this PR",
         "review this Bitbucket pull request URL and leave inline comments",
+        "review PR 42 and comment, include improvement suggestions",
     ],
     "roj-explain-logic": [
         "explain this function line by line",

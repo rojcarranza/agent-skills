@@ -231,8 +231,10 @@ In chat, no diagram (chat panels are not known to render Mermaid):
 6. The next step for reviewing a colleague's PR: read
    `.onboarding/reviewing-prs.md`, then `/skill:roj-explain-logic PR <n>`
    (JetBrains) or `/roj-explain-logic PR <n>` (VS Code) to understand it with
-   this map, then `roj-code-review-pr`, then `roj-review-pr-comment` for
-   Bitbucket comments.
+   this map, then `roj-code-review-pr PR <n> improve`, then
+   `roj-review-pr-comment PR <n> improve` for Bitbucket comments (`improve`
+   adds non-blocking suggestions after the defects; leave it off for defects
+   only).
 7. The Graph line, per the graph check above.
 8. One offer, unless the reader already named tours: "Want a CodeTour of the
    core flow (VS Code only)?"
