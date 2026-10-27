@@ -20,6 +20,10 @@ init_repo() { # $1 = default branch
   git init -q -b "$1" repo; cd repo; git remote add origin ../origin.git
 }
 push_all() { G push -q origin --all; git remote set-head origin -a >/dev/null; }
+bb_slug() { # $1 = the repository slug in the eval's PR URL: origin's URL ends in
+  # it, as a Bitbucket clone URL does, so the skills' slug check matches
+  ln -s origin.git "../$1.git"; git remote set-url origin "../$1.git"
+}
 
 py_base() {
   mkdir -p app tests
@@ -269,6 +273,7 @@ bb_pr() { # a Bitbucket Data Center PR: source only under refs/pull-requests/7/f
   git -C ../origin.git update-ref -d refs/heads/feature/retry-uploads
   G checkout -q main; G branch -q -D feature/retry-uploads
   git update-ref -d refs/remotes/origin/feature/retry-uploads
+  bb_slug uploader
 }
 
 ansible_base() { # a backup playbook set under a playbooks/ folder, as an installer ships it
@@ -425,6 +430,7 @@ ansible_bb_pr() { # the Ansible change as a Bitbucket Data Center PR 7 into deve
   git -C ../origin.git update-ref -d refs/heads/feature/hdfs-guard-in-library
   G checkout -q main; G branch -q -D feature/hdfs-guard-in-library
   git update-ref -d refs/remotes/origin/feature/hdfs-guard-in-library
+  bb_slug installer
 }
 
 onboarding_map() { # $1 = the commit the guide says it was built from. Written
@@ -684,7 +690,8 @@ Add a README and a usage page for upload()."
   git -C ../origin.git update-ref refs/pull-requests/7/from "$(git rev-parse feature/docs-uploader)"
   git -C ../origin.git update-ref -d refs/heads/feature/docs-uploader
   G checkout -q main; G branch -q -D feature/docs-uploader
-  git update-ref -d refs/remotes/origin/feature/docs-uploader ;;
+  git update-ref -d refs/remotes/origin/feature/docs-uploader
+  bb_slug uploader ;;
 helm)          init_repo main
   mkdir -p chart/templates
   printf 'apiVersion: v2\nname: ingest\nversion: 0.3.1\nappVersion: "1.4.0"\n' > chart/Chart.yaml
