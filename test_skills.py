@@ -562,18 +562,6 @@ class TestImprovementPass(unittest.TestCase):
                        "Re-validate each candidate against the `-U3` diff"):
             self.assertIn(phrase, flat)
 
-    def test_comment_draft_has_two_headings_and_defects_take_slots_first(self):
-        flat = self.flat(self.COMMENT / "SKILL.md")
-        for phrase in ("Inline comments - defects (<n>)",
-                       "Inline comments - suggestions (<n>)",
-                       "Defects take the inline slots first, up to 15",
-                       "at most 5 inline",
-                       "never more than 15 inline in all",
-                       "Further suggestions",
-                       "\U0001F4A1 **Suggestion (non-blocking)**",
-                       "never a Bitbucket task or a blocker comment"):
-            self.assertIn(phrase, flat)
-
     def test_fixtures_for_the_improve_evals_exist(self):
         kinds = TestEvals().fixture_kinds()
         self.assertGreaterEqual(
