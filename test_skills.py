@@ -563,8 +563,7 @@ class TestImprovementPass(unittest.TestCase):
             self.assertIn(phrase, flat)
 
     def test_comment_draft_has_two_headings_and_defects_take_slots_first(self):
-        flat = (self.flat(self.COMMENT / "SKILL.md") + " " + self.flat(
-            self.COMMENT / "references" / "pr-comments.md"))
+        flat = self.flat(self.COMMENT / "SKILL.md")
         for phrase in ("Inline comments - defects (<n>)",
                        "Inline comments - suggestions (<n>)",
                        "Defects take the inline slots first, up to 15",

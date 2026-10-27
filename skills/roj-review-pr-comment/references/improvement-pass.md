@@ -118,7 +118,7 @@ Cost of leaving it: ... Instead: ... Same behaviour because: ...` under
 Used by `roj-review-pr-comment`, and by the `### Comments to paste` section of
 a PR review. The text of a comment, the layout and the slot rules are in
 `pr-comments.md`, the one format both use. Suggestions are posted only by
-`roj-review-pr-comment`, and only when the request says `improve`; they are never Bitbucket tasks
+`roj-review-pr-comment`, and only when the request or the yes says `improve`; they are never Bitbucket tasks
 or "blocker" comments.
 
 - Defect comments keep their shape (`🟠 **Major** · Probable - ...`).
