@@ -110,6 +110,99 @@ Community skills these chain to (`code-tour`, `acquire-codebase-knowledge`,
 [docs/community-skills.md](docs/community-skills.md). Every skill degrades
 to an inline fallback when a community skill is missing.
 
+## How the skills fit together
+
+Five skills cover a repository from first day to a posted review. They share
+files, not state: each writes under the repository root and the next one
+reads what is there.
+
+```mermaid
+flowchart LR
+  onb["roj-onboard-repo"] -->|"writes"| map[(".onboarding/ guide, index.html, repo map")]
+  map -.->|"advisory map"| exp["roj-explain-logic"]
+  map -.->|"advisory map"| rev["roj-code-review-pr"]
+  map -.->|"advisory map"| cmt["roj-review-pr-comment"]
+  map -.->|"advisory map"| feat["roj-explain-feature-changes"]
+  exp -->|"writes"| brief[("pr-n/brief.md and brief.html")]
+  brief -.->|"intent source"| rev
+  rev -->|"full review writes"| report[("pr-n/review.md")]
+  report -.->|"reused when head matches"| cmt
+  cmt -->|"posts only when asked"| bb["Bitbucket Data Center PR"]
+  feat -->|"writes"| own[("branch-changes.md")]
+```
+
+Solid arrows are writes, dotted arrows are reads. `.pr-review/` holds the
+`brief.md` and `review.md` files, one folder per PR. The map is advisory: it
+names the areas and dependents a change touches, and every finding still cites
+the code. `roj-review-pr-comment` is the only skill that writes to the PR
+host.
+
+### Which branch to be on
+
+- **Onboarding and a colleague's PR:** stay on the branch the PRs merge into
+  (`develop`, or `main`), up to date, and use that checkout for everything.
+  `roj-onboard-repo` maps the commit you have checked out, so a map built
+  there describes what PRs land on. Do not check out the feature branch to
+  skip the PR number: the PR skills fetch the PR head by ref and never need a
+  checkout, and a checked-out feature branch would only make the map describe
+  the wrong code.
+- **Pass the PR, not the branch:** a Bitbucket URL carries the PR id and the
+  target branch. A bare id needs the target said once ("it merges into
+  `develop`"), and must belong to the repository your `origin` points at.
+  With no argument `roj-explain-logic` asks which PR, `roj-review-pr-comment`
+  asks for the id, and `roj-code-review-pr` reviews your current branch.
+- **Check out the feature branch** only to run or debug it, or to review your
+  own work: with no argument `roj-code-review-pr` reviews the current branch
+  plus staged, unstaged and untracked changes, and
+  `roj-explain-feature-changes` explains the current branch against its base
+  (it stops on the base branch itself and leaves uncommitted files out).
+- **Keep the output out of Git:** `.onboarding/` and `.pr-review/` live in the
+  working tree, so they survive a branch switch, but nothing ignores them for
+  you. Each skill prints the `echo '<dir>/' >> .git/info/exclude` line when its
+  folder is not ignored, and never runs it or edits `.gitignore`.
+- **Refresh the map** by re-running `roj-onboard-repo` on the up-to-date target
+  branch. The PR skills print `Repo map: .onboarding @ <sha7> (<state>)`; once
+  it says behind or stale, refresh. A missing map never blocks a run, and a
+  quick review does not read it.
+
+In JetBrains write `/skill:roj-explain-logic PR 142`; in VS Code write
+`/roj-explain-logic PR 142`.
+
+### Workflow 1: get into a repository
+
+1. Check out the branch PRs merge into and pull it.
+2. Run `roj-onboard-repo`. A monorepo asks which workspace; an existing
+   `.onboarding/` asks refresh or keep.
+3. Open `.onboarding/index.html` in a browser (or Lavish), or the Markdown in
+   the IDE preview. Start with the reading order and `reviewing-prs.md`.
+4. Re-run it on the target branch when the map reports itself behind.
+
+### Workflow 2: understand, review and comment on a colleague's PR
+
+Stay on the target branch. Every step takes the PR URL or id.
+
+1. `roj-explain-logic PR <n>` writes `.pr-review/pr-<n>/brief.md` and
+   `brief.html`: what the change does, with a flow diagram.
+2. `roj-code-review-pr PR <n>` reviews the PR head. Auto mode picks a quick
+   chat pass or a full review that writes `.pr-review/pr-<n>/review.md` and
+   uses `brief.md` as the intent source. Add `improve` for non-blocking
+   suggestions kept apart from the defects.
+3. `roj-review-pr-comment PR <n>` drafts pasteable `path:line` comments. It
+   reuses `review.md` when its head SHA matches the PR head and `improve` was
+   covered, so the PR is not reviewed twice.
+4. Post only when you ask for it and `BITBUCKET_URL` and `BITBUCKET_TOKEN`
+   are set; otherwise paste the draft into Bitbucket yourself.
+
+### Workflow 3: review your own branch before the PR
+
+1. Check out your feature branch.
+2. `roj-code-review-pr` with no argument finds defects in the branch plus your
+   uncommitted work. Fix them.
+3. Commit, then run `roj-explain-feature-changes` (optionally with a base such
+   as `develop`). It writes `<branch-slug>-changes.md` at the repository root
+   with a PR description and per-change comments you can paste. Add that file
+   to `.git/info/exclude` too if you do not want it committed.
+
 ## Repository layout
 
 ```text
