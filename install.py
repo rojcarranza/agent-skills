@@ -14,7 +14,8 @@ Python >= 3.8, standard library only. On Windows run it from Git Bash as
 `python install.py`. On WSL run it inside WSL: it also copies the Copilot
 skills to the Windows home that Windows-side VS Code and JetBrains read
 (--windows-home PATH names it) and from then on owns that folder: a Git Bash
-run there installs graphify, the instructions and the MCP server only.
+run there installs graphify, the instructions, the MCP server and the Claude
+skills, never the Copilot skills.
 
 cali.yaml lists every skill; this script runs
 `cali sync -g --manifest <clone>/cali.yaml` (https://github.com/rojcarranza/cali)
@@ -94,6 +95,12 @@ REQUIRES = {
 # shortcut: inline `[a, b]` target lists only; parse YAML properly if
 # cali.yaml ever needs block lists or anchors.
 MANIFEST_PATH = REPO_ROOT / "cali.yaml"
+# cali sync has no per-target option, so a Git Bash run whose Copilot skills
+# a WSL run owns syncs the Claude entries from a manifest of their own. It
+# lives in the clone (git-ignored) because Cali resolves `.//` sources to
+# the repo holding the manifest, and gets its own cali.lock, seeded with
+# cali.lock's pins: a manifest sharing cali.lock would prune it.
+CLAUDE_MANIFEST_DIR = REPO_ROOT / ".cali-claude"
 _SKILL_LINE_RE = re.compile(r"^  (#\s*)?([\w-]+):\s*(.*)$")
 _FIELD_LINE_RE = re.compile(r"^  (#)?\s+([\w-]+):\s*(.*)$")
 
@@ -175,7 +182,7 @@ WSL_HINT = ("WSL: Claude Code and Copilot CLI inside WSL read the Linux "
             "from Git Bash for those extras only; it leaves the Copilot "
             "skills to this run.")
 # Written into <Windows home>/.copilot/skills by a WSL run: that run owns the
-# Copilot skills there, so a Git Bash run skips cali sync and leaves them be.
+# Copilot skills there, so a Git Bash run syncs the Claude skills only.
 WSL_OWNER_MARKER = ".installed-from-wsl"
 WSL_OWNER_TEXT = ("The Copilot skills in this folder are delivered by "
                   "install.py run inside WSL.\nA Git Bash run of install.py "
@@ -197,11 +204,34 @@ def apm_home():
     return Path.home() / ".apm"
 
 
-def cali_argv(exe: str, *args: str) -> list:
+def cali_argv(exe: str, *args: str, manifest=MANIFEST_PATH) -> list:
     """A cali command against this clone's cali.yaml, in the global scope:
     skills land in ~/.claude/skills and ~/.copilot/skills, and cali.lock is
     read and written next to cali.yaml."""
-    return [exe, *args, "-g", "--manifest", str(MANIFEST_PATH)]
+    return [exe, *args, "-g", "--manifest", str(manifest)]
+
+
+def write_claude_manifest():
+    """Write CLAUDE_MANIFEST_DIR/cali.yaml, the active cali.yaml skills that
+    target Claude limited to Claude, and its cali.lock with their cali.lock
+    pins. Raises OSError or ValueError."""
+    deps = [d for d in manifest_deps() if d["active"]
+            and (d["targets"] is None or "claude" in d["targets"])]
+    lines = ["version: 1", "targets: [claude]", "skills:"]
+    for d in deps:
+        lines += [f"  {d['name']}:", f"    source: {json.dumps(d['source'])}"]
+        if d["ref"] and "@" not in d["source"].rsplit("//", 1)[-1]:
+            lines.append(f"    ref: {json.dumps(d['ref'])}")
+        lines.append("    targets: [claude]")
+    lock = json.loads((REPO_ROOT / "cali.lock").read_text(encoding="utf-8"))
+    names = {d["name"] for d in deps}
+    lock["skills"] = {n: e for n, e in lock.get("skills", {}).items()
+                      if n in names}
+    CLAUDE_MANIFEST_DIR.mkdir(exist_ok=True)
+    (CLAUDE_MANIFEST_DIR / "cali.yaml").write_bytes(
+        ("\n".join(lines) + "\n").encode("utf-8"))
+    (CLAUDE_MANIFEST_DIR / "cali.lock").write_bytes(
+        (json.dumps(lock, indent=2) + "\n").encode("utf-8"))
 
 
 def run_cali(argv: list) -> int:
@@ -1338,7 +1368,7 @@ def main():
     if is_wsl() and "copilot" in targets:
         win_home, win_problem = resolve_windows_home(args.windows_home)
     # Git Bash on a machine whose WSL run owns the Windows Copilot skills:
-    # cali sync would overwrite them, so it is skipped.
+    # a full cali sync would overwrite them, so only Claude's skills sync.
     wsl_owned = wsl_owns_copilot_skills()
 
     if args.status:
@@ -1383,16 +1413,26 @@ def main():
     else:
         log("No GitHub token ($token or 'gh auth login') — skipping MCP "
             "servers; skills and instructions install as usual")
-    argv = cali_argv(exe or "cali", "sync")
+    manifest = MANIFEST_PATH
     if wsl_owned:
         log(f"{target_root('copilot')} is owned by the WSL run "
-            f"({WSL_OWNER_MARKER}) - skipping cali sync; run install.py "
-            "inside WSL to update the skills")
-        results.append(("cali", "sync", "skipped (skills come from WSL)"))
+            f"({WSL_OWNER_MARKER}) - Copilot skills are left to it; run "
+            "install.py inside WSL to update them")
+        manifest = CLAUDE_MANIFEST_DIR / "cali.yaml"
+    argv = cali_argv(exe or "cali", "sync", manifest=manifest)
+    if wsl_owned and "claude" not in targets:
+        results.append(("cali", "sync", "skipped (Copilot skills come from "
+                        "WSL)"))
     elif args.dry_run:
         results.append(("cali", "sync", "dry-run: would run "
                         + " ".join(["cali", *argv[1:]])))
     else:
+        if wsl_owned:
+            try:
+                write_claude_manifest()
+            except (OSError, ValueError) as exc:
+                sys.exit(f"could not write the Claude-only manifest in "
+                         f"{CLAUDE_MANIFEST_DIR}: {exc}")
         code = run_cali(argv)
         if code:
             print_summary(results, targets, args.dry_run)

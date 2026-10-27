@@ -212,8 +212,8 @@ home, after `cali sync` succeeds:
   run leaves no half skill.
 - The run owns that folder from then on: it writes
   `<Windows home>/.copilot/skills/.installed-from-wsl`, and a Git Bash run
-  that finds the file skips `cali sync` and the clean-up of Copilot skill
-  folders, so the two runs never undo each other. A Git Bash copy the WSL
+  that finds the file skips Copilot skill delivery and the clean-up of
+  Copilot skill folders, so the two runs never undo each other. A Git Bash copy the WSL
   run finds that differs is taken over once: moved to the backup folder and
   replaced. Delete the file to hand the folder back to Git Bash.
 - Retired skills in the Windows skills folder are moved to the same backup
@@ -228,9 +228,19 @@ home, after `cali sync` succeeds:
 Not delivered to Windows: Claude Code (out of scope: Claude on Windows is a
 Git Bash run), `graphify` (its CLI has to be on the Windows PATH too), the
 personal instructions and the GitHub MCP server. Run `install.py` from Git
-Bash for those extras only: with WSL owning the Copilot skills it installs
-them and nothing from `cali.yaml` (so Claude Code on Windows gets no Cali
-skills either).
+Bash for those extras: with WSL owning the Copilot skills it installs them
+and the Claude Code skills, and no Copilot skills (with `--target copilot`
+it runs no `cali sync` at all).
+
+`cali sync` has no option to install one target, and a second manifest
+next to `cali.yaml` would share and prune `cali.lock`. So that Git Bash run
+writes `<clone>/.cali-claude/` (git-ignored): a `cali.yaml` holding the
+`cali.yaml` skills that target Claude, limited to Claude, and a `cali.lock`
+holding their `cali.lock` pins, then runs
+`cali sync -g --manifest <clone>/.cali-claude/cali.yaml`. The folder sits in
+the clone because Cali resolves a `.//` source to the repo that holds the
+manifest. Cali keys its pristine copies by tree, so the main manifest and
+this one share them.
 
 Why a copy and not `cali sync` with `HOME` set to the Windows home: Cali
 honours `HOME`, but it would also install the Claude target there, write its

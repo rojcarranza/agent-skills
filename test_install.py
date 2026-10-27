@@ -2048,26 +2048,61 @@ class TestWindowsLeg(TempDirTest):
         self.assertEqual(sorted((self.win / "backups").rglob("*")), backups)
         self.assertNotIn("windows ", out)
 
-    def test_git_bash_run_leaves_wsl_owned_copilot_skills_alone(self):
+    def git_bash_main(self, *argv):
+        """A WSL run, then a Git Bash run whose home is that Windows home."""
         self.wsl_main()
-        marker = self.skills / install.WSL_OWNER_MARKER
-        self.assertTrue(marker.is_file())
-        # The Git Bash run's home is the Windows home the WSL run wrote to.
+        self.assertTrue((self.skills / install.WSL_OWNER_MARKER).is_file())
         shutil.rmtree(self.linux)
         shutil.copytree(str(self.skills), str(self.linux))
         (self.linux / "roj-onboard-repo" / "SKILL.md").write_text("wsl copy")
-        code, calls, out, _ = self.run_main([], wsl=False,
-                                            cali_rows=rows("unlocked",
-                                                           *self.managed))
-        self.assertEqual(code, 0)
-        self.assertEqual(calls, [])
-        self.assertIn("skipped (skills come from WSL)", out)
+        self.claude_dir = self.tmp / "clone" / ".cali-claude"
+        self.claude_dir.parent.mkdir()
+        with mock.patch("install.CLAUDE_MANIFEST_DIR", self.claude_dir):
+            return self.run_main(list(argv), wsl=False,
+                                 cali_rows=rows("unlocked", *self.managed))
+
+    def assert_copilot_left_alone(self):
         self.assertEqual((self.linux / "roj-onboard-repo" / "SKILL.md")
                          .read_text(), "wsl copy")
+        self.assertFalse((self.tmp / "home" / "backups").exists())
+
+    def test_git_bash_run_syncs_claude_only_when_wsl_owns_copilot(self):
+        code, calls, _, _ = self.git_bash_main()
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [install.cali_argv(
+            "/bin/cali", "sync", manifest=self.claude_dir / "cali.yaml")])
+        self.assert_copilot_left_alone()
         home = self.tmp / "home"
-        self.assertFalse((home / "backups").exists())
         self.assertTrue((home / "instr" / "copilot.md").is_file())
         self.assertTrue((home / "mcp-copilot.json").is_file())
+        self.assertTrue((home / "mcp-claude.json").is_file())
+        # cali.yaml: "only roj-idea-to-project also targets Claude".
+        deps = install.parse_manifest(
+            (self.claude_dir / "cali.yaml").read_text(encoding="utf-8"))
+        self.assertEqual([(d["name"], d["source"], d["targets"]) for d in deps],
+                         [("roj-idea-to-project", ".//skills/roj-idea-to-project",
+                           ("claude",))])
+        lock = json.loads((self.claude_dir / "cali.lock").read_text())
+        repo_lock = json.loads((install.REPO_ROOT / "cali.lock").read_text())
+        self.assertEqual(lock["skills"], {"roj-idea-to-project":
+                                          repo_lock["skills"]["roj-idea-to-project"]})
+
+    def test_git_bash_claude_target_still_syncs_when_wsl_owns_copilot(self):
+        code, calls, out, _ = self.git_bash_main("--target", "claude")
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [install.cali_argv(
+            "/bin/cali", "sync", manifest=self.claude_dir / "cali.yaml")])
+        self.assertNotIn("skipped", out)
+        self.assert_copilot_left_alone()
+
+    def test_git_bash_copilot_target_skips_sync_when_wsl_owns_copilot(self):
+        code, calls, out, _ = self.git_bash_main("--target", "copilot")
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [])
+        self.assertIn("skipped (Copilot skills come from WSL)", out)
+        self.assertFalse(self.claude_dir.exists())
+        self.assert_copilot_left_alone()
+        self.assertTrue((self.tmp / "home" / "mcp-copilot.json").is_file())
 
     def test_windows_home_flag_names_the_home(self):
         other = self.tmp / "d-drive" / "me"

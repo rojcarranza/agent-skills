@@ -33,8 +33,9 @@ installed by [Cali](https://github.com/rojcarranza/cali).
    read, and moves retired skills such as `roj-tour-codebase` out of both.
    `--windows-home PATH` names that home if it cannot be found. The WSL run
    then owns the Windows Copilot skills folder, so WSL users run it from Git
-   Bash only for the extras it does not copy - `graphify`, the instructions
-   and the GitHub MCP server; that run leaves the Copilot skills alone.
+   Bash only for the extras it does not copy - `graphify`, the instructions,
+   the GitHub MCP server and the Claude Code skills; that run leaves the
+   Copilot skills alone.
    `install.py` runs `cali sync -g --manifest <clone>/cali.yaml`, writes the
    personal instructions and the GitHub MCP server entry, and installs
    `graphify` (a CLI Cali does not install).
