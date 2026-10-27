@@ -11,8 +11,9 @@ Usage:
   python3 install.py --skills-only       # skip graphify (e.g. PyPI blocked)
 
 Python >= 3.8, standard library only. On Windows run it from Git Bash as
-`python install.py`; on WSL run it inside WSL (and again from Git Bash for
-Windows-side IDEs).
+`python install.py`. On WSL run it inside WSL: it also copies the Copilot
+skills to the Windows home that Windows-side VS Code and JetBrains read
+(--windows-home PATH names it, --no-windows-home skips it).
 
 cali.yaml lists every skill; this script runs
 `cali sync -g --manifest <clone>/cali.yaml` (https://github.com/rojcarranza/cali)
@@ -25,6 +26,7 @@ Any single skill also installs without this script, in any agent the
 """
 import argparse
 import contextlib
+import filecmp
 import json
 import os
 import re
@@ -166,9 +168,19 @@ cali is not installed (or not on PATH). Install it from a clone of
 https://github.com/rojcarranza/cali, open a new shell, then re-run install.py:
   macOS / Linux / WSL:  make install
   Windows Git Bash:     sh scripts/install.sh"""
-WSL_HINT = ("WSL: this installed into the Linux home, for Claude Code and "
-            "Copilot CLI inside WSL. VS Code and JetBrains on Windows read "
-            "%USERPROFILE% — run install.py from Git Bash too.")
+WSL_HINT = ("WSL: Claude Code and Copilot CLI inside WSL read the Linux "
+            "home. VS Code and JetBrains on Windows read %USERPROFILE%, which "
+            "gets the Copilot skills only, not graphify, the personal "
+            "instructions or the GitHub MCP server - run install.py from "
+            "Git Bash for those.")
+WINDOWS_HOME_HELP = """\
+WSL: could not find the Windows home ({why}).
+Windows-side VS Code and JetBrains read the Copilot skills there, so they
+will NOT see the skills just installed in the Linux home. Either
+  - re-run with the Windows home named:
+      python3 install.py --windows-home /mnt/c/Users/<your Windows user>
+  - or run install.py from Git Bash on Windows.
+--no-windows-home skips this step."""
 # Cali states (`cali status --json`) for a folder Cali did not put there:
 # no pristine copy of the locked version, or a skill not locked yet.
 NOT_CALIS = {"base-lost", "unlocked"}
@@ -241,6 +253,67 @@ def is_wsl():
             encoding="utf-8").lower()
     except OSError:
         return False
+
+
+_WINDOWS_PATH_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+
+def windows_userprofile():
+    """%USERPROFILE% as Windows spells it (C:\\Users\\name) read through
+    cmd.exe interop, or None when interop is off or cmd.exe is missing."""
+    for exe in (shutil.which("cmd.exe"), "/mnt/c/Windows/System32/cmd.exe"):
+        if not exe or not os.path.isfile(exe):
+            continue
+        try:
+            # chcp 65001 makes cmd print UTF-8, so a non-ASCII user name
+            # survives; cwd on /mnt/c spares cmd its UNC-path complaint.
+            run = subprocess.run(
+                [exe, "/c", "chcp 65001 >nul & echo %USERPROFILE%"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30,
+                cwd="/mnt/c" if os.path.isdir("/mnt/c") else None)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        lines = [ln.strip() for ln in
+                 run.stdout.decode("utf-8", "replace").splitlines()
+                 if ln.strip()]
+        if run.returncode == 0 and lines and "%USERPROFILE%" not in lines[-1]:
+            return lines[-1]
+    return None
+
+
+def wsl_path(windows_path):
+    """C:\\Users\\name -> /mnt/c/Users/name through wslpath, or None."""
+    exe = shutil.which("wslpath")
+    if not exe:
+        return None
+    try:
+        run = subprocess.run([exe, "-u", windows_path], stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    out = run.stdout.strip()
+    return Path(out) if run.returncode == 0 and out else None
+
+
+def resolve_windows_home(override=None):
+    """(Path, None) for the Windows home a WSL run also delivers Copilot
+    skills to, else (None, why). override is --windows-home: a /mnt/... path
+    or a C:\\... one. Without it the home is %USERPROFILE%, asked of Windows."""
+    raw = override or windows_userprofile()
+    if not raw:
+        return None, ("cmd.exe interop is not available, so %USERPROFILE% "
+                      "cannot be read")
+    if _WINDOWS_PATH_RE.match(raw):
+        home = wsl_path(raw)
+        if home is None:
+            return None, f"wslpath could not convert {raw}"
+    else:
+        home = Path(raw)
+    if not home.is_dir():
+        return None, f"{home} is not a directory"
+    if home.resolve() == Path.home().resolve():
+        return None, f"{home} is the Linux home, not a Windows one"
+    return home, None
 
 
 # Before APM, this script copied or linked every skill itself; APM then
@@ -324,7 +397,8 @@ def _links_into_a_checkout(entry):
             and (root / ".claude-plugin" / "marketplace.json").is_file())
 
 
-def remove_installer_skills(target, dest_root, dry_run, cali_rows=None):
+def remove_installer_skills(target, dest_root, dry_run, cali_rows=None,
+                            home=None):
     """Remove what older installs left in dest_root, for skills Cali now
     installs for target. cali_rows is cali_status_rows(): a copy is moved to
     backup_dir() only when Cali says it did not install it (NOT_CALIS), so a
@@ -333,8 +407,11 @@ def remove_installer_skills(target, dest_root, dry_run, cali_rows=None):
     will not reinstall for target, only a link an older installer made is
     moved to backup_dir(); a real folder is kept, and its path is printed
     with a warning to delete it if stale (Cali keeps no record of the hosts
-    a skill was dropped from). Any other leftover Cali will not reinstall
-    is kept, with a warning when its SKILL.md declares that name."""
+    a skill was dropped from). The exception is a RETIRED_SKILLS folder whose
+    SKILL.md declares its own name: only our installs ever put it there, so
+    it is moved to backup_dir() too. Any other leftover Cali will not
+    reinstall is kept, with a warning when its SKILL.md declares that name.
+    home is the home dest_root belongs to, when it is not the current one."""
     results = []
     if not dest_root.is_dir():
         return results
@@ -349,10 +426,14 @@ def remove_installer_skills(target, dest_root, dry_run, cali_rows=None):
         else:
             ours = entry.is_dir() and is_ours(entry, entry.name)
         if entry.name not in managed:
-            if entry.name in stale and entry.is_symlink() and ours:
-                dest = _move_aside(entry, target, dry_run)
+            retired = (entry.name in RETIRED_SKILLS and ours
+                       and not entry.is_symlink())
+            if entry.name in stale and ours and (entry.is_symlink() or retired):
+                dest = _move_aside(entry, target, dry_run, home)
                 results.append((target, entry.name,
-                                f"moved to {dest} (not installed for {target})"))
+                                f"moved to {dest} (not installed for {target})"
+                                if not retired else
+                                f"moved to {dest} (retired skill)"))
             elif entry.name in stale:
                 warn(f"{entry} is left over: Cali no longer installs "
                      f"{entry.name} for {target} — kept; delete it if it "
@@ -373,7 +454,7 @@ def remove_installer_skills(target, dest_root, dry_run, cali_rows=None):
                 cali_rows.get((entry.name, target), ())):
             # base-lost also covers a Cali folder whose data dir was wiped, so
             # the copy may hold local edits: move it aside, never delete it.
-            dest = _move_aside(entry, target, dry_run)
+            dest = _move_aside(entry, target, dry_run, home)
             results.append((target, entry.name,
                             f"moved to {dest} (not installed by Cali)"))
     return results
@@ -713,15 +794,16 @@ def is_generated(path):
 _RUN_STAMP = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
 
 
-def backup_dir():
-    """Where install.py keeps what it moved aside, one folder per run."""
-    return Path.home() / ".agent-skills-backups" / _RUN_STAMP
+def backup_dir(home=None):
+    """Where install.py keeps what it moved aside, one folder per run, in
+    the Linux home or, for the WSL Windows leg, in `home`."""
+    return (home or Path.home()) / ".agent-skills-backups" / _RUN_STAMP
 
 
-def _move_aside(path, target, dry_run):
+def _move_aside(path, target, dry_run, home=None):
     """Move path to backup_dir()/<target>/<name> (a free name) and return
     where it went, or would go on a dry run."""
-    dest = backup_dir() / target / path.name
+    dest = backup_dir(home) / target / path.name
     n = 1
     while dest.exists():
         n += 1
@@ -1025,7 +1107,89 @@ def install_externals_for_target(target, sel_externals, dry_run):
     return results
 
 
-def show_status(targets):
+def _tree_files(root):
+    return {p.relative_to(root).as_posix(): p
+            for p in root.rglob("*") if p.is_file()}
+
+
+def _same_tree(a, b):
+    """True when folders a and b hold the same files with the same bytes."""
+    files_a, files_b = _tree_files(a), _tree_files(b)
+    return (files_a.keys() == files_b.keys()
+            and all(filecmp.cmp(str(files_a[k]), str(files_b[k]), shallow=False)
+                    for k in files_a))
+
+
+def _copy_skill(src, dest, win_home):
+    """Put a copy of src at dest. The copy is built beside dest first, so an
+    interrupted run never leaves half a skill; an existing dest is moved to
+    the Windows home's backup folder and returned. Raises OSError."""
+    tmp = dest.with_name(f".{dest.name}.tmp")
+    shutil.rmtree(tmp, ignore_errors=True)
+    shutil.copytree(str(src), str(tmp))
+    backup = None
+    try:
+        if dest.exists():
+            backup = _move_aside(dest, "copilot", False, win_home)
+        os.replace(str(tmp), str(dest))
+    except OSError:
+        shutil.rmtree(tmp, ignore_errors=True)
+        if backup is not None and not dest.exists():
+            shutil.move(str(backup), str(dest))
+        raise
+    return backup
+
+
+def sync_windows_home(win_home, dry_run):
+    """The WSL Windows leg: make the Copilot skills Cali installed in the
+    Linux home also exist in win_home/.copilot/skills, where Windows-side
+    VS Code and JetBrains read them.
+
+    Not `cali sync` with HOME pointed at win_home: Cali would also install the
+    Claude target there, keep its pristine copies under /mnt/c, and treat
+    every folder a Git Bash run put there as foreign. So the skills Cali
+    manages for Copilot are copied (symlinks do not work across /mnt/c); a
+    differing folder is moved to <win_home>/.agent-skills-backups first, and
+    retired skills are cleaned up as in the Linux home. graphify is not
+    copied: its CLI would have to be on the Windows PATH as well."""
+    dest_root = win_home / ".copilot" / "skills"
+    src_root = target_root("copilot")
+    results = [("windows" if t == "copilot" else t, n, s)
+               for t, n, s in remove_installer_skills(
+                   "copilot", dest_root, dry_run, home=win_home)]
+    for name in sorted(managed_skill_names("copilot")):
+        src, dest = src_root / name, dest_root / name
+        if dest.is_symlink():
+            warn(f"{dest} is a link - left in place; remove it so install.py "
+                 f"can copy {name} there")
+            continue
+        if not src.is_dir():
+            if not dry_run:
+                warn(f"{src} is missing - {name} not copied to {dest_root}")
+                results.append(("windows", name, "skipped (no Linux copy)"))
+            else:
+                results.append(("windows", name, f"would be copied to {dest}"))
+            continue
+        if dest.is_dir() and _same_tree(src, dest):
+            continue
+        if dry_run:
+            kept = (f", old copy to {_move_aside(dest, 'copilot', True, win_home)}"
+                    if dest.exists() else "")
+            results.append(("windows", name, f"would be copied to {dest}{kept}"))
+            continue
+        try:
+            backup = _copy_skill(src, dest, win_home)
+        except OSError as exc:
+            warn(f"could not copy {name} to {dest}: {exc} - close VS Code and "
+                 "JetBrains (they watch the skills folder) and re-run")
+            results.append(("windows", name, "failed"))
+            continue
+        results.append(("windows", name, "copied" if backup is None
+                        else f"updated (old copy moved to {backup})"))
+    return results
+
+
+def show_status(targets, windows_home=None):
     exe = find_cli("cali")
     if exe:
         run_cali(cali_argv(exe, "list"))
@@ -1069,6 +1233,19 @@ def show_status(targets):
                                 f"but its {ext['cli']} CLI is missing")
             elif cli_path_hint(ext):
                 warnings.append(f"{target}: {cli_path_hint(ext)}")
+    if windows_home is not None:
+        print(f"  windows home: {windows_home}  (Copilot skills in "
+              f"{windows_home / '.copilot' / 'skills'})")
+        todo = sync_windows_home(windows_home, dry_run=True)
+        copies = [n for _, n, s in todo if s.startswith("would be copied")]
+        if copies:
+            warnings.append(f"windows: {len(copies)} skill(s) missing or out "
+                            f"of date ({', '.join(copies)}) - re-run "
+                            "install.py to copy them")
+        for _, name, status in todo:
+            if not status.startswith("would be copied"):
+                warnings.append(f"windows: {name} {status} - re-run "
+                                "install.py")
     print()
     for w in warnings:
         warn(w)
@@ -1116,12 +1293,26 @@ def main():
                          "their skill files")
     ap.add_argument("--skills-only", action="store_true",
                     help="skip graphify (e.g. PyPI blocked)")
+    ap.add_argument("--windows-home", metavar="PATH",
+                    help="WSL: the Windows home to copy the Copilot skills "
+                         "to (default: %%USERPROFILE%%, read through "
+                         "cmd.exe)")
+    ap.add_argument("--no-windows-home", action="store_true",
+                    help="WSL: install into the Linux home only")
     args = ap.parse_args()
     targets = (["copilot", "claude"] if args.target == "both"
                else [args.target])
 
+    # WSL: Windows-side VS Code and JetBrains read the Windows home, so the
+    # Copilot skills go there as well.
+    win_home, win_problem = None, None
+    if is_wsl() and "copilot" in targets and not args.no_windows_home:
+        win_home, win_problem = resolve_windows_home(args.windows_home)
+
     if args.status:
-        show_status(targets)
+        show_status(targets, win_home)
+        if win_problem:
+            warn(WINDOWS_HOME_HELP.format(why=win_problem))
         return
 
     exe = find_cli("cali")
@@ -1170,6 +1361,8 @@ def main():
                  "once a re-run of install.py succeeds")
             sys.exit(code)
         results.append(("cali", "sync", "done"))
+    if win_home is not None:
+        results.extend(sync_windows_home(win_home, args.dry_run))
 
     sel_externals = set() if args.skills_only else default_external_names()
     if args.skills_only:
@@ -1190,6 +1383,8 @@ def main():
     print_summary(results, targets, args.dry_run)
     if is_wsl():
         log(WSL_HINT)
+        if win_problem:
+            warn(WINDOWS_HOME_HELP.format(why=win_problem))
 
 
 if __name__ == "__main__":
