@@ -40,6 +40,7 @@ which calls the script makes.
 | VS Code Copilot | `/roj-review-pr-comment 142` or `/roj-review-pr-comment https://bitbucket.example.com/projects/KEY/repos/slug/pull-requests/142/overview` |
 | JetBrains Copilot | `/skill:roj-review-pr-comment 142` |
 | Plain English | `Review PR 142, it merges into develop` (draft) or `Review PR 142 and post the comments` |
+| With suggestions | `Review PR 142 and comment, include improvement suggestions` (the word `improve` does it) |
 
 A bare PR id takes the project and repository from the `origin` remote. The
 PR's target branch comes from the URL, the REST lookup, or a question; it is
@@ -60,7 +61,12 @@ never guessed from `origin/HEAD`.
    branch does not matter. If the fetched commit is older than the PR's
    latest, it stops and tells you to open the PR's Commits tab and retry.
 4. Reviews the diff with the method's severity and confidence gates, and
-   drops findings that restate a comment already on the PR.
+   drops findings that restate a comment already on the PR. When
+   `.pr-review/pr-<id>/review.md` is a full review of the same head
+   (`roj-code-review-pr` writes it), the draft says `Findings reused from
+   review.md @ <head12>`: those findings are re-checked against the diff and
+   nothing is reviewed twice. A different head, or no file, means a fresh
+   review.
 5. Prints the draft: a summary comment and up to 15 inline comments, each in
    its own block. Findings without a commentable line, and any past 15, go in
    the summary.
@@ -70,6 +76,17 @@ never guessed from `origin/HEAD`.
    reviewed again and skips what was already said.
 
 A clean PR is reported as "No findings." - the skill never invents findings.
+
+## Suggestions (`improve`)
+
+Off unless you ask. With `improve` the draft has two headings, `Inline
+comments - defects (n)` and `Inline comments - suggestions (n)`. Defects fill
+the inline slots first; suggestions take at most 5 of the slots left, and the
+rest go to the summary under *Further suggestions*. A suggestion comment starts
+`💡 **Suggestion (non-blocking)**`, names its lens (Reuse, Simplify, Clarity,
+Convention) and gives the cost of leaving it and the concrete change. They are
+plain comments, never Bitbucket tasks. Without `improve` nothing is suggested
+and nothing like it is posted. The rules are in `references/improvement-pass.md`.
 
 Works the same from bash and PowerShell: git commands are single lines, and
 the findings JSON is piped to the one script that talks to Bitbucket, which

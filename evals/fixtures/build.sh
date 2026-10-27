@@ -217,15 +217,54 @@ def notify(channel, message):
 EOF
 }
 
+slug_helper() { # a helper that already exists on the base branch
+  cat > app/slug.py <<'EOF'
+import re
+
+
+def slugify(text):
+    """Lower-case text and join runs of non-alphanumerics with '-'."""
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+EOF
+  G add -A; G commit -qm "Add slugify helper"
+}
+
+dup_slug_in_cli() { # the change re-implements that helper inside app/cli.py
+  cat > app/cli.py <<'EOF'
+import re
+import sys
+from app.uploader import upload
+
+
+def _safe_name(text):
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def main(argv):
+    result = upload(argv[1], {"name": _safe_name(argv[2])})
+    print(result["id"])
+
+
+if __name__ == "__main__":
+    main(sys.argv)
+EOF
+  G add -A; G commit -qm "Slug the upload name"
+}
+
 bb_pr() { # a Bitbucket Data Center PR: source only under refs/pull-requests/7/from,
   # target develop (not origin/HEAD, which is main), checkout sitting on main.
   # $1 = filler commits on develop between the initial commit and the PR (default 0)
+  # $2 = function run on develop before the PR branch starts (default none)
+  # $3 = function run on the PR branch after its first commit (default none)
   init_repo main; py_base
   G checkout -qb develop
   printf '# Changelog\n' > CHANGELOG.md
   G add -A; G commit -qm "Start the changelog"
   for ((i = 1; i <= ${1:-0}; i++)); do G commit -q --allow-empty -m "Housekeeping $i"; done
-  py_retry_feature; push_all
+  ${2:-:}
+  py_retry_feature
+  ${3:-:}
+  push_all
   git -C ../origin.git update-ref refs/pull-requests/7/from "$(git rev-parse feature/retry-uploads)"
   git -C ../origin.git update-ref -d refs/heads/feature/retry-uploads
   G checkout -q main; G branch -q -D feature/retry-uploads
@@ -331,6 +370,70 @@ EOF
   printf '%s\n' "${flow//@SHA@/$1}" > .onboarding/flows/01-upload.md
 }
 
+pr_review_file() { # $1 = the head the prepared review.md says it reviewed. Written
+  # untracked under .pr-review/pr-7/, as roj-code-review-pr writes it.
+  mkdir -p .pr-review/pr-7
+  local head12=${1:0:12} body
+  IFS= read -r -d '' body <<'EOF' || true
+## Review - PR 7 vs origin/develop
+
+uploader · base `origin/develop` @ `@BASE7@` · head `@HEAD12@` · 2 commits ·
+3 files · +31/-5 · lenses: lang-python ·
+mode: full · stage: post-PR · improve: on · suggestions: 1
+Uncommitted: none
+Intent: none
+Repo map: none
+Excluded: none
+
+### What this branch does
+
+Retries `upload()` up to three times with exponential backoff, and slugs the
+upload name in `app/cli.py` before it is sent.
+
+- `app/uploader.py` - retry loop around the POST.
+- `app/cli.py` - slugs the name with a local `_safe_name`.
+- `tests/test_uploader.py` - covers a retry that succeeds.
+
+### Verdict
+
+Changes requested - 0 Blocker, 1 Major, 0 Minor, 0 Nits (+ 1 suggestions)
+
+### Findings
+
+#### Major
+
+**`app/uploader.py:20`** · Confirmed
+`upload()` falls out of the retry loop without a return or a raise after the
+last failed attempt, so it returns `None`.
+Fails when: all three attempts raise `requests.RequestException`; `upload()`
+returns `None` and `app/cli.py:12` fails with `TypeError: 'NoneType' object
+is not subscriptable` instead of the real network error.
+Fix: keep the last exception and `raise` it after the loop.
+
+### Tests
+
+`tests/test_uploader.py` covers a retry that then succeeds. Not covered: all
+attempts failing.
+
+### Improvements (non-blocking)
+
+**`app/cli.py:7`** · Reuse · Confirmed
+`_safe_name` repeats `slugify` (`app/slug.py:4`) line for line.
+Cost of leaving it: a change to the slug rule has to be made in two places and
+the two can drift.
+Instead: `from app.slug import slugify` and call `slugify(argv[2])` at
+`app/cli.py:11`; delete `_safe_name`.
+Same behaviour because both functions run the same `re.sub` and `.strip("-")`
+on the lower-cased text.
+
+### Good
+
+- The backoff doubles each attempt and the retry has a test.
+EOF
+  body=${body//@HEAD12@/$head12}
+  printf '%s\n' "${body//@BASE7@/$(git rev-parse --short=7 develop)}" > .pr-review/pr-7/review.md
+}
+
 case "$kind" in
 pyrepo)        init_repo main; py_base; py_retry_feature; push_all ;;
 pyrepo-dirty)  init_repo main; py_base; py_retry_feature; push_all; py_dirty ;;
@@ -338,6 +441,36 @@ pyrepo-dirty-onboarded)  # the dirty checkout plus an untracked, unexcluded .onb
   init_repo main; py_base; py_retry_feature; push_all; py_dirty
   onboarding_map "$(git rev-parse main)" ;;
 pyrepo-bb-pr)  bb_pr ;;
+pyrepo-bb-pr-dup)  # the PR above plus a duplicate of a helper that exists on develop
+  bb_pr 0 slug_helper dup_slug_in_cli ;;
+pyrepo-bb-pr-review)  # the duplicate PR plus an untracked review.md of its exact head
+  bb_pr 0 slug_helper dup_slug_in_cli
+  pr_review_file "$(git -C ../origin.git rev-parse refs/pull-requests/7/from)" ;;
+pyrepo-bb-pr-review-old)  # the same, but the review.md is for an older head
+  bb_pr 0 slug_helper dup_slug_in_cli
+  pr_review_file "$(git rev-parse develop)" ;;
+pyrepo-dup-clean)  # a branch whose only issue is a copy of an existing helper
+  init_repo main; py_base; slug_helper
+  G checkout -qb feature/names
+  cat > app/names.py <<'EOF'
+import re
+
+
+def normalize_name(name):
+    """Lower-case a name and join runs of non-alphanumerics with '-'."""
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+EOF
+  cat > tests/test_names.py <<'EOF'
+from app.names import normalize_name
+
+
+def test_normalize_name():
+    assert normalize_name("Hello, World!") == "hello-world"
+EOF
+  G add -A; G commit -qm "Add normalize_name for upload names"; push_all ;;
+pyrepo-dirty-dup)  # the dirty checkout (token = Blocker) plus the duplicate helper
+  init_repo main; py_base; slug_helper; py_retry_feature; dup_slug_in_cli
+  push_all; py_dirty ;;
 pyrepo-bb-pr-mapped)  # the PR above plus a guide built from the target branch tip
   bb_pr; onboarding_map "$(git rev-parse develop)" ;;
 pyrepo-bb-pr-stale)  # the guide is 50+ commits behind the target branch

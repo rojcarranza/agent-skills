@@ -7,13 +7,13 @@
       "fixture": {
         "repo": "pyrepo"
       },
-      "expected_output": "Full mode: asks the checks opt-in once up front, then writes a report at the repo root and offers to exclude it.",
+      "expected_output": "Full mode: asks the checks opt-in once up front, then writes the report to .pr-review/branch-<slug>/review.md and prints the ignore line without running it.",
       "expectations": [
         "Prints the base branch with the merge-base SHA and uses three-dot diffs (<base>...HEAD)",
         "Header names mode: full and stage: pre-PR",
         "Asks the checks question once, before reviewing (no / checks / checks+probe), and has no later approval stop; with no answer to run checks, runs no command other than git",
-        "Writes <branch-slug>-review.md at the repository root",
-        "Offers once to add the report name to the local exclude file (.git/info/exclude) and does not edit .gitignore",
+        "Writes the report to .pr-review/branch-feature-retry-uploads/review.md under the repository root, with head <sha12> in its header, and no <branch-slug>-review.md at the repository root",
+        "Prints the line echo '.pr-review/' >> .git/info/exclude for the reader because .pr-review/ is not ignored, does not run it, and does not edit .gitignore",
         "Flags that upload() in app/uploader.py returns None after the last failed attempt (so app/cli.py's result[\"id\"] fails) as Blocker or Major",
         "Every finding carries a severity, a confidence and a path:line inside a diff hunk",
         "States no finding that is factually wrong",
@@ -287,6 +287,71 @@
         "Does not open any file under .onboarding/ and prints no 'Repo map:' line",
         "Flags that upload() in app/uploader.py returns None after the last failed attempt",
         "Ends by saying callers, config coupling and tests were not checked and that 'full' gives the full review"
+      ]
+    },
+    {
+      "id": 20,
+      "prompt": "full review of PR 7 on our bitbucket data center, it merges into develop, and suggest improvements",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-dup"
+      },
+      "expected_output": "Defects first, then the Reuse suggestion naming the existing helper in the report file; the verdict counts defects only; chat shows no suggestion while a Blocker is among the findings.",
+      "expectations": [
+        "Fetches refs/pull-requests/7/from and develop, reads the printed head SHA, does not check out and uses origin/develop as the base",
+        "Loads improvement-pass.md because the request says improve",
+        "Findings come first: upload() in app/uploader.py returns None after the last failed attempt, Blocker or Major, anchored to a line inside the diff hunk",
+        "One suggestion is a Reuse suggestion on the _safe_name copy in app/cli.py that names the existing slugify helper by path:line (app/slug.py:4), found by search or graph in this run",
+        "Every suggestion has a line inside a diff hunk, the concrete change (at most 6 lines or the existing helper's path:line), a 'Cost of leaving it' sentence, a 'Same behaviour because' sentence and a Confirmed or Probable tag",
+        "No suggestion restates a linter rule, proposes a library or idiom swap, or targets code the PR did not touch",
+        "The verdict line counts defects only and ends with '+ <n> suggestions'; suggestions are not counted as Minor or Nit",
+        "The report file .pr-review/pr-7/review.md has a separate '### Improvements (non-blocking)' section after the defects, with at most 5 inline suggestions plus 3 summary-only, and 'improve: on', 'suggestions: <n>' and 'head <sha12>' in its header",
+        "Prints the ignore line echo '.pr-review/' >> .git/info/exclude without running it",
+        "When the findings include a Blocker, chat prints no suggestion line, only '+ <n> suggestions' on the verdict and one line saying they are in the report file; when none is a Blocker, chat lists the suggestions under Improvements (non-blocking)"
+      ]
+    },
+    {
+      "id": 21,
+      "prompt": "quick review of my branch, improve",
+      "fixture": {
+        "repo": "pyrepo-dup-clean"
+      },
+      "expected_output": "Quick mode with improve on a branch with no defect: no findings, then at most 3 suggestions under their own line.",
+      "expectations": [
+        "Prints a header naming mode: quick and writes no file",
+        "Reports no Blocker or Major finding",
+        "Prints at most 3 suggestions after the findings under 'Suggestions (non-blocking, not in the verdict):', each with a cost, the concrete change and 'Same behaviour because'",
+        "The normalize_name copy of slugify (app/slug.py:4) is the Reuse suggestion, anchored in app/names.py",
+        "The suggestions do not change the verdict and are not counted toward the five findings",
+        "Does not read .onboarding/ and runs no command other than git"
+      ]
+    },
+    {
+      "id": 22,
+      "prompt": "full review of my work before I commit it, and suggest improvements. Some of it is not committed yet.",
+      "fixture": {
+        "repo": "pyrepo-dirty-dup"
+      },
+      "expected_output": "A Blocker is present, so the suggestions are in the report file and not in chat.",
+      "expectations": [
+        "Flags the hard-coded API token in the uncommitted app/cli.py as a Blocker",
+        "The verdict line ends with '+ <n> suggestions' and counts defects only",
+        "Chat prints no suggestion line and says in one line that the suggestions are in the report file and the Blocker comes first",
+        "The report file .pr-review/branch-feature-retry-uploads/review.md holds '### Improvements (non-blocking)' with the Reuse suggestion for _safe_name and slugify",
+        "Also flags the shell=True command injection in the untracked app/notify.py as a defect, not as a suggestion"
+      ]
+    },
+    {
+      "id": 23,
+      "prompt": "full review of my branch and suggest improvements",
+      "fixture": {
+        "repo": "pyrepo-clean"
+      },
+      "expected_output": "No filler: every suggestion that is printed passes the evidence rules, and none is a taste rename, constant, library or idiom swap.",
+      "expectations": [
+        "Reports no Blocker or Major finding",
+        "Each suggestion printed (if any) is anchored in the diff and has the concrete change, a cost sentence, a 'Same behaviour because' sentence and a confidence tag; if there is nothing, it says nothing is worth suggesting",
+        "Does not suggest a rename for taste, a constant, a library, an idiom swap or anything a linter would flag",
+        "The header says improve: on and suggestions: <n> matching what is listed"
       ]
     }
   ]

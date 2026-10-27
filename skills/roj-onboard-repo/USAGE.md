@@ -120,8 +120,9 @@ comments stay plain text.
    flows, lists the hotspots and the silent seams to watch.
 2. Understand the PR with that map: `/skill:roj-explain-logic PR <n>` in
    JetBrains, `/roj-explain-logic PR <n>` in VS Code.
-3. Then `roj-code-review-pr`, and `roj-review-pr-comment` for Bitbucket
-   comments.
+3. Then `roj-code-review-pr PR <n> improve`, and `roj-review-pr-comment PR <n>
+   improve` for Bitbucket comments. `improve` adds non-blocking suggestions
+   after the defects; leave it off for defects only.
 
 ## CodeTour
 

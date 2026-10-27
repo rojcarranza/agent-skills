@@ -324,6 +324,8 @@ the brief), and drop the optional items first when the count runs over. Items
 7. `Reference unavailable: <name>` for any reference that could not be opened,
    and the Graph line of SKILL.md.
 8. The zoom offer for a large diff, and the one-line tour offer.
-9. The next step: `/skill:roj-code-review-pr PR <n>` in JetBrains,
-   `/roj-code-review-pr PR <n>` in VS Code, then `roj-review-pr-comment` for
-   Bitbucket comments.
+9. The next step: `/skill:roj-code-review-pr PR <n> improve` in JetBrains,
+   `/roj-code-review-pr PR <n> improve` in VS Code, then
+   `roj-review-pr-comment PR <n> improve` for Bitbucket comments. `improve`
+   adds non-blocking suggestions after the defects; leave it off for defects
+   only.

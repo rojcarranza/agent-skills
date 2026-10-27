@@ -97,7 +97,7 @@
       "path": "skills/roj-code-review-pr",
       "ref": "",
       "commit": "",
-      "tree": "163fa82124dc813cbe4b69bae810b576d4153a2b"
+      "tree": "a5c3266381d9baa118b90910af837499bf5b1b65"
     },
     "roj-explain-feature-changes": {
       "source": ".",
@@ -111,7 +111,7 @@
       "path": "skills/roj-explain-logic",
       "ref": "",
       "commit": "",
-      "tree": "f9c89ff21391883bef1e62a8fb59ec96009d77a7"
+      "tree": "513f33b1e3c97f62bd0b1dc8fafd26648e5fd040"
     },
     "roj-grill-plan": {
       "source": ".",
@@ -146,14 +146,14 @@
       "path": "skills/roj-onboard-repo",
       "ref": "",
       "commit": "",
-      "tree": "e7d1d7aed430e31de3b6e76eeb6a63ee908a4ee9"
+      "tree": "ba72f09a18b07f72a126a4e347379695d9fe7ea7"
     },
     "roj-review-pr-comment": {
       "source": ".",
       "path": "skills/roj-review-pr-comment",
       "ref": "",
       "commit": "",
-      "tree": "28cc9d72aa3429b77c652825c74ff3584bf38628"
+      "tree": "400b694a8c6b3215cf137f8155aa5eedeb2cbaf3"
     },
     "roj-soundboarding": {
       "source": ".",

@@ -203,8 +203,9 @@ areas and flows a PR touches.
 ## Next
 
 Understand the PR with this map: `/skill:roj-explain-logic PR <n>` in
-JetBrains, `/roj-explain-logic PR <n>` in VS Code. Then `roj-code-review-pr`,
-and `roj-review-pr-comment` for Bitbucket comments.
+JetBrains, `/roj-explain-logic PR <n>` in VS Code. Then
+`roj-code-review-pr PR <n> improve`, and `roj-review-pr-comment PR <n> improve`
+for Bitbucket comments. Leave `improve` off for defects only.
 ````
 
 ## modules.md

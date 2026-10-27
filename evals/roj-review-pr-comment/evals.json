@@ -125,6 +125,54 @@
         "A comment flags that upload() in app/uploader.py returns None after the last failed attempt, with a Fails when sentence and a Fix",
         "Nothing is posted and no REST call is made"
       ]
+    },
+    {
+      "id": 9,
+      "prompt": "review PR 7 and give me comments I can paste into Bitbucket, include improvement suggestions. It merges into develop.",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-dup"
+      },
+      "expected_output": "A draft with two inline headings: defects first, then suggestions with the lightbulb prefix; nothing posted.",
+      "expectations": [
+        "Fetches refs/pull-requests/7/from and develop, reads the printed head SHA, does not check out and uses origin/develop as the base",
+        "Reads improvement-pass.md because the request says improvement suggestions",
+        "The draft has the headings 'Inline comments - defects (n)' and 'Inline comments - suggestions (n)', defects first",
+        "The defect comment flags that upload() in app/uploader.py returns None after the last failed attempt, with a Fails when sentence and a Fix",
+        "The suggestion comment starts with '💡 **Suggestion (non-blocking)**', names the Reuse lens, the existing slugify helper (app/slug.py:4), the cost of leaving it and the instead, in its own block",
+        "The summary counts defects and suggestions apart (for example '1 findings: ... · 1 suggestions') and the total of inline comments is at most 15",
+        "No suggestion is a Bitbucket task or blocker comment; nothing is posted and no REST call is made"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "review PR 7 and give me comments I can paste into Bitbucket, include improvement suggestions. It merges into develop.",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-review"
+      },
+      "expected_output": "An untracked review.md of the exact head is reused: no second review.",
+      "expectations": [
+        "Fetches refs/pull-requests/7/from and develop and reads the printed head SHA, then finds .pr-review/pr-7/review.md whose header head matches its first 12 characters",
+        "The draft says 'Findings reused from review.md @ <head12>'",
+        "Runs git diff -U3 to re-validate every anchor and does not run a second review: loads no lang-*.md lens, runs no caller search or graph query",
+        "The defect comment is the Major at app/uploader.py:20 and the suggestion is the Reuse of slugify at app/cli.py:7, both as review.md states them",
+        "Reports no finding or suggestion that is not in review.md",
+        "Nothing is posted and no REST call is made"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "review PR 7 and give me comments I can paste into Bitbucket, include improvement suggestions. It merges into develop.",
+      "fixture": {
+        "repo": "pyrepo-bb-pr-review-old"
+      },
+      "expected_output": "A review.md for a different head is not reused: the PR is reviewed again.",
+      "expectations": [
+        "Says in one line that review.md is for another head (not the fetched head) and is not reused",
+        "Does not print 'Findings reused from review.md'",
+        "Reviews the PR itself: reads whole files with git show <head sha>:<path> and flags that upload() returns None after the last failed attempt",
+        "Still drafts the Reuse suggestion for _safe_name from its own improvement pass, under the suggestions heading",
+        "Nothing is posted and no REST call is made"
+      ]
     }
   ]
 }

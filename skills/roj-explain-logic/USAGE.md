@@ -42,7 +42,7 @@ comments or formatting gets `No flow change` and no diagram.
 Open `brief.html` in a browser (or in Lavish when `lavish-axi` is installed);
 open `brief.md` in the IDE preview (JetBrains needs the *Mermaid* plugin
 ticked). Chat gets a summary of at most 12 lines and the next command:
-`roj-code-review-pr`. The brief holds no defects and no advice, and
+`roj-code-review-pr PR <n> improve`. The brief holds no defects and no advice, and
 `.pr-review/` stays out of Git (the skill prints the `.git/info/exclude` line
 and never runs it). A Bitbucket Data Center PR has no title or description
 without REST, so the brief uses the commit messages unless you paste the PR

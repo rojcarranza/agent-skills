@@ -70,5 +70,13 @@
   {
     "query": "review this GitHub pull request and post the comments",
     "should_trigger": false
+  },
+  {
+    "query": "review PR 31 and comment, include improvement suggestions",
+    "should_trigger": true
+  },
+  {
+    "query": "suggest improvements to my local branch, there's no PR",
+    "should_trigger": false
   }
 ]

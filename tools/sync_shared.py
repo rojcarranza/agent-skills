@@ -55,6 +55,9 @@ SHARED = {
         "roj-explain-logic/references",
         "roj-explain-feature-changes/references",
     ),
+    REVIEW + "improvement-pass.md": (
+        "roj-review-pr-comment/references",
+    ),
     REVIEW + "graph-first.md": (
         "roj-review-pr-comment/references",
         "roj-onboard-repo/references",

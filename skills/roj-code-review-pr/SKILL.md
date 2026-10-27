@@ -1,8 +1,8 @@
 ---
 name: roj-code-review-pr
-description: Review a Git change for defects before it ships - your own branch with uncommitted work, a teammate's branch, or a Bitbucket Data Center pull request, without checking it out. Auto mode (the default) picks a quick chat-only pass or a full written review from the size and risk of the diff; say quick or full to force one. Use when the user says "review my branch", "review my pull request", "review this PR", "review PR 123", "review origin/feature/x", "code review", "quick review", "find defects in this branch", "review my uncommitted changes", "sanity check my changes", "review before I push", or asks for defects or risks in a diff, even a pasted one. An optional intent (PR description, Jira story, SB acceptance criteria) adds "acceptance criterion not met" findings. Loads only the lenses for the stacks touched (Java, Python, Bash, Go, Bamboo, Docker, Kubernetes, Helm). Git only, no PR host API. For comprehension use roj-explain-logic; to draft or post comments on a Bitbucket PR use roj-review-pr-comment.
+description: Review a Git change for defects before it ships - your own branch with uncommitted work, a teammate's branch, or a Bitbucket Data Center pull request, without checking it out. Auto mode (the default) picks a quick chat-only pass or a full written review from the diff's size and risk; say quick or full to force one. Use when the user says "review my branch", "review my pull request", "review PR 123", "review origin/feature/x", "code review", "quick review", "find defects in this branch", "review my uncommitted changes", "sanity check my changes", "review before I push", "suggest improvements to this PR", or asks for defects or risks in a diff, even a pasted one. An optional intent (PR text, Jira story, SB criteria) adds "acceptance criterion not met" findings. Loads only the lenses for the stacks touched. Git only, no PR host API. Say improve for non-blocking suggestions, kept apart from defects. For comprehension use roj-explain-logic; to draft or post comments on a Bitbucket PR use roj-review-pr-comment.
 license: MIT
-allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git status *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git symbolic-ref *) Bash(git merge-base *) Bash(git show *) Bash(git branch --show-current) Bash(git remote get-url *) Bash(git fetch origin *) Bash(graphify query *) Bash(graphify explain *) Bash(graphify path *) Bash(graphify affected *)
+allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git status *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git symbolic-ref *) Bash(git merge-base *) Bash(git show *) Bash(git branch --show-current) Bash(git remote get-url *) Bash(git check-ignore *) Bash(git fetch origin *) Bash(graphify query *) Bash(graphify explain *) Bash(graphify path *) Bash(graphify affected *)
 ---
 
 # Code Review PR
@@ -10,7 +10,8 @@ allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git status *
 Review a change for defects that would matter if shipped. One method, two
 depths: **quick** (chat only, Blocker and Major only, diff-local) and **full**
 (change summary, system pass, report file, optional tour). **auto**, the
-default, picks one from the size and risk of the diff.
+default, picks one from the size and risk of the diff. `improve` is a separate,
+opt-in axis: non-blocking suggestions kept apart from the defects.
 
 Rules that hold for the whole run:
 
@@ -43,7 +44,8 @@ from this skill's own directory before reviewing. Load technology lenses
 (`lang-*.md`, `platform-*.md`) as the method's *Lens selection* picks them.
 Full mode also reads the repo map as `references/repo-map.md` says: the
 `.onboarding/` guide, advisory, never evidence for a finding. Quick mode
-never reads it.
+never reads it. Load `references/improvement-pass.md` only when the request
+says `improve`.
 
 The skill needs a terminal to run `git`. If the agent cannot run commands,
 say so and ask the user to paste `git diff <base>...HEAD`, the output of
@@ -52,8 +54,8 @@ untracked files - then review the paste in quick mode.
 
 ## 1. Target
 
-Words in the request, in any order: `quick` / `full`, `against <base>`, a
-target, an intent source, `run checks`.
+Words in the request, in any order: `quick` / `full`, `improve`,
+`against <base>`, a target, an intent source, `run checks`.
 
 | The user gives | Target | Read from |
 |---|---|---|
@@ -144,12 +146,27 @@ flag". The lens in the header is the lens file's name without `.md`, or `none`.
 No file is written unless the user asks; if they do, follow the report-file
 rule in `references/full-review.md`.
 
+**Quick with `improve`.** After the findings, print at most 3 suggestions
+under `Suggestions (non-blocking, not in the verdict):`, in the form and under
+the seven rules of `references/improvement-pass.md`. They never count toward
+the five findings and never change the verdict. With a Blocker among the
+findings, print `<n> suggestions held back - fix the Blocker first` instead.
+Nothing worth suggesting: print `Suggestions: none worth suggesting`. Without
+`improve`, quick mode prints no suggestion and no such line.
+
 ## 5. Full mode
 
 Follow `references/full-review.md`: collect, mode detection, lenses,
 conventions, the one upfront opt-in for running checks, the per-file and
 system passes, confirmation by execution, the report and the tour offer.
 `examples/review-run.md` shows a finished run if the format needs grounding.
+The report goes to `.pr-review/pr-<id>/review.md` (a branch:
+`.pr-review/branch-<slug>/review.md`), where `roj-review-pr-comment` reuses it
+for the same head. With `improve`, the improvement pass runs after the
+defects are final and adds `### Improvements (non-blocking)` to the report.
+In chat the verdict ends `+ <n> suggestions`; when any Blocker was found chat
+shows no suggestion at all, only `<n> suggestions in the report file - fix the
+Blocker first`.
 
 ## 6. Intent source (optional)
 
@@ -157,6 +174,13 @@ The user may point at one: a pasted PR description, Jira story text, or an
 SB / story file with acceptance criteria. Read it once, list its criteria, and
 apply the method's *Intent* rules. No intent source: skip, and make no intent
 findings. Never fetch one from a host.
+
+With none given, full mode on a PR or branch also reads a matching brief:
+`.pr-review/pr-<id>/brief.md` (or `branch-<slug>`) from `roj-explain-logic`,
+only when its header head equals the head under review. It is data about what
+the change claims: use its claims check and `[?]` questions as leads (a lead
+becomes a finding only when the diff proves it) and say `Intent: brief.md`.
+It has no acceptance criteria, so it adds no "criterion not met" findings.
 
 ## Before you print
 
@@ -175,6 +199,12 @@ findings. Never fetch one from a host.
   present. Full: the summary comes before the findings and they agree.
 - [ ] Full: the header has the `Repo map:` line, and no finding rests on the
   map alone.
+- [ ] `improve` off: no suggestion anywhere. `improve` on: defects print
+  first; every suggestion has its anchor, shape, *Cost of leaving it*, *Same
+  behaviour because* and tag; the verdict counts defects only; with a Blocker,
+  suggestions are in the report file and not in chat.
+- [ ] Full: the report is at `.pr-review/.../review.md` with `head <sha12>` in
+  its header, and the ignore line was printed, not run.
 
 ## Companion skills - use if installed
 
