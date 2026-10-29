@@ -935,6 +935,20 @@ def pip_install_cmd():
 
 USER_BIN_DIRS = user_script_dirs()
 CLI_SUFFIXES = ("", ".exe", ".cmd", ".bat") if os.name == "nt" else ("",)
+
+
+def pip_externally_managed():
+    """True when `pip install --user` would be refused (PEP 668): Debian and
+    Ubuntu 24.04 ship an EXTERNALLY-MANAGED marker next to the system stdlib.
+    A venv is never managed, so pip stays usable there."""
+    if sys.prefix != getattr(sys, "base_prefix", sys.prefix):
+        return False
+    try:
+        return (Path(sysconfig.get_path("stdlib")) / "EXTERNALLY-MANAGED").is_file()
+    except (KeyError, ValueError, OSError):
+        return False
+
+
 # Best first. pip is the last resort — it is always there (we are running
 # under it) but installs into the user site rather than an isolated venv.
 BOOTSTRAP_CMDS = (["uv", "tool", "install"], ["pipx", "install"],
@@ -1025,6 +1039,8 @@ def bootstrap_cli(ext, dry_run):
         via = "pip" if cmd[0] == sys.executable else cmd[0]
         if via != "pip" and not shutil.which(cmd[0]):
             continue
+        if via == "pip" and pip_externally_managed():
+            continue
         log(f"Installing {ext['package']} with {via}...")
         try:
             subprocess.run([*cmd, ext["package"]], check=True)
@@ -1036,6 +1052,12 @@ def bootstrap_cli(ext, dry_run):
             ok(f"{ext['cli']} ready ({found})")
             return found
         warn(f"{via} reported success but {ext['cli']} is not on PATH")
+    if pip_externally_managed():
+        warn(f"No {ext['cli']} CLI, and pip is refused for this system "
+             f"Python (PEP 668) - skipping. Run 'sudo apt install pipx' "
+             f"and 'pipx ensurepath', open a new shell, then re-run "
+             f"'python3 install.py'.")
+        return None
     warn(f"No {ext['cli']} CLI and no uv/pipx/pip to install it — skipping. "
          f"Install it yourself with 'uv tool install {ext['package']}' "
          f"(or 'pipx install {ext['package']}', or "

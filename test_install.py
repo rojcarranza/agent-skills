@@ -315,10 +315,30 @@ class TestBootstrapCli(ExternalTest):
                 mock.patch("install.shutil.which", return_value=None), \
                 mock.patch("install.BOOTSTRAP_CMDS",
                            (["uv", "tool", "install"], pip)), \
+                mock.patch("install.pip_externally_managed",
+                           return_value=False), \
                 mock.patch("install.subprocess.run") as run:
             path = install.bootstrap_cli(self.fake_external(), dry_run=False)
         self.assertEqual(path, "/bin/tool-y")
         run.assert_called_once_with([*pip, "tool-y-pkg"], check=True)
+
+    def test_externally_managed_python_skips_pip_and_names_pipx(self):
+        pip = [sys.executable, "-m", "pip", "install", "--user"]
+        with mock.patch("install.find_cli", return_value=None), \
+                mock.patch("install.shutil.which", return_value=None), \
+                mock.patch("install.BOOTSTRAP_CMDS",
+                           (["uv", "tool", "install"], pip)), \
+                mock.patch("install.pip_externally_managed",
+                           return_value=True), \
+                mock.patch("install.warn") as warn, \
+                mock.patch("install.subprocess.run") as run:
+            path = install.bootstrap_cli(self.fake_external(), dry_run=False)
+        self.assertIsNone(path)
+        run.assert_not_called()
+        message = warn.call_args[0][0]
+        self.assertIn("sudo apt install pipx", message)
+        self.assertIn("pipx ensurepath", message)
+        self.assertIn("python3 install.py", message)
 
     def test_no_installer_available_returns_none(self):
         with mock.patch("install.find_cli", return_value=None), \
@@ -329,6 +349,36 @@ class TestBootstrapCli(ExternalTest):
             self.assertIsNone(install.bootstrap_cli(self.fake_external(),
                                                     dry_run=False))
         run.assert_not_called()
+
+
+class TestPipExternallyManaged(ExternalTest):
+    def stdlib(self, marker):
+        stdlib = self.tmp / "stdlib"
+        stdlib.mkdir()
+        if marker:
+            (stdlib / "EXTERNALLY-MANAGED").write_text("[externally-managed]\n")
+        return stdlib
+
+    def test_marker_outside_venv_is_managed(self):
+        with mock.patch("install.sysconfig.get_path",
+                        return_value=str(self.stdlib(True))), \
+                mock.patch("install.sys.prefix", "/usr"), \
+                mock.patch("install.sys.base_prefix", "/usr"):
+            self.assertTrue(install.pip_externally_managed())
+
+    def test_no_marker_is_not_managed(self):
+        with mock.patch("install.sysconfig.get_path",
+                        return_value=str(self.stdlib(False))), \
+                mock.patch("install.sys.prefix", "/usr"), \
+                mock.patch("install.sys.base_prefix", "/usr"):
+            self.assertFalse(install.pip_externally_managed())
+
+    def test_venv_is_never_managed(self):
+        with mock.patch("install.sysconfig.get_path",
+                        return_value=str(self.stdlib(True))), \
+                mock.patch("install.sys.prefix", "/home/x/venv"), \
+                mock.patch("install.sys.base_prefix", "/usr"):
+            self.assertFalse(install.pip_externally_managed())
 
 
 class TestCliVersion(ExternalTest):

@@ -184,6 +184,19 @@ its README); it needs `git` on PATH. On Ubuntu 24.04 (WSL) a plain
 `pip install --user` is refused for the system Python, so install `pipx`
 (`sudo apt install pipx`) or `uv` there for `graphify`.
 
+**graphify not found on WSL Ubuntu.** With neither `uv` nor `pipx`, the
+installer skips `pip --user` (the system Python has an `EXTERNALLY-MANAGED`
+marker) and prints the fix:
+
+```bash
+sudo apt install pipx
+pipx ensurepath
+```
+
+Open a new shell and run `python3 install.py` again. If `graphify` is
+installed but not found by name, `python3 install.py --status` prints the
+`export PATH` line for `~/.local/bin`.
+
 | | macOS / Linux | Windows Git Bash | WSL Ubuntu |
 | --- | --- | --- | --- |
 | Run as | `python3 install.py` | `python install.py` (Windows Python) | `python3 install.py` |
