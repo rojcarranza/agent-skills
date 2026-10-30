@@ -353,6 +353,7 @@ class TestBootstrapCli(ExternalTest):
         self.assertNotIn("apt", message)
         self.assertIn("uv tool install tool-y-pkg", message)
         self.assertIn("pipx install tool-y-pkg", message)
+        self.assertNotIn("pip install --user", message)
 
     def test_failed_pipx_on_managed_python_gets_generic_advice(self):
         run, message = self.bootstrap_on_managed_python(
@@ -362,6 +363,19 @@ class TestBootstrapCli(ExternalTest):
                                     check=True)
         self.assertNotIn("apt", message)
         self.assertIn("uv tool install tool-y-pkg", message)
+        self.assertNotIn("pip install --user", message)
+        self.assertNotIn("no uv/pipx/pip to install", message)
+
+    def test_unmanaged_python_keeps_the_pip_hint(self):
+        with mock.patch("install.find_cli", return_value=None), \
+                mock.patch("install.shutil.which", return_value=None), \
+                mock.patch("install.BOOTSTRAP_CMDS", ()), \
+                mock.patch("install.pip_externally_managed",
+                           return_value=False), \
+                mock.patch("install.warn") as warn:
+            install.bootstrap_cli(self.fake_external(), dry_run=False)
+        self.assertIn("python -m pip install --user tool-y-pkg",
+                      warn.call_args[0][0])
 
     def test_no_installer_available_returns_none(self):
         with mock.patch("install.find_cli", return_value=None), \
@@ -478,6 +492,41 @@ class TestUpgradeCli(ExternalTest):
                                          dry_run=False)
         run.assert_not_called()
         self.assertEqual(status, "upgrade unavailable")
+
+    def upgrade_after_uv_fails(self, managed):
+        pip = [sys.executable, "-m", "pip", "install", "--user", "--upgrade"]
+        calls = []
+
+        def run(argv, check=False):
+            calls.append(argv)
+            if argv[0] == "uv":
+                raise subprocess.CalledProcessError(1, argv)
+            return subprocess.CompletedProcess(argv, 0)
+
+        with mock.patch("install.cli_version", return_value="1.0.0"), \
+                mock.patch("install.shutil.which", return_value="/bin/uv"), \
+                mock.patch("install.find_cli", return_value="/bin/tool-y"), \
+                mock.patch("install.UPGRADE_CMDS",
+                           (["uv", "tool", "upgrade"], pip)), \
+                mock.patch("install.pip_externally_managed",
+                           return_value=managed), \
+                mock.patch("install.warn") as warn, \
+                mock.patch("install.subprocess.run", side_effect=run):
+            status = install.upgrade_cli(self.fake_external(), "/bin/tool-y",
+                                         dry_run=False)
+        return status, [c[0] for c in calls], warn
+
+    def test_managed_python_never_upgrades_with_pip(self):
+        status, ran, warn = self.upgrade_after_uv_fails(managed=True)
+        self.assertEqual(ran, ["uv"])
+        self.assertEqual(status, "upgrade unavailable")
+        self.assertNotIn("available", warn.call_args[0][0])
+
+    def test_unmanaged_python_still_upgrades_with_pip(self):
+        status, ran, warn = self.upgrade_after_uv_fails(managed=False)
+        self.assertEqual(ran, ["uv", sys.executable])
+        self.assertEqual(status, "already latest (1.0.0)")
+        warn.assert_not_called()
 
     def test_dry_run_plans_without_running(self):
         with mock.patch("install.subprocess.run") as run:

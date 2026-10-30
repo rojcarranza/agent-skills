@@ -1015,6 +1015,8 @@ def upgrade_cli(ext, exe, dry_run):
         via = "pip" if cmd[0] == sys.executable else cmd[0]
         if via != "pip" and not shutil.which(cmd[0]):
             continue
+        if via == "pip" and pip_externally_managed():
+            continue
         log(f"Upgrading {ext['package']} with {via}...")
         try:
             subprocess.run([*cmd, ext["package"]], check=True)
@@ -1024,7 +1026,7 @@ def upgrade_cli(ext, exe, dry_run):
         if before and after and before != after:
             return f"upgraded ({before} -> {after})"
         return f"already latest ({after or before or 'version unknown'})"
-    warn(f"No uv/pipx/pip available to upgrade {ext['package']}")
+    warn(f"No uv/pipx/pip could upgrade {ext['package']}")
     return "upgrade unavailable"
 
 
@@ -1059,10 +1061,11 @@ def bootstrap_cli(ext, dry_run):
              f"and 'pipx ensurepath', open a new shell, then re-run "
              f"'python3 install.py'.")
         return None
-    warn(f"No {ext['cli']} CLI and no uv/pipx/pip to install it — skipping. "
+    pip_hint = ("" if pip_externally_managed() else
+                f", or 'python -m pip install --user {ext['package']}'")
+    warn(f"No {ext['cli']} CLI and no uv/pipx/pip could install it - skipping. "
          f"Install it yourself with 'uv tool install {ext['package']}' "
-         f"(or 'pipx install {ext['package']}', or "
-         f"'python -m pip install --user {ext['package']}') and re-run.")
+         f"(or 'pipx install {ext['package']}'{pip_hint}) and re-run.")
     return None
 
 
