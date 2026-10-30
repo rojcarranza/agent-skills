@@ -20,9 +20,9 @@ slide. Two complete examples: `assets/example-before-after.json` and
 | `key` | no | Story key, shown first in the title (`PROJ-1001`). |
 | `link` | no | URL the key links to (the ticket). |
 | `title` | yes | Story summary, without the key. |
-| `presenter` | no | Name after "Presented by:" at the bottom. |
+| `presenter` | no | Name after "Presented by:" at the bottom, on the footer line or, when the template's footer has its own text, just above it. |
 | `date` | no | `YYYY-MM-DD`; today when left out. Shown in the footer. |
-| `layout` | no | Template layout name; default is the layout of the template's first slide. |
+| `layout` | no | Template layout name; default is the layout of the template's first slide with both a title and a content placeholder, else of its first slide. |
 | `body` | yes | `kind` plus that kind's fields, below. |
 | `body.goal` | yes | One sentence after the bold "Goal:". |
 
@@ -34,8 +34,8 @@ Two columns split by a divider: how it worked, how it works now.
 "body": {
   "kind": "before_after",
   "goal": "...",
-  "before": {"label": "Before", "stages": [...], "note": ["Removed", "..."]},
-  "after":  {"label": "After",  "stages": [...], "note": ["...", {"text": "...", "bold": true}]}
+  "before": {"stages": [...], "note": ["Removed", "..."]},
+  "after":  {"stages": [...], "note": ["...", {"text": "...", "bold": true}]}
 }
 ```
 
@@ -43,10 +43,10 @@ Two columns split by a divider: how it worked, how it works now.
   `{"caption": "...", "items": [...]}` or a list of boxes side by side.
   Stage N sits at the same height on both sides.
 - An item is a coloured chip: a string, or
-  `{"text": "...", "mono": true, "state": "removed", "color": "accent4"}`.
-  `mono` sets it in a code font (variable or file names), `state: removed`
-  strikes it through, `color` overrides the automatic colour (`accent1` to
-  `accent6`, `tx2`). The same text gets the same colour on both sides.
+  `{"text": "...", "mono": true, "state": "removed"}`. `mono` sets it in a
+  code font (variable or file names), `state: removed` strikes it through.
+  Colours come from the template's theme, and the same text gets the same
+  colour on both sides.
 - A box with no caption and one item is drawn as a bare chip: use it for
   an end result ("PAYMENT GATEWAY").
 - Arrows: one box to several fans out, several to several of the same
@@ -54,7 +54,7 @@ Two columns split by a divider: how it worked, how it works now.
 - `note`: up to four short lines beside the first stage. On the before
   side it is a dashed box whose first line is bold red (what went away);
   on the after side it is italic, and `"bold": true` stresses a line.
-  It needs the first stage to be a single box.
+  The first stage moves left or narrows to make room for it.
 
 ## Body: sections
 
@@ -113,9 +113,11 @@ one message; the presenter fills in the rest.
 
 ## Limits the script enforces
 
-The script refuses (exit 1) and lists each problem when: the title is over
-110 characters with the key; the goal wraps past one line in a
+The script refuses (exit 1) and lists each problem when: the spec is not
+valid JSON or a field has the wrong shape; the layout has no title
+placeholder, or its title overlaps the body region; the title wraps past
+two lines at the template's title size; the goal wraps past one line in a
 before_after slide; a chip, caption or flow title does not fit its box even
-at the smallest font size; the stages do not fit above the footer; a note
-has no room or too many lines; the sections or the flow run past the
-footer. Fix the spec, never the limits.
+at the smallest font size; a stage has too many boxes side by side; the
+stages do not fit above the footer; a note has too many lines; the sections
+or the flow run past the footer. Fix the spec, never the limits.

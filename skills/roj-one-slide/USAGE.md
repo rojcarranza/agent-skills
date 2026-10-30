@@ -26,8 +26,9 @@ handing it over; without it, open the slide yourself.
 ## Set up once
 
 1. Save a deck your team presents from as `slide-template.pptx`, or point
-   at one. The layout of its first slide is used, and its slides are not
-   copied. A `.potx` has to be saved as `.pptx` first.
+   at one. The layout of its first slide with both a title and a content
+   placeholder is used, and its slides are not copied. A layout whose title
+   overlaps the body is refused. A `.potx` has to be saved as `.pptx` first.
 2. Tell the skill where it is, in the request or once for all runs:
 
    ```bash
@@ -54,8 +55,9 @@ built from (`PROJ-1001-slide.json`) and the preview (`PROJ-1001-slide.png`).
 
 ## Editing in PowerPoint
 
-The slide is fully editable: the title, Goal and points are the template's
-own text placeholders, and the diagram is native shapes, never a picture.
+The slide is fully editable: the title and the points are the template's own
+text placeholders, the Goal is that placeholder or, above a before/after
+diagram, a text box, and the diagram is native shapes, never a picture.
 
 - Each box is a group: click once to select the box with its items, click
   again to edit one item or the caption. Drag the group and its arrows

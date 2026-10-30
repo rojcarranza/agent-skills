@@ -22,8 +22,9 @@ with the template's theme colours.
   of the current repository). None found: ask for the path once, mention
   `SLIDE_TEMPLATE`, and wait. Never fall back to a generic theme. A deck the
   team already presents from is the best template: the script uses the
-  layout of its first slide and drops its slides from the copy. Not needed
-  when the user asks only for the spec: then stop after step 3.
+  layout of its first slide with both a title and a content placeholder,
+  and drops its slides from the copy. Not needed when the user asks only for
+  the spec: then stop after step 3.
 - PRESENTER: a name in the message, then `$SLIDE_PRESENTER`, then the first
   word of `git config user.name`. Empty: leave the line off.
 - OUTPUT: `<KEY>-slide.pptx` in the folder of the input file (the current
@@ -68,9 +69,10 @@ State the resolved TEMPLATE and OUTPUT in one line at the start of the run.
 4. **Build.** Run the bundled script by its absolute path inside this
    skill's folder, trying `python`, then `python3`:
    `python <skill>/scripts/build_slide.py --template <TEMPLATE> --spec <KEY>-slide.json --out <KEY>-slide.pptx --preview <KEY>-slide.png`
-   - Exit 1 lists every problem (text too long, too many items). Shorten
-     or merge in the spec and run again; after three rounds show the
-     problems to the user.
+   - Exit 1 lists every problem (text too long, too many items, a layout
+     whose title overlaps the body). Shorten or merge in the spec, or set
+     `layout` to one the problem lists, and run again; after three rounds
+     show the problems to the user.
    - Exit 2: python-pptx is missing. Ask once to run
      `python -m pip install --user python-pptx`; run it only on a yes.
    - Exit 3: TEMPLATE cannot be read; say so and ask for another path.

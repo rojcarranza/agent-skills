@@ -8,20 +8,6 @@
       "commit": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
       "tree": "522888a523fbf2c448b4d03cb0bd2b7cf815c380"
     },
-    "brainstorming": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/brainstorming",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "abe5c2fed8c215d4b86b77be1d8a7d0b0562651c"
-    },
-    "cali": {
-      "source": "https://github.com/rojcarranza/cali",
-      "path": "skills/cali",
-      "ref": "68c603293c75650ae2138a1f3a6281696e7d54be",
-      "commit": "68c603293c75650ae2138a1f3a6281696e7d54be",
-      "tree": "7065a589968ecf2acc790956028fb6c4fb238439"
-    },
     "caveman": {
       "source": "https://github.com/juliusbrussee/caveman",
       "path": "skills/caveman",
@@ -50,19 +36,19 @@
       "commit": "7cce7cfb4b61196c36d7e8eb8475ae84b356b126",
       "tree": "8b684d625e209fc960011407e2e504fa2ff2cad8"
     },
+    "debugging-and-error-recovery": {
+      "source": "https://github.com/addyosmani/agent-skills",
+      "path": "skills/debugging-and-error-recovery",
+      "ref": "1401c8b8030e023baeebb31781a6653fe8e93026",
+      "commit": "1401c8b8030e023baeebb31781a6653fe8e93026",
+      "tree": "c3b5c340bae3ac952733213b40035820acfb48a3"
+    },
     "deprecation-and-migration": {
       "source": "https://github.com/addyosmani/agent-skills",
       "path": "skills/deprecation-and-migration",
       "ref": "aeac41d4d005999432bb7312f7ff06383a91d59d",
       "commit": "aeac41d4d005999432bb7312f7ff06383a91d59d",
       "tree": "452a130309afc52a26beceb21f1467936e53a37c"
-    },
-    "dispatching-parallel-agents": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/dispatching-parallel-agents",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "15697cb0726c26a66bff737494e8b5266667ba0c"
     },
     "docx": {
       "source": "https://github.com/anthropics/skills",
@@ -71,26 +57,12 @@
       "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
       "tree": "6e6f5b95c1de6e803cc07b214f5059b074d64e0c"
     },
-    "executing-plans": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/executing-plans",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "ef38c6c33e88e4248018dab6f03fc1ceda916ba0"
-    },
     "find-skills": {
       "source": "https://github.com/vercel-labs/skills",
       "path": "skills/find-skills",
       "ref": "87a266971d9460a3d2606075b8e91edc83325472",
       "commit": "87a266971d9460a3d2606075b8e91edc83325472",
       "tree": "76a98a285cb0434f3d39e1a873823556330e398b"
-    },
-    "finishing-a-development-branch": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/finishing-a-development-branch",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "3b1205aa5038c71946077dd63b9e71b447729e70"
     },
     "impeccable": {
       "source": "https://github.com/pbakaus/impeccable",
@@ -120,89 +92,82 @@
       "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
       "tree": "64529c8b3f35fe632b7256bd2f6d46e4b40160ce"
     },
-    "receiving-code-review": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/receiving-code-review",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "b5e154fc3ec7a6a0b1e710eebacc2168620cc428"
+    "roj-code-review-pr": {
+      "source": ".",
+      "path": "skills/roj-code-review-pr",
+      "ref": "",
+      "commit": "",
+      "tree": "588233de5c68fe208211de9e2d1395e0553c2631"
     },
-    "requesting-code-review": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/requesting-code-review",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "f4a6749898702895ea4fd57c7f186cf43205b99a"
+    "roj-explain-feature-changes": {
+      "source": ".",
+      "path": "skills/roj-explain-feature-changes",
+      "ref": "",
+      "commit": "",
+      "tree": "07b5e60d66a0a2ffacdb11dcdb50984d6eeb6d3c"
     },
     "roj-explain-logic": {
       "source": ".",
       "path": "skills/roj-explain-logic",
       "ref": "",
       "commit": "",
-      "tree": "52a75043cde1d0f09ae71b0726f975798f3534bd"
-    },
-    "roj-explain-my-branch": {
-      "source": ".",
-      "path": "skills/roj-explain-my-branch",
-      "ref": "",
-      "commit": "",
-      "tree": "ea518a06883cdd479ced5593e89a6aebce772944"
+      "tree": "6b4ce01dd771c705867ecd23f7fcd7d0420fecb8"
     },
     "roj-grill-plan": {
       "source": ".",
       "path": "skills/roj-grill-plan",
       "ref": "",
       "commit": "",
-      "tree": "8af360b59b16d09b0aada65063558e31679bde35"
+      "tree": "328e1a639713387518f2612641f074d839825e67"
+    },
+    "roj-idea-to-project": {
+      "source": ".",
+      "path": "skills/roj-idea-to-project",
+      "ref": "",
+      "commit": "",
+      "tree": "f49c63201044f7b05cde90afce0f1ef9069607e4"
     },
     "roj-interview-prep": {
       "source": ".",
       "path": "skills/roj-interview-prep",
       "ref": "",
       "commit": "",
-      "tree": "8e51194556ad47eecc7ac86b73dac88843fcd9a6"
+      "tree": "9a7d2fb82c1c0f58ab62a81113ddcfc006cb3948"
     },
     "roj-investigate-issue": {
       "source": ".",
       "path": "skills/roj-investigate-issue",
       "ref": "",
       "commit": "",
-      "tree": "3c34c48f1554b2bcacf463539e2c1d5d470bcb6c"
+      "tree": "e18cc2b59bdd2927c769a6365902d75c498d46b6"
     },
     "roj-onboard-repo": {
       "source": ".",
       "path": "skills/roj-onboard-repo",
       "ref": "",
       "commit": "",
-      "tree": "1d28e425368262f679fc3bf60f08af2a9ec89bfb"
+      "tree": "a93ddfc4f84fe99738a9724d77f249033db66a29"
     },
     "roj-one-slide": {
       "source": ".",
       "path": "skills/roj-one-slide",
       "ref": "",
       "commit": "",
-      "tree": "6a10196e4e507dce8013921247e4bbb4590474b6"
-    },
-    "roj-review-code": {
-      "source": ".",
-      "path": "skills/roj-review-code",
-      "ref": "",
-      "commit": "",
-      "tree": "883fa83b888041e083ac722974484d937d5d803b"
+      "tree": "37f30d1fcd1c5bfa3f29d133802f240693b46d9b"
     },
     "roj-review-pr-comment": {
       "source": ".",
       "path": "skills/roj-review-pr-comment",
       "ref": "",
       "commit": "",
-      "tree": "f31ab68a43da08826a19f00e3e6f52c508063728"
+      "tree": "f13f755a36de18db5e239d0ccf9b90dbdf4dcbef"
     },
     "roj-soundboarding": {
       "source": ".",
       "path": "skills/roj-soundboarding",
       "ref": "",
       "commit": "",
-      "tree": "3f4f9fac9c804fe88f02eb94bef8983ac6506d72"
+      "tree": "85eb6ae1b1e4a8d91a7abd119929b618d74d02d7"
     },
     "security-and-hardening": {
       "source": "https://github.com/addyosmani/agent-skills",
@@ -211,61 +176,12 @@
       "commit": "aeac41d4d005999432bb7312f7ff06383a91d59d",
       "tree": "f9f5b22b97f1f0bfe47a30c0ac860c343e332a94"
     },
-    "subagent-driven-development": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/subagent-driven-development",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "a9ec528b252e536a404fd0522e32cec31094d669"
-    },
-    "systematic-debugging": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/systematic-debugging",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "108961c080a6837ad8a188a553e593cc5e6df62d"
-    },
-    "test-driven-development": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/test-driven-development",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "847144cf0824095922c0d4875648b9fa74877e1a"
-    },
-    "using-git-worktrees": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/using-git-worktrees",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "d2b8357b922667a091bfe967840abf5ae84ce99c"
-    },
-    "using-superpowers": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/using-superpowers",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "4c777432715fe58984d212a36aedc6a18472e512"
-    },
-    "verification-before-completion": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/verification-before-completion",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "a4cb0b69aaefeab540947a7f1642bdaad810e37a"
-    },
     "write-pr-description": {
       "source": "https://github.com/warpdotdev/common-skills",
       "path": ".agents/skills/write-pr-description",
       "ref": "2a03b403b4f8d42cb54b8953697737193b2e8306",
       "commit": "2a03b403b4f8d42cb54b8953697737193b2e8306",
       "tree": "a13f8ec1e8f0697fe7836746e6b3b88b998b988a"
-    },
-    "writing-plans": {
-      "source": "https://github.com/obra/superpowers",
-      "path": "skills/writing-plans",
-      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "tree": "cc97fa00eb2ccd4f283e34eb2ba06a48e1e679f7"
     },
     "xlsx": {
       "source": "https://github.com/anthropics/skills",
