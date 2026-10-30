@@ -184,6 +184,20 @@ its README); it needs `git` on PATH. On Ubuntu 24.04 (WSL) a plain
 `pip install --user` is refused for the system Python, so install `pipx`
 (`sudo apt install pipx`) or `uv` there for `graphify`.
 
+**graphify not found on WSL Ubuntu.** With neither `uv` nor `pipx`, the
+installer skips `pip --user` (the system Python has an `EXTERNALLY-MANAGED`
+marker) and prints the fix:
+
+```bash
+sudo apt install pipx
+pipx ensurepath
+```
+
+Open a new shell and run `python3 install.py` again. If `graphify` is
+installed but not found by name, `python3 install.py --status` prints the
+`export PATH` line for `~/.local/bin`. A managed Python without `apt`, such as
+Homebrew's, gets the generic `uv tool install` / `pipx install` advice instead.
+
 | | macOS / Linux | Windows Git Bash | WSL Ubuntu |
 | --- | --- | --- | --- |
 | Run as | `python3 install.py` | `python install.py` (Windows Python) | `python3 install.py` |
@@ -274,8 +288,9 @@ Some skills ship with a tool rather than as a folder we can copy. Those are
 listed in `EXTERNALS` in `install.py`: the installer puts the CLI on the
 machine, then hands the per-target install to that CLI, so the skill is always
 the upstream version and nothing is vendored here. It tries `uv tool install`,
-then `pipx install`, then `python -m pip install --user` — the last one always
-exists, since the installer is itself running under that interpreter. A CLI it
+then `pipx install`, then `python -m pip install --user` - the last one exists
+wherever the installer runs, since it runs under that interpreter, but is
+skipped on an externally managed Python (see [Platforms](#platforms)). A CLI it
 cannot install is a skip with instructions, never a failed run. `--skills-only`
 skips externals; it needs the network.
 
@@ -356,8 +371,9 @@ python3 install.py --target both --upgrade   # CLI + skill files, in that order
 ```
 
 `--upgrade` upgrades the package (trying `uv tool upgrade`, `pipx upgrade`,
-then `pip install --user --upgrade` — whichever owns it; the others fail fast),
-then the same run re-copies the skill files the new version ships. It reports
+then `pip install --user --upgrade` - whichever owns it; the others fail fast,
+and pip is skipped on an externally managed Python), then the same run
+re-copies the skill files the new version ships. It reports
 `upgraded (0.9.50 -> 0.9.51)` or `already latest (…)` in the summary. Without
 `--upgrade` a re-run only refreshes the skill files: the bootstrap installs a
 CLI only when it is missing, never over one that already works.
