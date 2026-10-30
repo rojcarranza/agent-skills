@@ -148,6 +148,13 @@
       "commit": "",
       "tree": "a93ddfc4f84fe99738a9724d77f249033db66a29"
     },
+    "roj-one-slide": {
+      "source": ".",
+      "path": "skills/roj-one-slide",
+      "ref": "",
+      "commit": "",
+      "tree": "2fc79c913e1d71edc986218524b12ce6d64c9316"
+    },
     "roj-review-pr-comment": {
       "source": ".",
       "path": "skills/roj-review-pr-comment",
@@ -160,7 +167,7 @@
       "path": "skills/roj-soundboarding",
       "ref": "",
       "commit": "",
-      "tree": "6b030bc510e60d4644f6c07bfb9f65b86a706a9f"
+      "tree": "85eb6ae1b1e4a8d91a7abd119929b618d74d02d7"
     },
     "security-and-hardening": {
       "source": "https://github.com/addyosmani/agent-skills",
