@@ -1541,6 +1541,15 @@ class TestOneSlideScript(unittest.TestCase):
                 self.assertIn(wanted, run.stderr)
                 self.assertFalse(out.exists())
 
+    def test_null_optional_fields_build_like_absent_ones(self):
+        """Pasted ticket text can have no key; key is optional in slide-spec.md."""
+        spec = {**self.SECTIONS, "key": None, "link": None, "presenter": None,
+                "date": None, "layout": None}
+        run, out = self.build(spec)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, _ = self.shapes(out)
+        self.assertEqual(slide.shapes.title.text_frame.text, "Add retries")
+
     def test_missing_spec_file_is_listed(self):
         run = subprocess.run(
             [sys.executable, str(self.SCRIPT), "--template", str(self.template),
@@ -1568,7 +1577,27 @@ class TestOneSlideScript(unittest.TestCase):
         self.assertEqual(run.returncode, 1, run.stderr)
         self.assertIn("overlaps the body region", run.stderr)
         self.assertIn("'Title and Content'", run.stderr)
+        for refused in ("'Title Slide'", "'Blank'"):
+            self.assertNotIn(refused, run.stderr.split("set layout to")[1])
         self.assertFalse(out.exists())
+
+    def test_title_only_layout_builds_a_diagram_below_its_title(self):
+        """No body placeholder means no body to overlap; the diagram starts
+        under the title. Sections still need a content placeholder, and the
+        refusal names only layouts that have one."""
+        spec = {**self.BEFORE_AFTER, "layout": "Title Only"}
+        run, out = self.build(spec, self.save_deck(self.team_deck()))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, shapes = self.shapes(out)
+        title_bottom = slide.shapes.title.top + slide.shapes.title.height
+        goal = next(s for s in shapes if s.name == "Goal")
+        self.assertGreaterEqual(goal.top, title_bottom)
+
+        spec = {**self.SECTIONS, "layout": "Title Only"}
+        run, _ = self.build(spec, self.save_deck(self.team_deck()))
+        self.assertEqual(run.returncode, 1, run.stderr)
+        self.assertIn("no content placeholder", run.stderr)
+        self.assertNotIn("'Title Only'", run.stderr.split("set layout to")[1])
 
     def test_layout_without_a_title_is_refused(self):
         prs = self.team_deck()
@@ -1605,7 +1634,57 @@ class TestOneSlideScript(unittest.TestCase):
         _, shapes = self.shapes(out)
         chip = next(s for s in shapes if s.name == "Item 3.10")
         self.assertEqual(chip.text_frame.paragraphs[0].runs[0].font.color
-                         .theme_color, MSO_THEME_COLOR.TEXT_1)
+                         .theme_color, MSO_THEME_COLOR.DARK_1)
+
+    def test_chip_text_follows_the_masters_colour_map(self):
+        """On a dark-background master tx2 is lt2 (EEECE1 in this theme, about
+        1.2:1 with white) and tx1 is white too, so both light chips need dk1
+        text. On the ordinary map tx2 is dk2 (1F497D) and white stays."""
+        from pptx.enum.dml import MSO_THEME_COLOR
+        from pptx.oxml.ns import qn
+        normal = self.team_deck()
+        dark = self.team_deck()
+        dark.slide_master._element.find(qn("p:clrMap")).attrib.update(
+            {"bg1": "dk1", "tx1": "lt1", "bg2": "dk2", "tx2": "lt2"})
+
+        def text_colours(prs):
+            run, out = self.build(self.BEFORE_AFTER, self.save_deck(prs))
+            self.assertEqual(run.returncode, 0, run.stderr)
+            _, shapes = self.shapes(out)
+            colours = {}
+            for s in shapes:
+                if s.name in ("Item 3.10", "Item DEPLOY"):
+                    color = s.text_frame.paragraphs[0].runs[0].font.color
+                    colours[s.name] = color.theme_color if color.type else None
+            return colours
+
+        self.assertEqual(text_colours(dark), {
+            "Item 3.10": MSO_THEME_COLOR.DARK_1,
+            "Item DEPLOY": MSO_THEME_COLOR.DARK_1})
+        self.assertEqual(text_colours(normal), {
+            "Item 3.10": None, "Item DEPLOY": MSO_THEME_COLOR.DARK_1})
+
+    def test_flow_title_stays_readable_on_a_light_accent(self):
+        """White on a yellow accent1 is about 1.1:1, under the 2.5:1 limit."""
+        from lxml import etree
+        from pptx.enum.dml import MSO_THEME_COLOR
+        from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+        from pptx.oxml.ns import qn
+        prs = self.team_deck()
+        theme = prs.slide_master.part.part_related_by(RT.THEME)
+        root = etree.fromstring(theme.blob)
+        accent = root.find(".//" + qn("a:accent1"))[0]
+        accent.getparent().replace(
+            accent, etree.Element(qn("a:srgbClr"), val="FFFF00"))
+        theme._blob = etree.tostring(root)
+        spec = json.loads(json.dumps(self.SECTIONS))
+        spec["body"]["flow"] = [{"title": "One"}, {"title": "Two"}]
+        run, out = self.build(spec, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        _, shapes = self.shapes(out)
+        head = next(s for s in shapes if s.name == "Step title One")
+        self.assertEqual(head.text_frame.paragraphs[0].runs[0].font.color
+                         .theme_color, MSO_THEME_COLOR.DARK_1)
 
     def test_date_is_fixed_text_not_a_field(self):
         """A date field shows the day the deck is opened, not the spec's. The

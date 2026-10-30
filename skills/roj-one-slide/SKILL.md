@@ -25,8 +25,8 @@ with the template's theme colours.
   layout of its first slide with both a title and a content placeholder,
   and drops its slides from the copy. Not needed when the user asks only for
   the spec: then stop after step 3.
-- PRESENTER: a name in the message, then `$SLIDE_PRESENTER`, then the first
-  word of `git config user.name`. Empty: leave the line off.
+- PRESENTER: a name in the message, then the first word of
+  `git config user.name`. Empty: leave the line off.
 - OUTPUT: `<KEY>-slide.pptx` in the folder of the input file (the current
   directory for pasted text), with the spec beside it as `<KEY>-slide.json`
   and the preview as `<KEY>-slide.png`. An existing slide: ask before

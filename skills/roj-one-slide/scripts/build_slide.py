@@ -223,18 +223,25 @@ def load_template(path):
 def read_theme(layout):
     """The theme's colour scheme, so chip text can pick a readable colour."""
     from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+    master = layout.slide_master
     try:
-        theme = layout.slide_master.part.part_related_by(RT.THEME)
+        theme = master.part.part_related_by(RT.THEME)
         scheme = etree.fromstring(theme.blob).find(".//" + qn("a:clrScheme"))
     except (KeyError, etree.XMLSyntaxError):
         return
-    slots = {"dk1": MSO_THEME_COLOR.TEXT_1, "dk2": MSO_THEME_COLOR.TEXT_2,
-             "lt1": MSO_THEME_COLOR.BACKGROUND_1, **{
-                 f"accent{i}": getattr(MSO_THEME_COLOR, f"ACCENT_{i}")
-                 for i in range(1, 7)}}
-    for child in scheme if scheme is not None else []:
-        slot = slots.get(etree.QName(child).localname)
-        if slot is None or not len(child):
+    if scheme is None:
+        return
+    # The master's colour map decides what tx2 means: dk2, or lt2 on a
+    # dark-background master.
+    clr_map = master._element.find(qn("p:clrMap"))
+    mapping = {"tx2": "dk2", **({} if clr_map is None else clr_map.attrib)}
+    colours = {etree.QName(child).localname: child for child in scheme}
+    slots = {MSO_THEME_COLOR.TEXT_2: "tx2", **{
+        getattr(MSO_THEME_COLOR, f"ACCENT_{i}"): f"accent{i}"
+        for i in range(1, 7)}}
+    for slot, name in slots.items():
+        child = colours.get(mapping.get(name, name))
+        if child is None or not len(child):
             continue
         hexval = child[0].get("val") if child[0].tag == qn("a:srgbClr") \
             else child[0].get("lastClr")
@@ -270,18 +277,41 @@ def all_layouts(prs):
     return [lay for master in prs.slide_masters for lay in master.slide_layouts]
 
 
-def layout_names(prs):
-    return ", ".join(repr(" ".join(l.name.split())) for l in all_layouts(prs))
+def body_region_top(layout, slide_height):
+    """Where content starts under the layout's title; None when the layout
+    has no title, or its title sits on the body or low on the slide."""
+    title = layout_placeholder(layout, PP_PLACEHOLDER.TITLE,
+                               PP_PLACEHOLDER.CENTER_TITLE)
+    if title is None:
+        return None
+    bottom = title.top + title.height
+    body = layout_placeholder(layout, PP_PLACEHOLDER.OBJECT,
+                              PP_PLACEHOLDER.BODY)
+    if body is not None:
+        return body.top if bottom <= body.top else None
+    if bottom > slide_height // 3:
+        return None
+    return max(bottom, int(slide_height * 0.2))
 
 
-def pick_layout(prs, name):
+def layout_hint(prs, kind):
+    """What to do about a refused layout, naming only layouts that fit."""
+    fits = [" ".join(lay.name.split()) for lay in all_layouts(prs)
+            if body_region_top(lay, prs.slide_height) is not None
+            and (kind != "sections" or has_title_and_content(lay))]
+    if not fits:
+        return "no layout in this template fits; use another template"
+    return "set layout to one of: " + ", ".join(repr(n) for n in fits)
+
+
+def pick_layout(prs, name, kind):
     layouts = all_layouts(prs)
     if name:
         for lay in layouts:
             if " ".join(lay.name.split()) == " ".join(name.split()):
                 return lay
-        problem(f"layout {name!r} not in the template; it has: "
-                + layout_names(prs))
+        problem(f"layout {name!r} not in the template; "
+                + layout_hint(prs, kind))
         return None
     # A deck the team presents from often opens with a title slide; the
     # first slide with a title and content is the one stories are told on.
@@ -465,7 +495,7 @@ def chip(shapes, x, y, w, h, item, colour):
     r.font.size = Pt(size)
     r.font.bold = not mono
     if is_light(*colour):
-        r.font.color.theme_color = MSO_THEME_COLOR.TEXT_1
+        r.font.color.theme_color = MSO_THEME_COLOR.DARK_1
     if mono:
         r.font.name = "Consolas"
     if item.get("state") == "removed":
@@ -494,7 +524,7 @@ def arrow(slide, src, dst, src_site=BOTTOM, dst_site=TOP):
 def set_title(slide, title, spec):
     tf = title.text_frame
     p = tf.paragraphs[0]
-    key, summary = spec.get("key", "").strip(), spec["title"].strip()
+    key, summary = (spec.get("key") or "").strip(), spec["title"].strip()
     if key:
         r = p.add_run()
         r.text = key
@@ -735,16 +765,9 @@ def build_before_after(slide, prs, body, frame, footer_top):
 
 def build_sections(slide, layout, body, frame, footer_top):
     left, top, width = frame
-    ph = None
-    for shape in slide.placeholders:
-        if shape.placeholder_format.type in (PP_PLACEHOLDER.OBJECT,
-                                             PP_PLACEHOLDER.BODY):
-            ph = shape
-            break
-    if ph is None:
-        problem("the layout has no content placeholder for sections; "
-                "pick a 'Title Content' style layout")
-        return
+    ph = next(shape for shape in slide.placeholders
+              if shape.placeholder_format.type in (PP_PLACEHOLDER.OBJECT,
+                                                   PP_PLACEHOLDER.BODY))
     size = body_font_pt(layout)
     text_w = width - DEFAULT_INSETS
     tf = ph.text_frame
@@ -894,6 +917,8 @@ def draw_flow(slide, steps, x, y, w, h):
         r.text = step["title"]
         r.font.size = Pt(size)
         r.font.bold = True
+        if is_light(MSO_THEME_COLOR.ACCENT_1):
+            r.font.color.theme_color = MSO_THEME_COLOR.DARK_1
         if text_width(step["title"], size, True) > sw - 180000 - DEFAULT_INSETS:
             problem(f"flow step title {step['title']!r} is too long")
         if prev is not None:
@@ -930,16 +955,24 @@ def remove_unused_placeholders(slide, keep_body):
 
 def build(template, spec, out):
     prs = load_template(template)
-    layout = pick_layout(prs, spec.get("layout"))
+    body = spec["body"]
+    kind = body["kind"]
+    layout = pick_layout(prs, spec.get("layout"), kind)
     if layout is None:
         return False
+    name = " ".join(layout.name.split())
     read_theme(layout)
     drop_slides(prs)
     slide = prs.slides.add_slide(layout)
     title = slide.shapes.title
     if title is None:
-        problem(f"layout {' '.join(layout.name.split())!r} has no title "
-                "placeholder; set layout to one of: " + layout_names(prs))
+        problem(f"layout {name!r} has no title placeholder; "
+                + layout_hint(prs, kind))
+        return False
+    top = body_region_top(layout, prs.slide_height)
+    if top is None:
+        problem(f"the title of layout {name!r} overlaps the body region; "
+                + layout_hint(prs, kind))
         return False
 
     body_ph = layout_placeholder(layout, PP_PLACEHOLDER.OBJECT,
@@ -948,13 +981,12 @@ def build(template, spec, out):
     footer_ph = layout_placeholder(layout, PP_PLACEHOLDER.FOOTER)
     left = body_ph.left if body_ph is not None else title.left
     width = body_ph.width if body_ph is not None else title.width
-    top = body_ph.top if body_ph is not None else int(prs.slide_height * 0.2)
     footer_top = date_ph.top if date_ph is not None else int(
         prs.slide_height * 0.95)
-    if title.top + title.height > top:
-        problem(f"the title of layout {' '.join(layout.name.split())!r} "
-                "overlaps the body region; set layout to one of: "
-                + layout_names(prs))
+    if kind == "sections" and body_ph is None:
+        problem(f"layout {name!r} has no content placeholder for sections; "
+                + layout_hint(prs, kind))
+        return False
 
     date = spec.get("date") or datetime.date.today().isoformat()
     try:
@@ -966,11 +998,7 @@ def build(template, spec, out):
     clone_footer_placeholders(slide, layout, date_text)
     set_title(slide, title, spec)
 
-    body = spec["body"]
-    kind = body["kind"]
-    keep = None
-    if kind == "sections":
-        keep = body_ph.placeholder_format.idx if body_ph is not None else None
+    keep = body_ph.placeholder_format.idx if kind == "sections" else None
     remove_unused_placeholders(slide, keep)
     if kind == "before_after":
         build_before_after(slide, prs, body, (left, top, width), footer_top)

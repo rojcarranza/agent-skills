@@ -33,7 +33,6 @@ handing it over; without it, open the slide yourself.
 
    ```bash
    export SLIDE_TEMPLATE="$HOME/templates/team-demo.pptx"
-   export SLIDE_PRESENTER="Alex"                         # optional
    export TICKET_BASE_URL="https://jira.example.com/browse/"  # optional
    ```
 

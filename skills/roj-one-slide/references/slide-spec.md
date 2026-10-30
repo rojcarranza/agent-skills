@@ -115,7 +115,9 @@ one message; the presenter fills in the rest.
 
 The script refuses (exit 1) and lists each problem when: the spec is not
 valid JSON or a field has the wrong shape; the layout has no title
-placeholder, or its title overlaps the body region; the title wraps past
+placeholder, its title overlaps the body region or, with no body
+placeholder, sits below the top third of the slide; a sections slide has a
+layout with no content placeholder; the title wraps past
 two lines at the template's title size; the goal wraps past one line in a
 before_after slide; a chip, caption or flow title does not fit its box even
 at the smallest font size; a stage has too many boxes side by side; the
