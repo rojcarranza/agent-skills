@@ -87,6 +87,9 @@ and never requires it.
 Creates and edits PowerPoint decks. Cherry-pick from `anthropics/skills`.
 - `Make a five-slide deck from this design doc`
 
+`roj-one-slide` builds its demo slide with its own script on your team's
+template and never requires it.
+
 ## xlsx
 Creates and edits spreadsheets. Cherry-pick from `anthropics/skills`.
 - `Build a spreadsheet comparing these three vendors`

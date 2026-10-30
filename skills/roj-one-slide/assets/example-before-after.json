@@ -1,0 +1,27 @@
+{
+  "key": "PROJ-1001",
+  "link": "https://jira.example.com/browse/PROJ-1001",
+  "title": "Queue payments instead of calling the gateway during checkout",
+  "presenter": "Alex",
+  "body": {
+    "kind": "before_after",
+    "goal": "Take payments off the checkout request, so a slow gateway no longer fails orders.",
+    "before": {
+      "stages": [
+        {"caption": "checkout-web", "items": ["ORDER_FORM"]},
+        {"caption": "orders-api", "items": [{"text": "charge_now()", "mono": true}]},
+        [{"items": ["PAYMENT GATEWAY"]}]
+      ],
+      "note": ["Removed", "Blocking gateway call", "30 s checkout timeouts"]
+    },
+    "after": {
+      "stages": [
+        {"caption": "checkout-web", "items": ["ORDER_FORM"]},
+        {"caption": "orders-api", "items": [{"text": "enqueue_payment()", "mono": true}]},
+        [{"caption": "payment-worker", "items": ["RETRY POLICY"]},
+         {"caption": "notifier", "items": ["RECEIPT EMAIL"]}]
+      ],
+      "note": ["Payments run from a queue", {"text": "Checkout never waits", "bold": true}]
+    }
+  }
+}

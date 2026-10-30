@@ -1,0 +1,14 @@
+[
+  {"query": "make a demo slide for SB-PROJ-3002", "should_trigger": true},
+  {"query": "I need one slide for the sprint review about PROJ-3002, can you build it in our team template", "should_trigger": true},
+  {"query": "create a one slide powerpoint summarizing the story I just finished, before and after of the deployment flow", "should_trigger": true},
+  {"query": "sprint review slide for this ticket: PROJ-3005 - move the orders service to Python 3.12", "should_trigger": true},
+  {"query": "present this story at the demo tomorrow, a single slide from SB-PROJ-3002.md presented by Alex", "should_trigger": true},
+  {"query": "make a slide for PROJ-3002 with the build result screenshot next to the steps", "should_trigger": true},
+  {"query": "make a ten-slide pitch deck for our new product launch", "should_trigger": false},
+  {"query": "create an SB from PROJ-3001.md", "should_trigger": false},
+  {"query": "implement SB-PROJ-3002", "should_trigger": false},
+  {"query": "review my pull request before I merge", "should_trigger": false},
+  {"query": "extract the text from this pptx and summarize it in an email", "should_trigger": false},
+  {"query": "explain my changes compared to develop so I can paste them in the PR", "should_trigger": false}
+]

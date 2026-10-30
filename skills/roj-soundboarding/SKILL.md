@@ -222,6 +222,9 @@ Multiple matches: list them and ask which. No match: STOP and ask.
    the working tree, and put the SB's Acceptance Criteria in the review
    request as what to check the change against; if the skill is not
    installed, say so and stop. Never start the review unasked.
+   When every code task is ticked, also offer: "Make a demo slide with
+   roj-one-slide?" On a yes, chain to `roj-one-slide` with the SB file; if
+   it is not installed, say so. Never build the slide unasked.
 7. **Tour (ask first).** Offer to refresh the tour (see Tour output) so it
    walks the code as implemented, not as planned. Build it only on a yes.
 

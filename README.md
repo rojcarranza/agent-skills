@@ -88,6 +88,7 @@ tools, is in [docs/workflow.md](docs/workflow.md).
 | [`roj-grill-plan`](skills/roj-grill-plan/USAGE.md) | Grills a story, SB document or plan in rounds of questions with recommended answers, looks facts up itself, then writes the decisions back into the file. |
 | [`roj-idea-to-project`](skills/roj-idea-to-project/USAGE.md) | Raw app idea → brief, design, EARS requirements, architecture and ADRs, agent config and a checked Definition of Ready, one approved gate at a time with fresh-context reviews, then a hand-off to Superpowers. Installs Superpowers first when it is missing. Never touches git. |
 | [`roj-interview-prep`](skills/roj-interview-prep/USAGE.md) | DevOps technical-interview document generated from a candidate's CV. |
+| [`roj-one-slide`](skills/roj-one-slide/USAGE.md) | One demo slide for a finished story (SB document, story file or ticket text), built on your team's own `.pptx` template: linked key and title, a one-sentence Goal, then a before/after flow diagram or headed points with an optional process flow and screenshot. Renders and checks the slide when LibreOffice is installed. Never touches git. |
 
 Diagrams are always Mermaid: `roj-onboard-repo` puts a system map and a
 core-flow diagram in `.onboarding/README.md`, `roj-explain-logic` puts a flow

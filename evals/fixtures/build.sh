@@ -1052,6 +1052,11 @@ monorepo)      init_repo main
   printf '# Monorepo\n' > README.md
   G add -A; G commit -qm "Add web and api modules"; push_all ;;
 sb-work)       init_repo main; sb_work ;;
+slide-sb)      # the SB after implementation: code tasks ticked, the manual one open
+  init_repo main; sb_work
+  sed -i.bak -e 's/^- \[ \] `/- [x] `/' -e 's/^| TC-1 \(.*\) | | |$/| TC-1 \1 | 1 failed (legacy, known) | |/' SB-PROJ-3002.md
+  rm SB-PROJ-3002.md.bak
+  G add -A; G commit -qm "SB-PROJ-3002 implemented" ;;
 sb-work-template) init_repo main; sb_work
   cat > SB-template.md <<'EOF'
 # <Project name> / <TICKET-ID>

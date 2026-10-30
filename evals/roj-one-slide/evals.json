@@ -1,0 +1,49 @@
+{
+  "skill_name": "roj-one-slide",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "make a demo slide for SB-PROJ-3002",
+      "fixture": {
+        "repo": "slide-sb"
+      },
+      "expected_output": "No template is configured or present, so the skill asks once for the team's .pptx (mentioning SLIDE_TEMPLATE) and writes nothing until it has one.",
+      "expectations": [
+        "States the resolved output path and that no TEMPLATE was found, before doing anything else",
+        "Asks for the template path once and mentions the SLIDE_TEMPLATE variable",
+        "Does not build the slide on python-pptx's default or any generic theme",
+        "Writes no .pptx file",
+        "Runs no git command that writes (no commit, branch or push)"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "make a demo slide for SB-PROJ-3002 using the template at ./team-template.pptx, presented by Alex",
+      "fixture": {
+        "repo": "slide-sb"
+      },
+      "expected_output": "The named template does not exist; the skill says so and asks for the right path instead of falling back to a generic theme.",
+      "expectations": [
+        "Reports that ./team-template.pptx was not found",
+        "Asks for the correct template path",
+        "Does not build the slide on a default or generic theme"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "write the slide spec for SB-PROJ-3002 (I will build it myself later with my template), presented by Alex",
+      "fixture": {
+        "repo": "slide-sb"
+      },
+      "expected_output": "A PROJ-3002-slide.json beside the SB in the before_after shape: Python 3.10 to 3.12 and image tag 1.8.0 to 1.9.0, the manual gateway task not presented as done.",
+      "expectations": [
+        "Writes PROJ-3002-slide.json next to SB-PROJ-3002.md",
+        "Uses key PROJ-3002 and a title taken from the SB, with the goal about running the orders service on Python 3.12",
+        "Chooses body kind before_after and shows python:3.10-slim to python:3.12-slim and image tag 1.8.0 to 1.9.0",
+        "Does not present the unticked gateway task as done; it is left off or appears only as a next step",
+        "Invents no numbers, results or system names that are not in the SB",
+        "Writes no .pptx without a template and runs no git command that writes"
+      ]
+    }
+  ]
+}

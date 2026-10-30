@@ -38,6 +38,9 @@ skills:
   roj-onboard-repo:
     source: .//skills/roj-onboard-repo
     targets: [copilot]
+  roj-one-slide:
+    source: .//skills/roj-one-slide
+    targets: [copilot]
   # Community skills our skills chain to (docs/community-skills.md), all
   # Copilot only: roj-idea-to-project chains to none of them.
   code-tour:

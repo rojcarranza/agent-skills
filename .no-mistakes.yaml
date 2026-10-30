@@ -9,7 +9,7 @@ gates:
   - name: unittest-suite
     after: test
     command: >-
-      uv run --no-project --python 3.12 python -m unittest
+      uv run --no-project --python 3.12 --with python-pptx python -m unittest
       test_install test_skills test_idea_to_project
   - name: shared-files-in-sync
     after: test

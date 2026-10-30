@@ -3,3 +3,8 @@ __pycache__/
 .DS_Store
 .private-patterns
 .cali-claude/
+# Slide decks are work templates or work output (roj-one-slide): never commit
+*.pptx
+*.potx
+*-slide.json
+*-slide.png

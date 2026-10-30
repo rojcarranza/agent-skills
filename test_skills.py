@@ -1004,6 +1004,11 @@ ROUTES = {
         "new candidate interview prep",
         "final assessment of the interviewed candidate",
     ],
+    "roj-one-slide": [
+        "make a demo slide for this story",
+        "build one slide for the sprint review",
+        "a one slide PowerPoint of the story I finished",
+    ],
     "roj-idea-to-project": [
         "I have an app idea and want to plan it before building",
         "set up a new empty repo so an agent can build my product idea",
@@ -1090,9 +1095,121 @@ class TestRouting(unittest.TestCase):
                         f"{owner}, but {rivals} score as high")
 
 
+try:
+    import pptx  # noqa: F401
+    HAVE_PPTX = True
+except ImportError:
+    HAVE_PPTX = False
+
+
+class TestOneSlideSpecs(unittest.TestCase):
+    """The bundled example specs are what the agent starts from."""
+
+    ASSETS = SKILLS / "roj-one-slide" / "assets"
+
+    def test_examples_cover_both_bodies_and_the_required_fields(self):
+        kinds = set()
+        for f in sorted(self.ASSETS.glob("example-*.json")):
+            with self.subTest(example=f.name):
+                spec = json.loads(f.read_text("utf-8"))
+                self.assertTrue(spec["title"])
+                self.assertTrue(spec["body"]["goal"])
+                kinds.add(spec["body"]["kind"])
+        self.assertEqual(kinds, {"before_after", "sections"})
+
+
+@unittest.skipUnless(HAVE_PPTX, "needs python-pptx")
+class TestOneSlideScript(unittest.TestCase):
+    """build_slide.py puts exactly one slide on the user's template, leaves
+    the template alone and refuses a spec that would overflow the slide."""
+
+    SCRIPT = SKILLS / "roj-one-slide" / "scripts" / "build_slide.py"
+    SECTIONS = {
+        "key": "PROJ-1", "link": "https://jira.example.com/browse/PROJ-1",
+        "title": "Add retries", "presenter": "Alex", "date": "2026-10-30",
+        "body": {"kind": "sections", "goal": "Survive flaky uploads",
+                 "sections": [{"heading": "Next", "points": "tune backoff"}]}}
+    BEFORE_AFTER = {
+        "key": "PROJ-2", "title": "Move to 3.12", "date": "2026-10-30",
+        "body": {"kind": "before_after", "goal": "Stay on a supported runtime",
+                 "before": {"stages": [{"caption": "build", "items": ["3.10"]},
+                                       [{"items": ["DEPLOY"]}]]},
+                 "after": {"stages": [{"caption": "build", "items": ["3.12"]},
+                                      [{"items": ["DEPLOY"]}]]}}}
+
+    def setUp(self):
+        from pptx import Presentation
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
+        prs = Presentation()
+        for _ in range(2):  # a deck in use, not an empty template
+            prs.slides.add_slide(prs.slide_layouts[1]).shapes.title.text = "old"
+        self.template = self.tmp / "team.pptx"
+        prs.save(str(self.template))
+        self.template_bytes = self.template.read_bytes()
+
+    def build(self, spec, template=None):
+        spec_path, out = self.tmp / "spec.json", self.tmp / "out.pptx"
+        spec_path.write_text(json.dumps(spec), "utf-8")
+        run = subprocess.run(
+            [sys.executable, str(self.SCRIPT), "--template",
+             str(template or self.template), "--spec", str(spec_path),
+             "--out", str(out)], capture_output=True, text=True)
+        return run, out
+
+    def texts(self, out):
+        from pptx import Presentation
+        prs = Presentation(str(out))
+        self.assertEqual(len(prs.slides), 1)
+        return prs.slides[0], [s.text_frame.text for s in prs.slides[0].shapes
+                               if s.has_text_frame]
+
+    def test_sections_slide(self):
+        run, out = self.build(self.SECTIONS)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, texts = self.texts(out)
+        title = slide.shapes.title.text_frame.paragraphs[0].runs
+        self.assertEqual(title[0].text, "PROJ-1")
+        self.assertEqual(title[0].hyperlink.address, self.SECTIONS["link"])
+        joined = "\n".join(texts)
+        for want in ("Goal:", "Survive flaky uploads", "Next: tune backoff",
+                     "Presented by:\u00a0Alex", "October 30, 2026"):
+            self.assertIn(want, joined)
+        self.assertNotIn("old", texts)
+        self.assertEqual(self.template.read_bytes(), self.template_bytes)
+
+    def test_before_after_slide(self):
+        run, out = self.build(self.BEFORE_AFTER)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        _, texts = self.texts(out)
+        for want in ("Before", "After", "3.10", "3.12", "DEPLOY", "build"):
+            self.assertIn(want, texts)
+
+    def test_overflow_is_refused_and_nothing_is_written(self):
+        spec = json.loads(json.dumps(self.BEFORE_AFTER))
+        spec["body"]["goal"] = "word " * 60
+        spec["body"]["after"]["stages"][0]["items"] = ["X" * 80]
+        run, out = self.build(spec)
+        self.assertEqual(run.returncode, 1)
+        self.assertIn("goal is longer than one line", run.stderr)
+        self.assertIn("too long for its box", run.stderr)
+        self.assertFalse(out.exists())
+
+    def test_unreadable_template(self):
+        bad = self.tmp / "bad.pptx"
+        bad.write_text("not a deck", "utf-8")
+        run, out = self.build(self.SECTIONS, bad)
+        self.assertEqual(run.returncode, 3)
+        self.assertFalse(out.exists())
+
+
 class TestPublishable(unittest.TestCase):
     def test_no_private_paths_or_employer_details(self):
-        for f in sorted([*SKILLS.rglob("*.md"),
+        # Scripts and JSON too: a slide spec or a fixture copied from work
+        # carries names as easily as prose does.
+        for f in sorted([*SKILLS.rglob("*.md"), *SKILLS.rglob("*.json"),
+                         *SKILLS.rglob("*.py"), *SKILLS.rglob("*.sh"),
+                         *(ROOT / "evals").rglob("*.json"),
                          *(ROOT / ".apm").rglob("*.md"),
                          ROOT / "cali.yaml"]):
             text = f.read_text(encoding="utf-8")

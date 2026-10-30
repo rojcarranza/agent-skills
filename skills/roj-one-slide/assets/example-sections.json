@@ -1,0 +1,21 @@
+{
+  "key": "PROJ-1002",
+  "title": "Add dark mode to the customer portal",
+  "presenter": "Alex",
+  "body": {
+    "kind": "sections",
+    "goal": "Let customers switch the portal to a dark theme that follows their system setting",
+    "sections": [
+      {"heading": "Challenges", "points": [
+        "Charts used hard-coded colours instead of theme tokens",
+        "The date picker library had no theme hooks"
+      ]},
+      {"heading": "Next", "points": "roll the theme out to the admin console"}
+    ],
+    "flow": [
+      {"title": "Tokens", "points": ["Colour tokens", "Contrast check"]},
+      {"title": "Components", "points": ["Charts", "Date picker wrapper"]},
+      {"title": "Release", "points": ["Behind a feature flag"]}
+    ]
+  }
+}

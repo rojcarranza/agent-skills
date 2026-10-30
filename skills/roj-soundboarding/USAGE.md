@@ -76,7 +76,8 @@ uncommitted edits along), runs a baseline test before the first task so
 failures that predate the work are not blamed on it, runs the narrowest
 relevant check after each task, and ends by offering `roj-code-review-pr` on
 the working tree, passing the SB's acceptance criteria in the review request
-as what to check the change against.
+as what to check the change against. Once every code task is ticked it also
+offers a demo slide through `roj-one-slide`.
 Which command it picks per stack (Go, Maven, Gradle, Python, shell, Docker,
 Helm, Kubernetes manifests) is in
 [`references/test-commands.md`](references/test-commands.md); it runs only
