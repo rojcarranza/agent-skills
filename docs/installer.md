@@ -195,7 +195,8 @@ pipx ensurepath
 
 Open a new shell and run `python3 install.py` again. If `graphify` is
 installed but not found by name, `python3 install.py --status` prints the
-`export PATH` line for `~/.local/bin`.
+`export PATH` line for `~/.local/bin`. A managed Python without `apt`, such as
+Homebrew's, gets the generic `uv tool install` / `pipx install` advice instead.
 
 | | macOS / Linux | Windows Git Bash | WSL Ubuntu |
 | --- | --- | --- | --- |

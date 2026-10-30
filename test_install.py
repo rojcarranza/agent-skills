@@ -322,23 +322,46 @@ class TestBootstrapCli(ExternalTest):
         self.assertEqual(path, "/bin/tool-y")
         run.assert_called_once_with([*pip, "tool-y-pkg"], check=True)
 
-    def test_externally_managed_python_skips_pip_and_names_pipx(self):
+    def bootstrap_on_managed_python(self, on_path, run_error=None):
         pip = [sys.executable, "-m", "pip", "install", "--user"]
         with mock.patch("install.find_cli", return_value=None), \
-                mock.patch("install.shutil.which", return_value=None), \
+                mock.patch("install.shutil.which",
+                           side_effect=lambda name: name if name in on_path
+                           else None), \
                 mock.patch("install.BOOTSTRAP_CMDS",
-                           (["uv", "tool", "install"], pip)), \
+                           (["uv", "tool", "install"], ["pipx", "install"],
+                            pip)), \
                 mock.patch("install.pip_externally_managed",
                            return_value=True), \
                 mock.patch("install.warn") as warn, \
-                mock.patch("install.subprocess.run") as run:
+                mock.patch("install.subprocess.run",
+                           side_effect=run_error) as run:
             path = install.bootstrap_cli(self.fake_external(), dry_run=False)
         self.assertIsNone(path)
+        return run, warn.call_args[0][0]
+
+    def test_externally_managed_python_skips_pip_and_names_pipx(self):
+        run, message = self.bootstrap_on_managed_python({"apt"})
         run.assert_not_called()
-        message = warn.call_args[0][0]
         self.assertIn("sudo apt install pipx", message)
         self.assertIn("pipx ensurepath", message)
         self.assertIn("python3 install.py", message)
+
+    def test_externally_managed_python_without_apt_gets_generic_advice(self):
+        run, message = self.bootstrap_on_managed_python(set())
+        run.assert_not_called()
+        self.assertNotIn("apt", message)
+        self.assertIn("uv tool install tool-y-pkg", message)
+        self.assertIn("pipx install tool-y-pkg", message)
+
+    def test_failed_pipx_on_managed_python_gets_generic_advice(self):
+        run, message = self.bootstrap_on_managed_python(
+            {"apt", "pipx"},
+            run_error=subprocess.CalledProcessError(1, "pipx"))
+        run.assert_called_once_with(["pipx", "install", "tool-y-pkg"],
+                                    check=True)
+        self.assertNotIn("apt", message)
+        self.assertIn("uv tool install tool-y-pkg", message)
 
     def test_no_installer_available_returns_none(self):
         with mock.patch("install.find_cli", return_value=None), \

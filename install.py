@@ -938,9 +938,9 @@ CLI_SUFFIXES = ("", ".exe", ".cmd", ".bat") if os.name == "nt" else ("",)
 
 
 def pip_externally_managed():
-    """True when `pip install --user` would be refused (PEP 668): Debian and
-    Ubuntu 24.04 ship an EXTERNALLY-MANAGED marker next to the system stdlib.
-    A venv is never managed, so pip stays usable there."""
+    """True when `pip install --user` would be refused (PEP 668): Debian,
+    Ubuntu 24.04, Homebrew and Arch ship an EXTERNALLY-MANAGED marker next to
+    the stdlib. A venv is never managed, so pip stays usable there."""
     if sys.prefix != getattr(sys, "base_prefix", sys.prefix):
         return False
     try:
@@ -1052,7 +1052,8 @@ def bootstrap_cli(ext, dry_run):
             ok(f"{ext['cli']} ready ({found})")
             return found
         warn(f"{via} reported success but {ext['cli']} is not on PATH")
-    if pip_externally_managed():
+    if (pip_externally_managed() and shutil.which("apt")
+            and not shutil.which("pipx")):
         warn(f"No {ext['cli']} CLI, and pip is refused for this system "
              f"Python (PEP 668) - skipping. Run 'sudo apt install pipx' "
              f"and 'pipx ensurepath', open a new shell, then re-run "
