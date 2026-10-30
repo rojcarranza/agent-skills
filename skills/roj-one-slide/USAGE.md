@@ -52,6 +52,20 @@ branding.
 Output, next to the input file: `PROJ-1001-slide.pptx`, the spec it was
 built from (`PROJ-1001-slide.json`) and the preview (`PROJ-1001-slide.png`).
 
+## Editing in PowerPoint
+
+The slide is fully editable: the title, Goal and points are the template's
+own text placeholders, and the diagram is native shapes, never a picture.
+
+- Each box is a group: click once to select the box with its items, click
+  again to edit one item or the caption. Drag the group and its arrows
+  follow, because every arrow is glued to its boxes.
+- Flow steps are groups too, and their points are real bullets: Enter
+  starts the next point.
+- Shapes have readable names (`Before orders-api`, `Item ORDER_FORM`,
+  `Note After`), so Home > Arrange > Selection Pane finds them.
+- The preview PNG is only for checking; it is never placed on the slide.
+
 ## Tweaking the slide
 
 Edit `PROJ-1001-slide.json` (the format is in

@@ -268,10 +268,11 @@ def fill_theme(fill, theme, brightness=0):
         fill.fore_color.brightness = brightness
 
 
-def textbox(slide, x, y, w, h, runs, size, align=PP_ALIGN.LEFT,
+def textbox(shapes, name, x, y, w, h, runs, size, align=PP_ALIGN.LEFT,
             anchor=MSO_ANCHOR.TOP, wrap=True):
     """runs: list of paragraphs, each a list of (text, opts) tuples."""
-    box = slide.shapes.add_textbox(Emu(x), Emu(y), Emu(w), Emu(h))
+    box = shapes.add_textbox(Emu(x), Emu(y), Emu(w), Emu(h))
+    box.name = name
     tf = box.text_frame
     tf.word_wrap = wrap
     tf.vertical_anchor = anchor
@@ -293,24 +294,40 @@ def textbox(slide, x, y, w, h, runs, size, align=PP_ALIGN.LEFT,
     return box
 
 
-def rounded_box(slide, x, y, w, h):
-    shp = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE,
-                                 Emu(x), Emu(y), Emu(w), Emu(h))
+def rounded_box(shapes, name, x, y, w, h, caption="", size=10, top=None):
+    """An outlined box; its caption is the box's own text, at the top, so
+    it moves and resizes with the box."""
+    shp = shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE,
+                           Emu(x), Emu(y), Emu(w), Emu(h))
+    shp.name = name
     style(shp)
     fill_theme(shp.fill, MSO_THEME_COLOR.BACKGROUND_1)
     shp.adjustments[0] = min(0.16, 0.16 * 914400 / max(h, 1))
+    tf = shp.text_frame
+    tf.vertical_anchor = MSO_ANCHOR.TOP
+    tf.word_wrap = True
+    tf.margin_top, tf.margin_bottom = Emu(PAD if top is None else top), Emu(0)
+    tf.margin_left = tf.margin_right = Emu(CAPTION_INSET)
+    if caption:
+        p = tf.paragraphs[0]
+        p.alignment = PP_ALIGN.CENTER
+        r = p.add_run()
+        r.text = caption
+        r.font.size = Pt(size)
+        r.font.color.theme_color = MSO_THEME_COLOR.TEXT_1
     return shp
 
 
-def chip(slide, x, y, w, h, item, colour):
+def chip(shapes, x, y, w, h, item, colour):
     text, mono = item["text"], item.get("mono", False)
     size = 12
     while size > 9 and text_width(text, size, True, mono) > w - 180000:
         size -= 1
     if text_width(text, size, True, mono) > w - 180000:
         problem(f"chip {text!r} is too long for its box; shorten it")
-    shp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE,
-                                 Emu(x), Emu(y), Emu(w), Emu(h))
+    shp = shapes.add_shape(MSO_SHAPE.RECTANGLE,
+                           Emu(x), Emu(y), Emu(w), Emu(h))
+    shp.name = f"Item {text}"
     style(shp)
     fill_theme(shp.fill, *colour)
     shp.line.fill.background()
@@ -332,9 +349,16 @@ def chip(slide, x, y, w, h, item, colour):
     return shp
 
 
-def arrow(slide, x1, y1, x2, y2):
-    con = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT,
-                                     Emu(x1), Emu(y1), Emu(x2), Emu(y2))
+# Connection sites PowerPoint numbers on a rectangle.
+TOP, LEFT, BOTTOM, RIGHT = 0, 1, 2, 3
+
+
+def arrow(slide, src, dst, src_site=BOTTOM, dst_site=TOP):
+    """A connector glued to both shapes, so it follows them when moved."""
+    con = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, 0, 0, 0, 0)
+    con.begin_connect(src, src_site)
+    con.end_connect(dst, dst_site)
+    con.name = f"Arrow to {dst.name}"
     style(con, "tx1")
     etree.SubElement(con.line._get_or_add_ln(), qn("a:tailEnd"),
                      type="triangle")
@@ -456,14 +480,11 @@ def fit_rows(sides, top, bottom):
 
 def draw_side(slide, side, x, w, top, bottom, colours, removed_style, fit):
     rows, scale, extra = fit
-    label_w = 1100000
-    textbox(slide, x, top, label_w, 300000,
-            [[(side["label"], {"bold": True, "rgb": RED})]], 18)
-    stages = side["stages"]
-    y0 = top + 240000
-
-    y, prev = y0, []
-    for si, stage in enumerate(stages):
+    label = side["label"]
+    textbox(slide.shapes, f"Label {label}", x, top, 1100000, 300000,
+            [[(label, {"bold": True, "rgb": RED})]], 18)
+    y, prev = top + 240000, []
+    for si, stage in enumerate(side["stages"]):
         k = len(stage)
         gap = 274320
         bw = min((w - (k - 1) * gap) // k, 2743200 if k == 1 else 2606040)
@@ -478,47 +499,49 @@ def draw_side(slide, side, x, w, top, bottom, colours, removed_style, fit):
             cx = bx + (bw - cw) // 2
             ch = int(CHIP_H * scale)
             if bare:
-                chip(slide, cx, y, cw, ch, box["items"][0],
-                     colours[box["items"][0]["text"]])
-                cur.append((cx, y, cw, ch))
+                item = box["items"][0]
+                cur.append(chip(slide.shapes, cx, y, cw, ch, item,
+                                colours[item["text"]]))
                 continue
-            rounded_box(slide, bx, y, bw, h)
+            # One group per box: the box with its caption plus its items,
+            # so the whole box moves as one and an arrow stays glued to it.
+            group = slide.shapes.add_group_shape()
+            group.name = f"{label} {box['caption'] or 'box'}"
+            size = 10
+            inner = bw - 2 * CAPTION_INSET
+            while size > 8 and text_width(box["caption"], size) > inner:
+                size -= 1
+            if text_width(box["caption"], size) > inner:
+                problem(f"caption {box['caption']!r} is too long for its box")
+            outline = rounded_box(group.shapes, f"Box {box['caption']}",
+                                  bx, y, bw, h, box["caption"], size,
+                                  int(PAD * scale))
             cy = y + int(PAD * scale)
             if box["caption"]:
-                inner = bw - 2 * CAPTION_INSET
-                size = 10
-                while size > 8 and text_width(box["caption"], size) > inner:
-                    size -= 1
-                if text_width(box["caption"], size) > inner:
-                    problem(f"caption {box['caption']!r} is too long for "
-                            "its box")
-                textbox(slide, bx + CAPTION_INSET, cy, inner, CAPTION_H,
-                        [[(box["caption"], {})]], size, PP_ALIGN.CENTER)
                 cy += int(CAPTION_H * scale)
             n = len(box["items"])
             block = n * ch + (n - 1) * int(CHIP_GAP * scale)
             cy += (y + h - cy - block) // 2
             for it in box["items"]:
-                chip(slide, cx, cy, cw, ch, it, colours[it["text"]])
+                chip(group.shapes, cx, cy, cw, ch, it, colours[it["text"]])
                 cy += ch + int(CHIP_GAP * scale)
-            cur.append((bx, y, bw, h))
+            cur.append(outline)
         if si == 0 and side.get("note"):
-            draw_note(slide, side["note"], gx + group_w, y, x + w, h,
+            draw_note(slide, label, side["note"], gx + group_w, y, x + w, h,
                       removed_style)
         if prev:
             pairs = (zip(prev, cur) if len(prev) == len(cur) and len(cur) > 1
                      else [(a, b) for a in prev for b in cur])
             for a, b in pairs:
-                arrow(slide, a[0] + a[2] // 2, a[1] + a[3],
-                      b[0] + b[2] // 2, b[1])
+                arrow(slide, a, b)
         prev = cur
         y += h + ARROW_GAP + extra
     if y - ARROW_GAP - extra > bottom + 1:
-        problem(f"{side['label']}: the diagram runs past the footer")
+        problem(f"{label}: the diagram runs past the footer")
     return y - ARROW_GAP - extra
 
 
-def draw_note(slide, note, left, y, right, h, removed_style):
+def draw_note(slide, label, note, left, y, right, h, removed_style):
     lines = [l if isinstance(l, dict) else {"text": l} for l in note]
     x, w = left + 73152, right - left - 73152
     if w < 900000:
@@ -534,8 +557,8 @@ def draw_note(slide, note, left, y, right, h, removed_style):
             opts = {"italic": True, "theme": MSO_THEME_COLOR.ACCENT_1,
                     "size": 9, "bold": l.get("bold", False)}
         paras.append([(l["text"], opts)])
-    box = textbox(slide, x, y, w, h, paras, 9, PP_ALIGN.CENTER,
-                  MSO_ANCHOR.MIDDLE)
+    box = textbox(slide.shapes, f"Note {label}", x, y, w, h, paras, 9,
+                  PP_ALIGN.CENTER, MSO_ANCHOR.MIDDLE)
     for side in ("margin_left", "margin_right", "margin_top", "margin_bottom"):
         setattr(box.text_frame, side, 27432)
     if removed_style:
@@ -554,7 +577,7 @@ def draw_note(slide, note, left, y, right, h, removed_style):
 def build_before_after(slide, prs, layout, body, frame, footer_top):
     left, top, width = frame
     goal_h = 409343
-    textbox(slide, left, top, width, goal_h,
+    textbox(slide.shapes, "Goal", left, top, width, goal_h,
             [goal_runs(body["goal"])], 14)
     if line_count("Goal: " + body["goal"], 14, width) > 1:
         problem("goal is longer than one line; cut it to one sentence "
@@ -583,6 +606,7 @@ def build_before_after(slide, prs, layout, body, frame, footer_top):
     con = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Emu(mid),
                                      Emu(region_top), Emu(mid),
                                      Emu(min(max(ends), region_bottom)))
+    con.name = "Divider"
     style(con, "tx1")
 
 
@@ -672,6 +696,7 @@ def place_image(slide, path, x, y, w, h):
         problem(f"image {path} not found")
         return
     pic = slide.shapes.add_picture(str(p), Emu(x), Emu(y))
+    pic.name = f"Picture {p.name}"
     ratio = min(w / pic.width, h / pic.height)
     pic.width, pic.height = int(pic.width * ratio), int(pic.height * ratio)
     pic.left = Emu(x + (w - pic.width) // 2)
@@ -700,23 +725,33 @@ def draw_flow(slide, steps, x, y, w, h):
         problem("the flow steps have too many points for the space left; "
                 "cut points or drop a step")
         box_h = h - head_h // 2
+    prev = None
     for i, step in enumerate(steps):
         sx = x + i * (sw + gap)
         box_top = y + head_h // 2
-        box = rounded_box(slide, sx, box_top, sw, box_h)
+        # One group per step: the title bar and the box of points.
+        group = slide.shapes.add_group_shape()
+        group.name = f"Step {step['title']}"
+        box = rounded_box(group.shapes, f"Step box {step['title']}", sx,
+                          box_top, sw, box_h, top=head_h // 2 + 80000)
         tf = box.text_frame
-        tf.vertical_anchor = MSO_ANCHOR.TOP
-        tf.margin_top = Emu(head_h // 2 + 80000)
-        tf.word_wrap = True
+        tf.margin_left = tf.margin_right = Emu(91440)
         for j, pt in enumerate(step.get("points", [])):
             p = tf.paragraphs[0] if j == 0 else tf.add_paragraph()
             p.alignment = PP_ALIGN.LEFT
+            # A real bullet, so Enter in PowerPoint starts the next point.
+            ppr = p._p.get_or_add_pPr()
+            ppr.set("marL", "171450")
+            ppr.set("indent", "-171450")
+            etree.SubElement(ppr, qn("a:buFont"), typeface="Arial")
+            etree.SubElement(ppr, qn("a:buChar"), char="\u2022")
             r = p.add_run()
-            r.text = "\u2022 " + pt
+            r.text = pt
             r.font.size = Pt(12)
             r.font.color.theme_color = MSO_THEME_COLOR.TEXT_1
-        head = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Emu(sx + 90000),
+        head = group.shapes.add_shape(MSO_SHAPE.RECTANGLE, Emu(sx + 90000),
                                       Emu(y), Emu(sw - 180000), Emu(head_h))
+        head.name = f"Step title {step['title']}"
         style(head)
         fill_theme(head.fill, MSO_THEME_COLOR.ACCENT_1)
         head.line.fill.background()
@@ -729,16 +764,17 @@ def draw_flow(slide, steps, x, y, w, h):
         r.font.bold = True
         if text_width(step["title"], size, True) > sw - 300000:
             problem(f"flow step title {step['title']!r} is too long")
-        if i:
-            mid = box_top + box_h // 2
-            arrow(slide, sx - gap + 40000, mid, sx - 40000, mid)
+        if prev is not None:
+            arrow(slide, prev, box, RIGHT, LEFT)
+        prev = box
 
 
 # -------------------------------------------------------------------- main
 
 def presenter_box(slide, prs, footer_top, name):
     w = 3608962
-    textbox(slide, (prs.slide_width - w) // 2, footer_top + 106966, w, 139926,
+    textbox(slide.shapes, "Presented by", (prs.slide_width - w) // 2,
+            footer_top + 106966, w, 139926,
             [[("Presented by:\u00a0" + name,
                {"theme": MSO_THEME_COLOR.ACCENT_1})]], 10, PP_ALIGN.CENTER,
             MSO_ANCHOR.BOTTOM)

@@ -1157,12 +1157,22 @@ class TestOneSlideScript(unittest.TestCase):
              "--out", str(out)], capture_output=True, text=True)
         return run, out
 
-    def texts(self, out):
+    def shapes(self, out):
+        """Every shape on the one slide, groups opened up."""
         from pptx import Presentation
         prs = Presentation(str(out))
         self.assertEqual(len(prs.slides), 1)
-        return prs.slides[0], [s.text_frame.text for s in prs.slides[0].shapes
-                               if s.has_text_frame]
+        slide, found, todo = prs.slides[0], [], list(prs.slides[0].shapes)
+        while todo:
+            shape = todo.pop(0)
+            found.append(shape)
+            if shape.shape_type == 6:  # group
+                todo += list(shape.shapes)
+        return slide, found
+
+    def texts(self, out):
+        slide, shapes = self.shapes(out)
+        return slide, [s.text_frame.text for s in shapes if s.has_text_frame]
 
     def test_sections_slide(self):
         run, out = self.build(self.SECTIONS)
@@ -1184,6 +1194,25 @@ class TestOneSlideScript(unittest.TestCase):
         _, texts = self.texts(out)
         for want in ("Before", "After", "3.10", "3.12", "DEPLOY", "build"):
             self.assertIn(want, texts)
+
+    def test_diagram_stays_editable(self):
+        """Native shapes in one group per box and arrows glued to the boxes,
+        so moving a box in PowerPoint drags its arrows; never a picture."""
+        run, out = self.build(self.BEFORE_AFTER)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, shapes = self.shapes(out)
+        self.assertFalse([s for s in shapes if s.shape_type == 13])
+        self.assertTrue([s for s in slide.shapes if s.shape_type == 6])
+        ids = {s.shape_id for s in shapes}
+        arrows = [s for s in shapes if s.name.startswith("Arrow")]
+        self.assertTrue(arrows)
+        a = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+        for arrow in arrows:
+            for end in ("stCxn", "endCxn"):
+                with self.subTest(arrow=arrow.name, end=end):
+                    glue = arrow._element.find(f".//{a}{end}")
+                    self.assertIsNotNone(glue)
+                    self.assertIn(int(glue.get("id")), ids)
 
     def test_overflow_is_refused_and_nothing_is_written(self):
         spec = json.loads(json.dumps(self.BEFORE_AFTER))

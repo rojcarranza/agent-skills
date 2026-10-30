@@ -40,7 +40,11 @@ State the resolved TEMPLATE and OUTPUT in one line at the start of the run.
    commit, branch or push; read-only git commands are allowed.
 4. **Change the spec, not the file.** Every fix is an edit to the JSON spec
    and a re-run of the script. Never patch the `.pptx` XML by hand.
-5. **Ask, don't guess.** One question when the input is ambiguous.
+5. **Editable in PowerPoint.** The slide is the template's placeholders plus
+   native shapes, text and glued arrows, never a picture of a slide or a
+   diagram. The preview PNG is for checking only and never goes on the
+   slide; the only picture allowed is a screenshot the user supplied.
+6. **Ask, don't guess.** One question when the input is ambiguous.
 
 ## Flow
 
