@@ -949,8 +949,9 @@ def pip_externally_managed():
         return False
 
 
-# Best first. pip is the last resort — it is always there (we are running
-# under it) but installs into the user site rather than an isolated venv.
+# Best first. pip is the last resort - it is always there (we are running
+# under it) but installs into the user site rather than an isolated venv, and
+# the loops skip it when pip_externally_managed().
 BOOTSTRAP_CMDS = (["uv", "tool", "install"], ["pipx", "install"],
                   pip_install_cmd())
 UPGRADE_CMDS = (["uv", "tool", "upgrade"], ["pipx", "upgrade"],
