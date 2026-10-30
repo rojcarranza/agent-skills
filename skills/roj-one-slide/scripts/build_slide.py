@@ -17,6 +17,7 @@ import copy
 import datetime
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -30,6 +31,7 @@ try:
     from pptx.enum.dml import MSO_THEME_COLOR, MSO_LINE_DASH_STYLE
     from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE, PP_PLACEHOLDER
     from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+    from pptx.opc.constants import RELATIONSHIP_TYPE as RT
     from pptx.oxml.ns import qn
     from pptx.util import Emu, Pt
 except ImportError:
@@ -115,6 +117,22 @@ def line_count(text, pt, width, bold=False):
 
 # -------------------------------------------------------------- spec shape
 
+# Characters XML cannot hold, such as a vertical tab pasted from Word.
+NOT_XML_TEXT = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
+
+
+def check_characters(value):
+    if isinstance(value, str):
+        if NOT_XML_TEXT.search(value):
+            problem(f"{value!r} has a control character; retype that text")
+    elif isinstance(value, dict):
+        for child in value.values():
+            check_characters(child)
+    elif isinstance(value, list):
+        for child in value:
+            check_characters(child)
+
+
 def is_text(value):
     return isinstance(value, str) and bool(value.strip())
 
@@ -153,6 +171,9 @@ def check_side(key, side):
     if note is not None and not (isinstance(note, list) and all(
             is_text(line_text(l)) for l in note)):
         problem(f"{where}.note must be a list of lines")
+    elif note and not all(isinstance(l.get("bold", False), bool)
+                          for l in note if isinstance(l, dict)):
+        problem(f"{where}.note: bold must be true or false")
 
 
 def check_sections(body):
@@ -188,6 +209,7 @@ def check_spec(spec):
     if not isinstance(spec, dict):
         problem("the spec must be one JSON object")
         return
+    check_characters(spec)
     if not is_text(spec.get("title")):
         problem("title is required")
     for field in ("key", "link", "presenter", "date", "layout"):
@@ -222,7 +244,6 @@ def load_template(path):
 
 def read_theme(layout):
     """The theme's colour scheme, so chip text can pick a readable colour."""
-    from pptx.opc.constants import RELATIONSHIP_TYPE as RT
     master = layout.slide_master
     try:
         theme = master.part.part_related_by(RT.THEME)
@@ -322,7 +343,28 @@ def pick_layout(prs, name, kind):
     return candidates[0]
 
 
+def drop_custom_shows(prs):
+    """A custom show is a second reference to its slides, which would keep
+    them in the package beside the new slide."""
+    pres = prs.part._element
+    shows = pres.find(qn("p:custShowLst"))
+    if shows is not None:
+        pres.remove(shows)
+    try:
+        props = prs.part.part_related_by(RT.PRES_PROPS)
+    except KeyError:
+        return
+    root = etree.fromstring(props.blob)
+    show_pr = root.find(qn("p:showPr"))
+    chosen = show_pr.find(qn("p:custShow")) if show_pr is not None else None
+    if chosen is not None:
+        show_pr.remove(chosen)
+        props._blob = etree.tostring(root, xml_declaration=True,
+                                     encoding="UTF-8", standalone=True)
+
+
 def drop_slides(prs):
+    drop_custom_shows(prs)
     sld_ids = prs.slides._sldIdLst
     for sld_id in list(sld_ids):
         prs.part.drop_rel(sld_id.rId)
@@ -813,13 +855,16 @@ def build_sections(slide, layout, body, frame, footer_top):
     text_h = int(lines * size * 1.2 * EMU_PER_PT + len(paras) * 6 * EMU_PER_PT)
     has_visual = body.get("flow") or body.get("image")
     region_bottom = footer_top - 300000
+    # Taller than the layout's box, text set to the bottom would grow up over
+    # the title; the box grows down instead, towards the footer check.
+    if has_visual or text_h > ph.height:
+        ph.left, ph.top, ph.width, ph.height = (Emu(left), Emu(top), Emu(width),
+                                                Emu(text_h))
     if not has_visual:
         if top + text_h > region_bottom:
             problem(f"sections run about {lines} lines; cut points until "
                     "they fit above the footer")
         return
-    ph.left, ph.top, ph.width, ph.height = (Emu(left), Emu(top), Emu(width),
-                                            Emu(text_h))
     vis_top = top + text_h + 200000
     vis_h = region_bottom - vis_top
     if vis_h < 1600000:

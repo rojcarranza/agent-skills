@@ -114,7 +114,8 @@ one message; the presenter fills in the rest.
 ## Limits the script enforces
 
 The script refuses (exit 1) and lists each problem when: the spec is not
-valid JSON or a field has the wrong shape; the layout has no title
+valid JSON, a field has the wrong shape or text holds a control character;
+the layout has no title
 placeholder, its title overlaps the body region or, with no body
 placeholder, sits below the top third of the slide; a sections slide has a
 layout with no content placeholder; the title wraps past

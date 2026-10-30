@@ -1533,7 +1533,23 @@ class TestOneSlideScript(unittest.TestCase):
                 ("stages missing", {**self.BEFORE_AFTER, "body": {
                     "kind": "before_after", "goal": "g"}}, "stages is required"),
                 ("too many boxes", stages([{"items": ["a"]}] * 12),
-                 "too many boxes")):
+                 "too many boxes"),
+                ("note bold not a boolean", {**self.BEFORE_AFTER, "body": {
+                    **self.BEFORE_AFTER["body"], "after": {
+                        **self.BEFORE_AFTER["body"]["after"],
+                        "note": [{"text": "a", "bold": "yes"}]}}},
+                 "bold must be true or false"),
+                ("control character in a caption",
+                 stages({"caption": "a\x0bb", "items": ["c"]}),
+                 "control character"),
+                ("control character in an item",
+                 stages({"items": ["a\x0bb"]}), "control character"),
+                ("control character in a flow title",
+                 sections(flow=[{"title": "a\x0bb"}, {"title": "c"}]),
+                 "control character"),
+                ("lone surrogate in the title",
+                 {**self.SECTIONS, "title": "a\ud800b"},
+                 "control character")):
             with self.subTest(name):
                 run, out = self.build(spec)
                 self.assertEqual(run.returncode, 1, run.stderr)
@@ -1549,6 +1565,75 @@ class TestOneSlideScript(unittest.TestCase):
         self.assertEqual(run.returncode, 0, run.stderr)
         slide, _ = self.shapes(out)
         self.assertEqual(slide.shapes.title.text_frame.text, "Add retries")
+
+    def test_custom_show_deck_leaves_one_slide_part(self):
+        """A slide in a custom show has two references. Left in place, python-
+        pptx keeps the old part and writes a second slide1.xml, a malformed
+        zip per the OPC rule that part names are unique."""
+        import zipfile
+        from collections import Counter
+        from lxml import etree
+        from pptx import Presentation
+        from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+        from pptx.oxml.ns import qn
+        prs = self.team_deck()
+        old = prs.slides.add_slide(prs.slide_layouts[1])
+        old.shapes.title.text = "old slide"
+        r_id = prs.part.relate_to(old.part, RT.SLIDE)
+        p_ns = "http://schemas.openxmlformats.org/presentationml/2006/main"
+        r_ns = ("http://schemas.openxmlformats.org/officeDocument/2006/"
+                "relationships")
+        prs.part._element.find(qn("p:notesSz")).addnext(etree.fromstring(
+            f'<p:custShowLst xmlns:p="{p_ns}" xmlns:r="{r_ns}">'
+            '<p:custShow name="Demo" id="0"><p:sldLst>'
+            f'<p:sld r:id="{r_id}"/></p:sldLst></p:custShow></p:custShowLst>'))
+        props = prs.part.part_related_by(RT.PRES_PROPS)
+        root = etree.fromstring(props.blob)
+        root.insert(0, etree.fromstring(
+            f'<p:showPr xmlns:p="{p_ns}"><p:custShow id="0"/></p:showPr>'))
+        props._blob = etree.tostring(root)
+
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        with zipfile.ZipFile(out) as package:
+            names = package.namelist()
+            self.assertEqual(
+                [n for n, count in Counter(names).items() if count > 1], [])
+            self.assertEqual(
+                [n for n in names if re.fullmatch(r"ppt/slides/[^/]+", n)],
+                ["ppt/slides/slide1.xml"])
+            self.assertNotIn(b"custShow", package.read("ppt/presProps.xml"))
+        built = Presentation(str(out))
+        self.assertIsNone(built.part._element.find(qn("p:custShowLst")))
+        self.assertNotIn("old slide", self.texts(out)[1])
+
+    def test_body_grows_down_from_a_short_bottom_anchored_placeholder(self):
+        """Office's Comparison body is 639762 EMU high and set to the bottom,
+        so six lines of 18pt would rise over the title unless the box holds
+        them. Rejects a box left at the layout's height."""
+        spec = json.loads(json.dumps(self.SECTIONS))
+        spec["layout"] = "Comparison"
+        spec["body"]["sections"] = [
+            {"heading": "Done", "points": ["one", "two", "three"]},
+            {"heading": "Next", "points": "tune backoff"}]
+        run, out = self.build(spec, self.save_deck(self.team_deck()))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, _ = self.shapes(out)
+        body = next(s for s in slide.placeholders
+                    if s.placeholder_format.idx == 1)
+        self.assertEqual(body.top, 1535113)
+        self.assertGreaterEqual(body.height / 12700, 6 * 18 * 1.2)
+
+    def test_body_that_fits_keeps_the_layouts_position(self):
+        """The look on the template stays: no position of its own unless the
+        text needs a taller box."""
+        run, out = self.build(self.SECTIONS, self.save_deck(self.team_deck()))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, _ = self.shapes(out)
+        body = next(s for s in slide.placeholders
+                    if s.placeholder_format.idx == 1)
+        self.assertIsNone(body._element.spPr.find(
+            "{http://schemas.openxmlformats.org/drawingml/2006/main}xfrm"))
 
     def test_missing_spec_file_is_listed(self):
         run = subprocess.run(
