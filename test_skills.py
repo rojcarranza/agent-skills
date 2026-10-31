@@ -1607,6 +1607,126 @@ class TestOneSlideScript(unittest.TestCase):
         self.assertIsNone(built.part._element.find(qn("p:custShowLst")))
         self.assertNotIn("old slide", self.texts(out)[1])
 
+    def assert_only_the_new_slide(self, out):
+        """OPC requires unique part names; the old text must be gone too."""
+        import zipfile
+        from collections import Counter
+        with zipfile.ZipFile(out) as package:
+            names = package.namelist()
+            self.assertEqual(
+                [n for n, count in Counter(names).items() if count > 1], [])
+            self.assertEqual(
+                [n for n in names if re.fullmatch(r"ppt/slides/[^/]+", n)],
+                ["ppt/slides/slide1.xml"])
+            for name in names:
+                self.assertNotIn(b"old deck text", package.read(name), name)
+
+    def old_slide(self, prs):
+        slide = prs.slides.add_slide(prs.slide_layouts[1])
+        slide.shapes.title.text = "old deck text"
+        return slide
+
+    def test_slide_collapsed_in_outline_view_is_dropped(self):
+        """viewProps.xml points at the slide with its own relationship."""
+        from lxml import etree
+        from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+        from pptx.oxml.ns import qn
+        prs = self.team_deck()
+        old = self.old_slide(prs)
+        view = prs.part.part_related_by(RT.VIEW_PROPS)
+        r_id = view.relate_to(old.part, RT.SLIDE)
+        root = etree.fromstring(view.blob)
+        p_ns = "http://schemas.openxmlformats.org/presentationml/2006/main"
+        r_ns = ("http://schemas.openxmlformats.org/officeDocument/2006/"
+                "relationships")
+        root.append(etree.fromstring(
+            f'<p:outlineViewPr xmlns:p="{p_ns}" xmlns:r="{r_ns}"><p:sldLst>'
+            f'<p:sld r:id="{r_id}" collapse="1"/></p:sldLst></p:outlineViewPr>'))
+        view._blob = etree.tostring(root)
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assert_only_the_new_slide(out)
+        from pptx import Presentation
+        kept = Presentation(str(out)).part.part_related_by(RT.VIEW_PROPS)
+        self.assertIsNone(etree.fromstring(kept.blob).find(f".//{qn('p:sld')}"))
+
+    def test_home_button_on_the_master_loses_its_link_to_a_dropped_slide(self):
+        from lxml import etree
+        from pptx import Presentation
+        from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+        from pptx.oxml.ns import qn
+        prs = self.team_deck()
+        old = self.old_slide(prs)
+        master = prs.slide_master
+        r_id = master.part.relate_to(old.part, RT.SLIDE)
+        name = master._element.find(f".//{qn('p:cNvPr')}")
+        etree.SubElement(name, qn("a:hlinkClick"), {
+            qn("r:id"): r_id, "action": "ppaction://hlinksldjump"})
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assert_only_the_new_slide(out)
+        built = Presentation(str(out)).slide_master._element
+        self.assertIsNone(built.find(f".//{qn('a:hlinkClick')}"))
+
+    def test_output_does_not_describe_the_template_deck(self):
+        """A live deck is the recommended template, and the slide gets sent on:
+        its preview and properties must not show the deck's other stories."""
+        import zipfile
+        prs = self.team_deck()
+        self.old_slide(prs)
+        props = prs.core_properties
+        props.title = "old deck text"
+        props.subject = props.keywords = props.comments = "old deck text"
+        props.category = "old deck text"
+        deck = self.save_deck(prs)
+        with zipfile.ZipFile(deck) as package:
+            for carried in ("docProps/thumbnail.jpeg", "docProps/app.xml"):
+                self.assertIn(carried, package.namelist())
+        run, out = self.build(self.SECTIONS, deck)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assert_only_the_new_slide(out)
+        with zipfile.ZipFile(out) as package:
+            for gone in ("docProps/thumbnail.jpeg", "docProps/app.xml"):
+                self.assertNotIn(gone, package.namelist())
+        from pptx import Presentation
+        self.assertEqual(Presentation(str(out)).core_properties.title,
+                         "PROJ-1 Add retries")
+
+    def office_section_header(self, prs):
+        """Office's 16:9 geometry: a big mid-slide title with the text under."""
+        layout = prs.slide_layouts[2]
+        for ph in layout.placeholders:
+            if ph.placeholder_format.idx == 0:
+                ph.top, ph.height = 1709738, 2852737
+            elif ph.placeholder_format.idx == 1:
+                ph.top, ph.height = 4589463, 1500187
+        return layout
+
+    def test_default_layout_passes_over_a_section_header(self):
+        prs = self.team_deck()
+        section = self.office_section_header(prs)
+        for layout in (prs.slide_layouts[0], section, prs.slide_layouts[1]):
+            prs.slides.add_slide(layout)
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(self.shapes(out)[0].slide_layout.name,
+                         "Title and Content")
+
+    def test_refusal_on_a_low_title_points_to_a_better_layout(self):
+        """Rejects telling the agent only to cut content when the layout is
+        what leaves no room."""
+        prs = self.team_deck()
+        prs.slides.add_slide(self.office_section_header(prs))
+        spec = json.loads((SKILLS / "roj-one-slide" / "assets"
+                           / "example-before-after.json").read_text("utf-8"))
+        run, out = self.build(spec, self.save_deck(prs))
+        self.assertEqual(run.returncode, 1, run.stderr)
+        self.assertIn("sits low on the slide", run.stderr)
+        hint = run.stderr.split("set layout to one of:")[1]
+        self.assertIn("'Title and Content'", hint)
+        self.assertNotIn("'Section Header'", hint)
+        self.assertFalse(out.exists())
+
     def test_body_grows_down_from_a_short_bottom_anchored_placeholder(self):
         """Office's Comparison body is 639762 EMU high and set to the bottom,
         so six lines of 18pt would rise over the title unless the box holds

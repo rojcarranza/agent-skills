@@ -26,8 +26,9 @@ handing it over; without it, open the slide yourself.
 ## Set up once
 
 1. Save a deck your team presents from as `slide-template.pptx`, or point
-   at one. The layout of its first slide with both a title and a content
-   placeholder is used, and its slides are not copied. A layout whose title
+   at one. The layout of its first slide with a title in the top third and a
+   content placeholder is used (so title and section header slides are passed
+   over), and its slides, thumbnail and deck title are not copied. A layout whose title
    overlaps the body is refused. A `.potx` has to be saved as `.pptx` first.
 2. Tell the skill where it is, in the request or once for all runs:
 

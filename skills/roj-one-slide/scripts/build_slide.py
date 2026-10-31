@@ -5,7 +5,8 @@
 
 The template supplies the master, layout, theme colours and fonts; every
 shape this script draws uses theme colours, so the slide looks like the rest
-of the deck. The template's own slides are dropped. The spec format is in
+of the deck. The template's own slides and what describes them (thumbnail,
+slide titles, deck title) are dropped. The spec format is in
 references/slide-spec.md.
 
 Exit codes: 0 built, 1 the spec does not fit or is invalid (every problem is
@@ -32,6 +33,7 @@ try:
     from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE, PP_PLACEHOLDER
     from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
     from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+    from pptx.opc.package import XmlPart
     from pptx.oxml.ns import qn
     from pptx.util import Emu, Pt
 except ImportError:
@@ -298,19 +300,29 @@ def all_layouts(prs):
     return [lay for master in prs.slide_masters for lay in master.slide_layouts]
 
 
+def title_bottom(layout):
+    title = layout_placeholder(layout, PP_PLACEHOLDER.TITLE,
+                               PP_PLACEHOLDER.CENTER_TITLE)
+    return None if title is None else title.top + title.height
+
+
+def title_is_low(layout, slide_height):
+    """A title ending below the top third: a Section Header, not a story."""
+    bottom = title_bottom(layout)
+    return bottom is not None and bottom > slide_height // 3
+
+
 def body_region_top(layout, slide_height):
     """Where content starts under the layout's title; None when the layout
     has no title, or its title sits on the body or low on the slide."""
-    title = layout_placeholder(layout, PP_PLACEHOLDER.TITLE,
-                               PP_PLACEHOLDER.CENTER_TITLE)
-    if title is None:
+    bottom = title_bottom(layout)
+    if bottom is None:
         return None
-    bottom = title.top + title.height
     body = layout_placeholder(layout, PP_PLACEHOLDER.OBJECT,
                               PP_PLACEHOLDER.BODY)
     if body is not None:
         return body.top if bottom <= body.top else None
-    if bottom > slide_height // 3:
+    if title_is_low(layout, slide_height):
         return None
     return max(bottom, int(slide_height * 0.2))
 
@@ -319,6 +331,7 @@ def layout_hint(prs, kind):
     """What to do about a refused layout, naming only layouts that fit."""
     fits = [" ".join(lay.name.split()) for lay in all_layouts(prs)
             if body_region_top(lay, prs.slide_height) is not None
+            and not title_is_low(lay, prs.slide_height)
             and (kind != "sections" or has_title_and_content(lay))]
     if not fits:
         return "no layout in this template fits; use another template"
@@ -334,13 +347,19 @@ def pick_layout(prs, name, kind):
         problem(f"layout {name!r} not in the template; "
                 + layout_hint(prs, kind))
         return None
-    # A deck the team presents from often opens with a title slide; the
-    # first slide with a title and content is the one stories are told on.
+    # A deck the team presents from often opens with a title slide or has
+    # section headers; the first slide with a title at the top and content
+    # is the one stories are told on.
     candidates = [s.slide_layout for s in prs.slides] or layouts
     for lay in candidates:
-        if has_title_and_content(lay):
+        if has_title_and_content(lay) and not title_is_low(lay, prs.slide_height):
             return lay
     return candidates[0]
+
+
+def xml_bytes(root):
+    return etree.tostring(root, xml_declaration=True, encoding="UTF-8",
+                          standalone=True)
 
 
 def drop_custom_shows(prs):
@@ -359,13 +378,31 @@ def drop_custom_shows(prs):
     chosen = show_pr.find(qn("p:custShow")) if show_pr is not None else None
     if chosen is not None:
         show_pr.remove(chosen)
-        props._blob = etree.tostring(root, xml_declaration=True,
-                                     encoding="UTF-8", standalone=True)
+        props._blob = xml_bytes(root)
+
+
+def drop_links_to(prs, slide_parts):
+    """Any other part pointing at a slide, such as a Home button on the master
+    or a slide collapsed in Outline view, would keep it in the package."""
+    for part in list(prs.part.package.iter_parts()):
+        if part in slide_parts:
+            continue
+        for r_id, rel in list(part.rels.items()):
+            if rel.is_external or rel.target_part not in slide_parts:
+                continue
+            part.rels.pop(r_id)
+            root = (part._element if isinstance(part, XmlPart)
+                    else etree.fromstring(part.blob))
+            for el in [e for e in root.iter() if e.get(qn("r:id")) == r_id]:
+                el.getparent().remove(el)
+            if not isinstance(part, XmlPart):
+                part._blob = xml_bytes(root)
 
 
 def drop_slides(prs):
     drop_custom_shows(prs)
     sld_ids = prs.slides._sldIdLst
+    slide_parts = {prs.part.related_part(s.rId) for s in sld_ids}
     for sld_id in list(sld_ids):
         prs.part.drop_rel(sld_id.rId)
         sld_ids.remove(sld_id)
@@ -378,6 +415,20 @@ def drop_slides(prs):
                     "{http://schemas.microsoft.com/office/powerpoint/2010/main}"
                     "sectionLst") is not None:
                 ext_lst.remove(ext)
+    drop_links_to(prs, slide_parts)
+
+
+def describe_as_the_slide(prs, spec):
+    """The thumbnail, app.xml (slide titles and counts) and the deck's title
+    all describe the template's slides; PowerPoint rewrites the first two."""
+    package = prs.part.package
+    for r_id, rel in list(package._rels.items()):
+        if rel.reltype in (RT.THUMBNAIL, RT.EXTENDED_PROPERTIES):
+            package._rels.pop(r_id)
+    props = prs.core_properties
+    # 255 is the longest title the property holds.
+    props.title = f"{spec.get('key') or ''} {spec['title']}".strip()[:255]
+    props.subject = props.keywords = props.comments = props.category = ""
 
 
 def layout_placeholder(layout, *types):
@@ -1008,6 +1059,7 @@ def build(template, spec, out):
     name = " ".join(layout.name.split())
     read_theme(layout)
     drop_slides(prs)
+    describe_as_the_slide(prs, spec)
     slide = prs.slides.add_slide(layout)
     title = slide.shapes.title
     if title is None:
@@ -1054,6 +1106,9 @@ def build(template, spec, out):
                       footer_ph is not None
                       and bool(footer_ph.text_frame.text.strip()))
 
+    if PROBLEMS and title_is_low(layout, prs.slide_height):
+        problem(f"the title of layout {name!r} sits low on the slide, leaving "
+                "little room under it; " + layout_hint(prs, kind))
     if PROBLEMS:
         return False
     try:

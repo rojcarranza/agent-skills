@@ -22,8 +22,9 @@ with the template's theme colours.
   of the current repository). None found: ask for the path once, mention
   `SLIDE_TEMPLATE`, and wait. Never fall back to a generic theme. A deck the
   team already presents from is the best template: the script uses the
-  layout of its first slide with both a title and a content placeholder,
-  and drops its slides from the copy. Not needed when the user asks only for
+  layout of its first slide with a title in the top third and a content
+  placeholder, and drops its slides, thumbnail and deck title from the copy.
+  Not needed when the user asks only for
   the spec: then stop after step 3.
 - PRESENTER: a name in the message, then the first word of
   `git config user.name`. Empty: leave the line off.
