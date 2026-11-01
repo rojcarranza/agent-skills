@@ -273,11 +273,13 @@ class TestDeclaredNeeds(SkillTest):
     TOOL_RE = re.compile(r"^[\w.-]+(\|[\w.-]+)*$")
 
     @staticmethod
-    def texts(d):
-        """What the skill tells the agent and what its scripts run."""
-        files = [d / "SKILL.md", *sorted((d / "references").glob("*.md")),
+    def texts(d, body):
+        """What the skill tells the agent and what its scripts run. The body,
+        not the frontmatter, so a declaration never vouches for itself."""
+        files = [*sorted((d / "references").glob("*.md")),
                  *sorted((d / "scripts").glob("*.py"))]
-        return "\n".join(f.read_text(encoding="utf-8") for f in files)
+        return "\n".join([body] + [f.read_text(encoding="utf-8")
+                                   for f in files])
 
     def test_scripts_read_only_declared_variables(self):
         for d, fm, _ in self.each():
@@ -289,19 +291,19 @@ class TestDeclaredNeeds(SkillTest):
                                       "add it to metadata.cali-env")
 
     def test_declared_variables_are_used(self):
-        for d, fm, _ in self.each():
-            text = self.texts(d)
+        for d, fm, body in self.each():
+            text = self.texts(d, body)
             for var in declared(fm, "cali-env"):
                 with self.subTest(var=var):
                     self.assertRegex(var, self.ENV_RE)
-                    self.assertRegex(text, rf"(?<![\w$]){var}(?!\w)",
+                    self.assertRegex(text, rf"(?<!\w){var}(?!\w)",
                                      f"{d.name} never names {var}")
 
     def test_declared_tools_are_run(self):
         """Each program of an entry is run as a command: `git diff ...` in
         prose, or a code line starting with it."""
-        for d, fm, _ in self.each():
-            text = self.texts(d)
+        for d, fm, body in self.each():
+            text = self.texts(d, body)
             for entry in declared(fm, "cali-tools"):
                 with self.subTest(entry=entry):
                     self.assertRegex(entry, self.TOOL_RE)
@@ -312,8 +314,8 @@ class TestDeclaredNeeds(SkillTest):
                             f"{d.name} never runs {tool}")
 
     def test_python_is_declared_by_either_name(self):
-        """SCR-15 answer 8: Python is `python` on Windows and `python3` in WSL
-        and Linux, so doctor must accept either: write python3|python."""
+        """Issue #97: Python is `python` on Windows and `python3` in WSL and
+        Linux, so doctor must accept either: write python3|python."""
         for d, fm, _ in self.each():
             for entry in declared(fm, "cali-tools"):
                 if {"python", "python3"} & set(entry.split("|")):
