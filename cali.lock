@@ -139,7 +139,7 @@
       "path": "skills/roj-investigate-issue",
       "ref": "",
       "commit": "",
-      "tree": "e18cc2b59bdd2927c769a6365902d75c498d46b6"
+      "tree": "69ec1f20491d3c1dcfeb0acb58cf6b9194dfe913"
     },
     "roj-onboard-repo": {
       "source": ".",
