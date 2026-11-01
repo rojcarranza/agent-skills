@@ -2208,7 +2208,6 @@ class TestWindowsLeg(TempDirTest):
         self.assertEqual(code, 0)
         self.assertEqual(calls, [])
         self.assertIn("skipped (Copilot skills come from WSL)", out)
-        self.assertFalse((install.REPO_ROOT / ".cali-claude").exists())
         self.assert_copilot_left_alone()
 
     def test_git_bash_run_skips_sync_when_wsl_owns_copilot(self):

@@ -149,8 +149,9 @@ skills in `cali.yaml` for that target.
 - A retired skill (`RETIRED_SKILLS` in `install.py`: the pruned community
   skills, `roj-tour-codebase`, `roj-code-review-pr-fast`, the archived
   `roj-idea-to-project`) in either agent is moved to the same backup folder
-  when it is a real folder whose `SKILL.md` declares that name - only our own installs and `cali.yaml` ever put a skill
-  of that name there - or a link an older installer made. A folder of that
+  when it is a real folder whose `SKILL.md` declares that name - only our
+  own installs and `cali.yaml` ever put a skill of that name there - or a
+  link an older installer made. A folder of that
   name declaring another name is kept with the left-over warning below.
 - A skill Cali no longer installs for that agent but that is not retired -
   a Copilot-only skill in `~/.claude/skills` - is only moved to the same

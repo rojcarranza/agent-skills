@@ -176,8 +176,8 @@ WSL_HINT = ("WSL: Claude Code and Copilot CLI inside WSL read the Linux "
             "from Git Bash for those extras only; it leaves the Copilot "
             "skills to this run.")
 # Written into <Windows home>/.copilot/skills by a WSL run: that run owns the
-# Copilot skills there, so a Git Bash run does not run cali sync, which would
-# overwrite them (no cali.yaml skill targets Claude alone).
+# Copilot skills there, so a Git Bash run skips cali sync, which would
+# overwrite them; no cali.yaml skill targets Claude, so nothing is missed.
 WSL_OWNER_MARKER = ".installed-from-wsl"
 WSL_OWNER_TEXT = ("The Copilot skills in this folder are delivered by "
                   "install.py run inside WSL.\nA Git Bash run of install.py "
@@ -391,7 +391,7 @@ def _links_into_a_checkout(entry):
     """True for a link to <root>/skills/<name> in any checkout of this repo
     (this clone, the main checkout of a worktree, or another clone): a root
     with install.py and tools/sync_shared.py, which every checkout since the
-    Agent Skills layout has)."""
+    Agent Skills layout has."""
     # resolve(), not os.readlink(): on Windows readlink returns a \\?\-prefixed
     # path that never compares equal to SKILLS_SRC.
     try:
