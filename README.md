@@ -250,8 +250,10 @@ test_skills.py    spec, publishing, evals and description-routing checks
   have no default (`BITBUCKET_URL, BITBUCKET_TOKEN`) and `cali-tools` the
   programs it runs (`git, python3|python`). Write Python as `python3|python`
   so either name passes. Leave out optional programs such as `graphify`, and
-  variables with a fallback such as `$SOUNDBOARD_DIR`; a test checks the
-  lists against the skill's body, references and scripts.
+  variables with a fallback such as `$SOUNDBOARD_DIR`. A test fails when a
+  bundled Python script reads a variable the skill does not declare, or when
+  a declaration names something the skill's body, references and scripts
+  never use.
 - A skill reads only its own folder. When two skills need the same file,
   the owner keeps it and `tools/sync_shared.py` copies it in — edit the
   owner's copy, then run `python3 tools/sync_shared.py`.

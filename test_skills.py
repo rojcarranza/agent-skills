@@ -239,8 +239,9 @@ def declared(fm, key):
 
 def required_env_reads(script):
     """Variables a script reads from the environment with no default:
-    os.getenv("X"), os.environ["X"], and .get("X") on os.environ or on an
-    `env` mapping passed in its place (bitbucket_pr.py's main(env=...))."""
+    os.getenv("X") or getenv("X"), os.environ["X"], and .get("X") on
+    os.environ or on an `env` mapping passed in its place (bitbucket_pr.py's
+    main(env=...)). Setting or deleting a variable is not a read."""
     def is_env(node):
         name = node.attr if isinstance(node, ast.Attribute) else getattr(
             node, "id", "")
@@ -248,12 +249,15 @@ def required_env_reads(script):
 
     found = set()
     for node in ast.walk(ast.parse(script.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.Subscript) and is_env(node.value):
+        if (isinstance(node, ast.Subscript) and is_env(node.value)
+                and isinstance(node.ctx, ast.Load)):
             key = node.slice
         elif (isinstance(node, ast.Call)
-              and isinstance(node.func, ast.Attribute)
-              and (node.func.attr == "getenv" or (
-                  node.func.attr == "get" and is_env(node.func.value)))
+              and (getattr(node.func, "id", "") == "getenv"
+                   or (isinstance(node.func, ast.Attribute)
+                       and (node.func.attr == "getenv" or (
+                           node.func.attr == "get"
+                           and is_env(node.func.value)))))
               and len(node.args) == 1 and not node.keywords):
             key = node.args[0]
         else:
@@ -300,18 +304,18 @@ class TestDeclaredNeeds(SkillTest):
                                      f"{d.name} never names {var}")
 
     def test_declared_tools_are_run(self):
-        """Each program of an entry is run as a command: `git diff ...` in
-        prose, or a code line starting with it."""
+        """An entry's program is run as a command: `git diff ...` in prose,
+        or a code line starting with it. Doctor passes an entry when any of
+        its alternatives is on PATH, so one of them being run is enough."""
         for d, fm, body in self.each():
             text = self.texts(d, body)
             for entry in declared(fm, "cali-tools"):
                 with self.subTest(entry=entry):
                     self.assertRegex(entry, self.TOOL_RE)
-                for tool in entry.split("|"):
-                    with self.subTest(tool=tool):
-                        self.assertRegex(
-                            text, rf"(?m)(?:`|^\s*){re.escape(tool)}[ `]",
-                            f"{d.name} never runs {tool}")
+                    self.assertTrue(any(
+                        re.search(rf"(?m)(?:`|^\s*){re.escape(t)}[ `]", text)
+                        for t in entry.split("|")),
+                        f"{d.name} never runs {entry}")
 
     def test_python_is_declared_by_either_name(self):
         """Issue #97: Python is `python` on Windows and `python3` in WSL and
