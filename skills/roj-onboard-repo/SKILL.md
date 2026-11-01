@@ -1,6 +1,7 @@
 ---
 name: roj-onboard-repo
-description: Onboard a developer onto an unfamiliar repository with a written guide they open in the IDE or a browser - Mermaid diagrams of the architecture and one core flow, a code walkthrough anchored to path:line, a reading order, how to run and test it, and a page on reviewing a colleague's PR in this repo. Use when the user says "onboard me to this repo", "tour this codebase", "teach me how this works", "help me understand this repo", "where do I start", "walk me through the architecture", "draw the architecture and explain the code", or joins a project they have never worked on. Writes .onboarding/ as Markdown plus a single-page index.html, and stops on a failed read instead of guessing; CodeTour files only on request. For a single PR, branch, file or function use roj-explain-logic; for defects use roj-code-review-pr.
+description: "Onboards a developer onto an unfamiliar repository with a written guide: Mermaid diagrams of the architecture and one core flow, a code walkthrough anchored to path:line, a reading order, how to run and test it, and a page on reviewing a colleague's PR. Writes .onboarding/ as Markdown plus a one-page index.html. Use when the user says \"onboard me to this repo\", \"tour this codebase\", \"teach me how this works\", \"where do I start\", \"walk me through the architecture\" or \"draw the architecture and explain the code\", or joins a project they have never worked on. For one PR, file or function use roj-explain-logic; for defects use roj-code-review-pr."
+argument-hint: "[workspace or folder, for a monorepo]"
 license: MIT
 metadata:
   cali-tools: git, python3|python

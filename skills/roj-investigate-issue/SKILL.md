@@ -1,6 +1,7 @@
 ---
 name: roj-investigate-issue
-description: Investigate a reported bug or build failure, validate the root cause in the checked-out repo, and write a step-by-step solution report as a Markdown file. Use when the user says "investigate this issue", "validate this bug", "why did this pipeline/build fail", "find the root cause", or drops a problem/context .md file containing an error, stack trace, or build log. Covers Atlassian Bamboo pipelines, build plans and agents, plus Java, Python, Bash, Go, Dockerfiles, and Kubernetes manifests. Do NOT use for pure comprehension requests ("explain this code", "walk me through") — that is roj-explain-logic's job.
+description: "Investigates a reported bug or build failure, validates the root cause in the checked-out repo, and writes a step-by-step solution report as a Markdown file. Use when the user says \"investigate this issue\", \"validate this bug\", \"why did this pipeline/build fail\" or \"find the root cause\", or drops a problem .md file with an error, stack trace or build log. Covers Atlassian Bamboo pipelines, build plans and agents, Java, Python, Bash, Go, Dockerfiles and Kubernetes manifests. Not for pure comprehension requests (\"explain this code\"); that is roj-explain-logic."
+argument-hint: "[problem .md file | error text]"
 license: MIT
 metadata:
   cali-env: JIRA_URL, JIRA_TOKEN, CONFLUENCE_URL, CONFLUENCE_TOKEN
