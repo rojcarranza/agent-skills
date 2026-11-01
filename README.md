@@ -226,7 +226,7 @@ skills/<name>/
 .claude-plugin/   marketplace.json — the Claude Code plugin view of skills/
 cali.yaml         every skill and community skill install.py installs (Cali manifest)
 cali.lock         the tree each of them is pinned to (and commit, for community skills)
-.apm/instructions/  personal instructions install.py deploys to Copilot
+instructions/      personal instructions install.py deploys to Copilot
 tools/            sync_shared.py — copies shared files into every skill using them
 install.py        runs cali sync, deploys instructions and MCP servers, installs graphify (docs/installer.md)
 test_install.py   installer tests
@@ -238,7 +238,10 @@ test_skills.py    spec, publishing, evals and description-routing checks
 - Follow the [Agent Skills spec](https://agentskills.io/specification): the
   `name` matches the folder, lowercase with hyphens and a `roj-` prefix; the
   `description` says what the skill does **and** when to use it, under
-  1024 characters. Quote a value containing ` #` or `: `.
+  700 characters (the spec allows 1024, but every description loads into
+  every session), written in the third person ("Reviews ...", never "you").
+  Add an `argument-hint` such as `[PR id or URL]` for the slash-command menu.
+  Quote a value containing ` #` or `: `.
 - Keep `SKILL.md` lean — every installed skill's description loads into
   every session, and the body loads in full on activation. Push detail into
   `references/` and point at it with a path relative to the skill root.

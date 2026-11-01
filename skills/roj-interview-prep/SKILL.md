@@ -1,6 +1,7 @@
 ---
 name: roj-interview-prep
-description: Generate a complete DevOps technical-interview document for a candidate from their CV — candidate summary, tech matrix, personalized intro, CV deep-dive, fixed baseline question set, CV-specific questions, scenarios, behavioural, coding tasks, and a pass/no-pass result section. Use when the user says "interview prep", "prepare interview for <name>", "new candidate", drops a CV to prepare against, or asks for a "final assessment" of an interviewed candidate.
+description: "Generates a complete DevOps technical-interview document for a candidate from their CV: candidate summary, tech matrix, personalized intro, CV deep-dive, baseline and CV-specific questions, scenarios, behavioural questions, coding tasks and a pass/no-pass result section. Use when the user says \"interview prep\", \"prepare interview for <name>\" or \"new candidate\", drops a CV to prepare against, or asks for a \"final assessment\" of an interviewed candidate."
+argument-hint: "[CV file | candidate name]"
 license: MIT
 ---
 

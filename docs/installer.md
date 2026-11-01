@@ -109,7 +109,7 @@ Where things land:
 | Instructions | none (`~/.claude/CLAUDE.md` is yours) | `~/.copilot/instructions/personal.instructions.md` |
 | MCP servers | `~/.claude.json` (`mcpServers`) | `~/.copilot/mcp-config.json` (`mcpServers`) |
 
-The instruction file is `.apm/instructions/personal.instructions.md`, deployed
+The instruction file is `instructions/personal.instructions.md`, deployed
 to Copilot as is. Claude gets none: it reads the global `~/.claude/CLAUDE.md`.
 An earlier `~/.claude/rules/personal.md` is moved to the backup folder (see
 "Old installs") when its body is a version this repo shipped; an edited copy
