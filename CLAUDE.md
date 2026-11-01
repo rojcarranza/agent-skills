@@ -48,8 +48,7 @@
   `roj-review-pr-comment`, `roj-explain-logic` or `roj-explain-feature-changes`.
 - No personal paths, real ticket IDs or employer details in `skills/`.
   Employer-specific patterns live in the git-ignored `.private-patterns`.
-- A new skill is one PR: `skills/<name>/`, its
-  `.claude-plugin/marketplace.json` entry, its `cali.yaml` entry
+- A new skill is one PR: `skills/<name>/`, its `cali.yaml` entry
   (`source: .//skills/<name>`) and its `cali.lock` entry. Commit the skill
   first, then `cali sync -g --manifest cali.yaml` writes the lock entry.
 - Any change under `skills/<name>/` moves its tree: after committing it, run
@@ -59,7 +58,7 @@
 ## Before pushing
 
 ```bash
-python3 -m unittest test_install test_skills test_idea_to_project
+python3 -m unittest test_install test_skills
 python3 tools/sync_shared.py --check
 ```
 

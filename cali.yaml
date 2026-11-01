@@ -1,6 +1,6 @@
-# Every skill install.py installs, through Cali. Copilot is the work agent, so
-# skills default to [copilot]; only roj-idea-to-project also targets Claude
-# (https://github.com/rojcarranza/cali). install.py runs
+# Every skill install.py installs, through Cali
+# (https://github.com/rojcarranza/cali). Copilot is the work agent, so every
+# skill targets [copilot]. install.py runs
 # `cali sync -g --manifest <this file>`; cali.lock next to it pins each skill
 # to a tree (and community skills to a commit). Community refs are full commit SHAs: a version bump
 # is a reviewed diff. Edit here, then re-run install.py.
@@ -21,8 +21,6 @@ skills:
   roj-grill-plan:
     source: .//skills/roj-grill-plan
     targets: [copilot]
-  roj-idea-to-project:
-    source: .//skills/roj-idea-to-project
   roj-interview-prep:
     source: .//skills/roj-interview-prep
     targets: [copilot]
@@ -42,7 +40,7 @@ skills:
     source: .//skills/roj-one-slide
     targets: [copilot]
   # Community skills our skills chain to (docs/community-skills.md), all
-  # Copilot only: roj-idea-to-project chains to none of them.
+  # Copilot only.
   code-tour:
     source: github:github/awesome-copilot//skills/code-tour
     ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126

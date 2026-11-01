@@ -10,7 +10,7 @@ gates:
     after: test
     command: >-
       uv run --no-project --python 3.12 --with python-pptx python -m unittest
-      test_install test_skills test_idea_to_project
+      test_install test_skills
   - name: shared-files-in-sync
     after: test
     command: uv run --no-project --python 3.12 python tools/sync_shared.py --check
@@ -29,15 +29,11 @@ gates:
       export token=placeholder
       uv run --no-project --python 3.12 python install.py --skills-only
       "$HOME/.local/bin/cali" sync -g --manifest cali.yaml --frozen
-      # Copilot gets every skill; Claude only roj-idea-to-project.
+      # Copilot gets every skill; Claude none.
       for d in skills/*/; do
         n=$(basename "$d")
         test -f "$HOME/.copilot/skills/$n/SKILL.md"
-        if [ "$n" = roj-idea-to-project ]; then
-          test -f "$HOME/.claude/skills/$n/SKILL.md"
-        else
-          test ! -e "$HOME/.claude/skills/$n"
-        fi
+        test ! -e "$HOME/.claude/skills/$n"
       done
       test -f "$HOME/.copilot/skills/code-tour/SKILL.md"
       test ! -e "$HOME/.claude/skills/code-tour"
