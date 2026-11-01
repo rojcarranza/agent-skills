@@ -66,9 +66,62 @@ skills:
     source: https://github.com/juliusbrussee/caveman//skills/caveman
     ref: 2e08b9177c07bb7249a8a2d1a6758e5db281d002
     targets: [copilot]
-  debugging-and-error-recovery:  # Claude: superpowers:systematic-debugging
-    source: https://github.com/addyosmani/agent-skills//skills/debugging-and-error-recovery
-    ref: 1401c8b8030e023baeebb31781a6653fe8e93026
+  # Superpowers 7.0.0 (v7.0.0), 13 of its 15 skills, Copilot only: Claude has
+  # the plugin. writing-skills and diagnosing-superpowers are left out. The
+  # skills call each other, so they install as a set; the start-up note that
+  # makes Copilot Chat load using-superpowers is
+  # instructions/superpowers.instructions.md (written by install.py).
+  brainstorming:
+    source: github:obra/superpowers//skills/brainstorming
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  dispatching-parallel-agents:
+    source: github:obra/superpowers//skills/dispatching-parallel-agents
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  executing-plans:
+    source: github:obra/superpowers//skills/executing-plans
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  finishing-a-development-branch:
+    source: github:obra/superpowers//skills/finishing-a-development-branch
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  receiving-code-review:
+    source: github:obra/superpowers//skills/receiving-code-review
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  requesting-code-review:
+    source: github:obra/superpowers//skills/requesting-code-review
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  subagent-driven-development:
+    source: github:obra/superpowers//skills/subagent-driven-development
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  systematic-debugging:
+    source: github:obra/superpowers//skills/systematic-debugging
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  test-driven-development:
+    source: github:obra/superpowers//skills/test-driven-development
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  using-git-worktrees:
+    source: github:obra/superpowers//skills/using-git-worktrees
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  using-superpowers:
+    source: github:obra/superpowers//skills/using-superpowers
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  verification-before-completion:
+    source: github:obra/superpowers//skills/verification-before-completion
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
+    targets: [copilot]
+  writing-plans:
+    source: github:obra/superpowers//skills/writing-plans
+    ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
   # Cherry-picks, Copilot only like the rest.
   observability-and-instrumentation:

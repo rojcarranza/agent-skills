@@ -332,6 +332,13 @@ INSTRUCTIONS_SRC = REPO_ROOT / "instructions" / "personal.instructions.md"
 # Where earlier commits kept the file (APM's folder), so their versions still
 # count as ours to update.
 INSTRUCTIONS_OLD_RELS = (".apm/instructions/personal.instructions.md",)
+# The Superpowers start-up note and tool map. Copilot Chat has no plugin hook,
+# so this file is the whole integration: without it the skills stay inert.
+STARTUP_NOTE_SRC = REPO_ROOT / "instructions" / "superpowers.instructions.md"
+# JetBrains reads one global instruction file and not ~/.copilot/instructions.
+# install.py owns only the part between these markers; text outside is kept.
+JETBRAINS_BEGIN = "<!-- BEGIN agent-skills: written by install.py, edits inside are replaced -->"
+JETBRAINS_END = "<!-- END agent-skills -->"
 
 
 def legacy_skill_names():
@@ -348,6 +355,8 @@ RETIRED_SKILLS = (
     "architecture-blueprint-generator", "centos-linux-triage",
     "debian-linux-triage", "fedora-linux-triage", "roj-code-review-pr-fast",
     "roj-idea-to-project", "roj-tour-codebase",
+    # Superpowers' systematic-debugging replaced this stand-in.
+    "debugging-and-error-recovery",
 )
 # Copilot-only skills no cali.yaml ever installed for Claude: a Claude copy
 # came from somewhere else.
@@ -538,13 +547,14 @@ def retire_claude_rules(dry_run):
     return [("claude", path.name, f"moved to {dest} (Claude gets none)")]
 
 
-def shipped_instructions():
+def shipped_instructions(src=None):
     """Every version of INSTRUCTIONS_SRC this clone has shipped: the file
     on disk plus each committed one (none when git or history is missing).
     A deployed file equal to one of them is ours to update."""
-    texts = {INSTRUCTIONS_SRC.read_text(encoding="utf-8")}
-    rels = (INSTRUCTIONS_SRC.relative_to(REPO_ROOT).as_posix(),
-            *INSTRUCTIONS_OLD_RELS)
+    src = src or INSTRUCTIONS_SRC
+    texts = {src.read_text(encoding="utf-8")}
+    rels = (src.relative_to(REPO_ROOT).as_posix(),
+            *(INSTRUCTIONS_OLD_RELS if src == INSTRUCTIONS_SRC else ()))
     try:
         for rel in rels:
             log = subprocess.run(["git", "log", "--format=%H", "--", rel],
@@ -579,15 +589,92 @@ def _write_text(path, text):
         fh.write(text)
 
 
-def install_instructions(target, dry_run):
-    """Deploy INSTRUCTIONS_SRC for target (Copilot only). Replaces a missing file, a
-    version this repo shipped, or the dotfiles repo's link; keeps an
-    edited copy or a link to anything else, with a warning. Nothing is
-    returned when the file is already current."""
-    dest = instruction_path(target)
-    if dest is None:
+def startup_note_path(target):
+    """Where the Superpowers start-up note goes (Copilot only), beside the
+    personal instructions that VS Code reads."""
+    if target == "claude":
+        return None
+    return Path.home() / ".copilot" / "instructions" / STARTUP_NOTE_SRC.name
+
+
+def jetbrains_instruction_path(home=None, windows=None):
+    """JetBrains' global Copilot instruction file (Microsoft for Java, July
+    2025): %LOCALAPPDATA%\\github-copilot\\intellij\\ on Windows,
+    ~/.config/github-copilot/intellij/ elsewhere. home: a Windows home, for
+    the WSL leg."""
+    name = "global-copilot-instructions.md"
+    windows = IS_WINDOWS if windows is None else windows
+    if home is not None:
+        return home / "AppData" / "Local" / "github-copilot" / "intellij" / name
+    if windows:
+        base = os.environ.get("LOCALAPPDATA")
+        base = Path(base) if base else Path.home() / "AppData" / "Local"
+        return base / "github-copilot" / "intellij" / name
+    return Path.home() / ".config" / "github-copilot" / "intellij" / name
+
+
+def jetbrains_block():
+    """The text install.py owns in JetBrains' file: the start-up note, then
+    the personal instructions, without their front matter."""
+    parts = [_instruction_body(p.read_text(encoding="utf-8")).strip()
+             for p in (STARTUP_NOTE_SRC, INSTRUCTIONS_SRC)]
+    return "\n".join([JETBRAINS_BEGIN, "\n\n".join(parts), JETBRAINS_END]) + "\n"
+
+
+def install_jetbrains_instructions(dry_run, path=None, label="copilot"):
+    """Write jetbrains_block() into JetBrains' global file between the
+    markers. A file without them gets the block appended; text outside the
+    markers is never touched. A link is left alone with a warning."""
+    dest = path or jetbrains_instruction_path()
+    block = jetbrains_block()
+    if dest.is_symlink():
+        warn(f"{dest} is a link - left in place; JetBrains gets no "
+             "start-up note from install.py")
         return []
-    new = INSTRUCTIONS_SRC.read_text(encoding="utf-8")
+    current = (dest.read_text(encoding="utf-8", errors="replace")
+               if dest.is_file() else None)
+    if current is None:
+        new, status = block, "installed"
+    else:
+        current = current.replace("\r\n", "\n")
+        begin = current.find(JETBRAINS_BEGIN)
+        end = current.find(JETBRAINS_END, begin + 1) if begin >= 0 else -1
+        if begin >= 0 and end >= 0:
+            end += len(JETBRAINS_END)
+            if current[end:end + 1] == "\n":
+                end += 1
+            new = current[:begin] + block + current[end:]
+            status = "updated"
+        else:
+            sep = "" if not current.strip() else (
+                "\n" if current.endswith("\n") else "\n\n")
+            new = current + sep + ("\n" if sep else "") + block
+            status = "added block"
+        if new == current:
+            return []
+    if not dry_run:
+        _write_text(dest, new)
+    return [(label, dest.name, status)]
+
+
+def install_instructions(target, dry_run):
+    """Deploy INSTRUCTIONS_SRC and STARTUP_NOTE_SRC for target (Copilot
+    only), and the JetBrains block. Each file is replaced when missing, a
+    version this repo shipped, or the dotfiles repo's link; an edited copy or
+    a link to anything else is kept with a warning. Nothing is returned for
+    a file that is already current."""
+    if instruction_path(target) is None:
+        return []
+    results = _deploy_instruction(target, dry_run, INSTRUCTIONS_SRC,
+                                  instruction_path(target))
+    results += _deploy_instruction(target, dry_run, STARTUP_NOTE_SRC,
+                                   startup_note_path(target))
+    results += install_jetbrains_instructions(dry_run)
+    return results
+
+
+def _deploy_instruction(target, dry_run, src, dest):
+    new = src.read_text(encoding="utf-8")
     if dest.is_symlink():
         if not _links_into_dotfiles(dest):
             warn(f"{dest} links somewhere other than the dotfiles repo — left "
@@ -598,8 +685,8 @@ def install_instructions(target, dry_run):
         current = dest.read_text(encoding="utf-8", errors="replace")
         if current == new:
             return []
-        if current not in shipped_instructions():
-            warn(f"{dest} differs from {INSTRUCTIONS_SRC} — left in place; "
+        if current not in shipped_instructions(src):
+            warn(f"{dest} differs from {src} — left in place; "
                  "merge your edits into the repo copy, delete it, and re-run")
             return []
         status = "updated"
@@ -1438,6 +1525,10 @@ def main():
         results.append(("cali", "sync", "done"))
     if win_home is not None:
         results.extend(sync_windows_home(win_home, args.dry_run))
+        # Windows-side JetBrains reads the Windows home's global file.
+        results.extend(install_jetbrains_instructions(
+            args.dry_run, jetbrains_instruction_path(home=win_home),
+            label="windows"))
 
     sel_externals = set() if args.skills_only else default_external_names()
     if args.skills_only:

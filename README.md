@@ -38,6 +38,10 @@ installed by [Cali](https://github.com/rojcarranza/cali).
    `install.py` runs `cali sync -g --manifest <clone>/cali.yaml`, writes the
    personal instructions and the GitHub MCP server entry, and installs
    `graphify` (a CLI Cali does not install).
+   It also installs 13 [Superpowers](docs/community-skills.md#superpowers)
+   skills for Copilot Chat, with a start-up note that loads
+   `using-superpowers` in every chat: a file in `~/.copilot/instructions` for
+   VS Code and a marked block in JetBrains' global instruction file.
 
    The GitHub MCP server is added only when a GitHub login exists:
    `$token`, else `gh auth token` when the GitHub CLI is logged in. With
