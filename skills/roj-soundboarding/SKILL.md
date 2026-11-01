@@ -45,7 +45,8 @@ written and which template shapes it.
    read from local checkouts during this run. Everything unverified goes into
    the Questions section. Never present an assumption as a finding.
 2. **Template fidelity:** Read TEMPLATE fresh at the start of every create
-   run and produce every section it defines, and no section it does not.
+   run and produce every section (`##` heading) it defines, and no section
+   it does not.
    If no template can be found: STOP and ask. Never invent the structure.
 3. **Git: hands off.** Never create a branch, never commit, never push - in
    any repository. All edits stay in the working tree; the user reviews,
@@ -84,8 +85,9 @@ with an invented story. The story's key names the output file (step 5); pasted
 text without a key: ask for a name for the file, once.
 
 1. **Read inputs.** Read the story and TEMPLATE. Extract the goal, the
-   acceptance criteria, and every repository, system, tool, and version
-   mentioned or implied.
+   acceptance criteria, every repository, system, tool, and version
+   mentioned or implied, and the user's approach: an idea about the workflow
+   or the architecture in the message or the story file.
 2. **Identify impacted repositories.** The repository open in the current
    workspace is assumed impacted unless the story clearly says otherwise.
    For every other repository named or implied, look for a local checkout
@@ -112,6 +114,13 @@ text without a key: ask for a name for the file, once.
    - **Acceptance Criteria:** copy the story's criteria verbatim as `- [ ]`
      checkboxes. Add newly discovered criteria as extra checkboxes suffixed
      with `*(proposed)*`.
+   - **Implementation plan:** follow `references/implementation-plan.md`.
+     Approach: the user's approach in their words; without one, a draft from
+     the investigation, marked as a draft. Task flow: a Mermaid flowchart
+     of the core tasks when there are two or more. Change flow: a Mermaid
+     flow diff when the story changes a runtime path or pipeline. Both
+     diagrams follow `references/mermaid.md`. A template without this
+     section keeps its shape; the same file says where the plan goes then.
    - **Core tasks:** concrete `- [ ]` checkboxes. Each code task starts with
      the repository it touches in backticks. Where investigation found exact
      changes, include before/after tables with columns: #, File/Property,
@@ -138,7 +147,9 @@ text without a key: ask for a name for the file, once.
    the output file already exists: show a short summary of what would change
    and ask before overwriting.
 6. **Report.** End with a short summary: repositories investigated, findings
-   verified vs assumed, and the open questions for team refinement.
+   verified vs assumed, and the open questions for team refinement. When
+   the Approach is a draft, say so: the team confirms or edits it before
+   implementation. Add the viewing note from `references/mermaid.md` once.
    When Questions has open items, offer in one line: "Grill the open
    questions now?" On a yes, chain to the `roj-grill-plan` skill on the SB
    file; if it is not installed, list the open questions with a recommended
@@ -158,7 +169,13 @@ inside SOUNDBOARD_DIR; `.md` is optional and matching is case-insensitive.
 Multiple matches: list them and ask which. No match: STOP and ask.
 
 1. **Read the SB document.** Parse the Core tasks checkboxes. Tasks already
-   ticked `- [x]` are done — skip them (resumable mid-sprint).
+   ticked `- [x]` are done — skip them (resumable mid-sprint). Read the
+   Implementation plan (`references/implementation-plan.md`, which also
+   says where a team template keeps it) before the first task: it sets the
+   task order, the prerequisites and what counts as a departure. When the
+   Approach still carries the draft marker, ask once before the first task:
+   "The approach is still a draft: implement it as written, or change it
+   first?" Write any change into the Approach, remove the marker, continue.
 2. **Determine target repositories.** The repository open in the current
    workspace is the primary target. A task starting with another repository
    name in backticks targets that repository's checkout under PROJECTS_ROOT
@@ -183,18 +200,31 @@ Multiple matches: list them and ask which. No match: STOP and ask.
    one Notes line - `Baseline (<repo>): <command> - <passed | N failing: names>`
    - so failures that predate the work stay separate from the task's. A
    failing baseline is recorded, not fixed; continue.
-4. **Per-task loop.** For each unticked core task, in order:
-   1. Announce the task.
+4. **Per-task loop.** For each unticked core task, in task-flow order (Core
+   tasks order when the SB has no task flow):
+   1. Announce the task. Check its prerequisites in the task flow: a task
+      with an arrow into it is unticked, or a question with a dotted edge
+      into it is open → STOP before editing, name what blocks it and ask how
+      to go on. Tick a manual task only on the user's word that it is done;
+      going on without a prerequisite departs from the plan (below). An
+      approval given in advance covers review stops, not this stop.
    2. Non-code task (no repo tag — typically inform, email, request
       permissions, present to team): do not execute, do not tick; say it is
       manual and go to the review stop.
-   3. Code task: make the edits in the target repository.
+   3. Code task: make the edits in the target repository. When an edit
+      would depart from the Implementation plan (contradict the Approach,
+      need an order or prerequisite the task flow does not show, or change
+      a runtime path differently from the change flow): STOP before making
+      it and ask. On agreement, write the change into the section first,
+      so the plan stays true; then edit. A requested change at the review
+      stop that departs from the plan is handled the same way.
    4. Verify before reporting: run `git diff` in the target repository and
       compare it with the task's before/after table. Every listed change
       must be present with the exact After value, and no file outside the
       task may have new changes (the SB document itself and files preflight
       already reported as dirty are exempt unless the task edits them).
-      Report any mismatch.
+      Report any mismatch, and any departure from the Implementation plan
+      the diff shows.
    5. Run the narrowest relevant check for the files the task changed (the
       test file or package covering them, or the linter for a config
       file), as `references/test-commands.md` describes. Compare a failure
@@ -238,8 +268,11 @@ is skipped.
 
 1. Run Flow 1 on the user's story input.
 2. When the SB file is written, present a short summary and ask exactly one
-   confirmation question: "SB created — proceed with implementation?" Wait.
-   If declined, stop; the SB file stays as created.
+   confirmation question: "SB created — proceed with implementation?" When
+   the Approach is a draft, the same question says so: "SB created with a
+   draft approach — proceed with implementation on it, or change it
+   first?" Wait. If declined, stop; the SB file stays as created. A yes
+   accepts the draft: remove its marker, so Flow 2 does not ask again.
 3. On confirmation, run Flow 2 on the SB file just created — including every
    per-task review stop and the no-git rule.
 

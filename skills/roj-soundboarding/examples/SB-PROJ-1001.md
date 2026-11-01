@@ -21,6 +21,67 @@
 - [ ] A new agent image is built, tagged and published after the repository changes. *(proposed)*
 - [ ] The Helm chart is deployed to ACC with the new image tag and the ACC server URL, and agent connectivity is confirmed. *(proposed)*
 
+## Implementation plan
+
+### Approach
+
+> **Draft:** written by the agent from its investigation. Confirm or edit it before implementation.
+
+- Upgrade the agents before testing the plans: build the agent image on 12.1.6 and JDK 21, then deploy it to ACC with the new tag, and only then run the plan publisher and the REST checks against ACC.
+- Keep the ACC Helm values in their own `values-acc.yaml` (Question 4), so agents under test never register with the production server (`values.yaml:9`).
+- The `plan-specs` changes do not depend on the agents and can start at once; the publisher run waits for both.
+
+### Task flow
+
+```mermaid
+flowchart TD
+  subgraph planSpecs["plan-specs"]
+    T1["T1 Bamboo API 12.1.6 in pom.xml"]
+    T6["T6 test plan that calls a plan"]
+  end
+  subgraph agentImage["ci-agent-image"]
+    T2["T2 agent 12.1.6 and JDK 21, rows 1-4"]
+  end
+  subgraph agentHelm["ci-agent-helm"]
+    T3["T3 ACC URL and new image tag, rows 5-6"]
+  end
+  subgraph manual["Manual"]
+    T4["T4 run the plan publisher on ACC"]
+    T5["T5 validate the REST API calls"]
+    T7["T7 inform the release manager"]
+  end
+  Q1["Q1 Java version for 12.1.6"] -.->|"blocks rows 2-4"| T2
+  Q2["Q2 ACC server URL"] -.->|"blocks row 5"| T3
+  Q3["Q3 REST authentication"] -.->|"blocks"| T5
+  Q4["Q4 separate values-acc.yaml"] -.->|"blocks row 5"| T3
+  T2 -->|"new image tag"| T3
+  T1 --> T4
+  T3 -->|"agents online on ACC"| T4
+  T1 --> T6
+  T4 --> T5
+  T6 -->|"plan to call"| T5
+  T5 --> T7
+```
+
+### Change flow
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant H as ci-agent-helm
+  participant A as Bamboo agent
+  participant S as Bamboo ACC server
+  rect rgba(255,190,0,0.15)
+    H->>A: ~ start the image with agent 12.1.6 on JDK 21, planned
+  end
+  rect rgba(255,190,0,0.15)
+    A->>S: ~ register with the ACC server URL, planned
+  end
+  rect rgba(220,0,0,0.12)
+    Note over A,S: - removed: registration with the production URL, read
+  end
+```
+
 ## Core tasks
 
 - [ ] `plan-specs`: update the Bamboo API dependency in `pom.xml` to 12.1.6.

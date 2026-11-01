@@ -7,10 +7,12 @@
       "fixture": {
         "repo": "sb-work"
       },
-      "expected_output": "SB-PROJ-3001.md in the repo root following the bundled template: exact current values read, orders-gateway under Questions, nothing invented, nothing committed.",
+      "expected_output": "SB-PROJ-3001.md in the repo root following the bundled template: exact current values read, a draft approach with a task flow in the Implementation plan, orders-gateway under Questions, nothing invented, nothing committed.",
       "expectations": [
         "States the resolved SOUNDBOARD_DIR (the repo root) and that the bundled template is used, before investigating",
-        "SB-PROJ-3001.md has exactly the template sections: Goal, Acceptance Criteria, Core tasks, Questions, Notes, Testing - no extra section and no sprint review question",
+        "SB-PROJ-3001.md has exactly the template sections: Goal, Acceptance Criteria, Implementation plan, Core tasks, Questions, Notes, Testing - no extra section and no sprint review question",
+        "The Implementation plan's Approach starts with the `> **Draft:**` marker, since neither the request nor the story gives an approach",
+        "The Task flow is a ```mermaid flowchart with one node per core task (T1, T2, ...) matching the Core tasks checkboxes in order, grouped by repository",
         "Before values are the ones in the files: `python:3.10-slim` in Dockerfile, `>=3.10` for requires-python in pyproject.toml, and tag `1.8.0` in the orders-chart checkout values.yaml",
         "Every before/after row has a Location in `path:line` form and a Source",
         "orders-gateway is listed under Questions as not cloned locally and no contents of it are described",
@@ -58,6 +60,7 @@
         "States that SB-template.md from SOUNDBOARD_DIR is used instead of the bundled template",
         "SB-PROJ-3001.md contains the `## Rollout` section from the team template, between Core tasks and Questions",
         "The Questions section includes the on-call rota standing question from the team template",
+        "Adds no `## Implementation plan` section, because the team template has none; a task flow, if drawn, sits under Core tasks",
         "Does not add the sprint review question from the old bundled template",
         "Runs no git command that writes"
       ]
@@ -91,6 +94,51 @@
         "Notes in SB-PROJ-3002.md has a Baseline line that names the failing legacy test",
         "Ends by offering to review the working tree with roj-code-review-pr, with the SB's acceptance criteria in the review request, and does not start the review",
         "Lists the changed files per repository for manual review and commit",
+        "Does not commit, create a branch or push"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "create an SB from PROJ-3001.md. My approach: rebuild the orders image on Python 3.12 first, then move the chart to the new tag; leave the gateway until its team confirms.",
+      "fixture": {
+        "repo": "sb-work"
+      },
+      "expected_output": "The Implementation plan records the user's approach in their words, with no draft marker, and the task flow puts the image task before the chart task.",
+      "expectations": [
+        "SB-PROJ-3001.md has an `## Implementation plan` section between Acceptance Criteria and Core tasks, with Approach, Task flow and Change flow subsections",
+        "The Approach carries the user's approach (image first, then the chart, gateway after its team confirms) and has no `> **Draft:**` marker",
+        "The Task flow is a ```mermaid flowchart whose nodes T1, T2, ... match the Core tasks checkboxes in order, with a solid edge from the image task to the chart task",
+        "The Change flow is a ```mermaid sequenceDiagram of the changed steps or a `Not drawn:` line with the reason",
+        "Runs no git command that writes (no commit, branch or push)"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "implement SB-PROJ-3005. I approve every code task in advance, so do not stop between tasks.",
+      "fixture": {
+        "repo": "sb-work-plan"
+      },
+      "expected_output": "The image task is done and ticked, the manual mirror task stays unticked, and the run stops before the chart task because its prerequisite T2 is not ticked.",
+      "expectations": [
+        "After the first task, Dockerfile line 1 reads `FROM python:3.12-slim` and pyproject.toml has `requires-python = \">=3.12\"`, and that task is ticked `- [x]`",
+        "Leaves the platform-team task unticked as manual",
+        "Stops before editing the orders-chart checkout and says the chart task waits on the unticked platform-team task (T2), asking how to go on",
+        "values.yaml in the orders-chart checkout still has tag `1.8.0`",
+        "Does not mark progress inside the task flow diagram",
+        "Does not commit, create a branch or push"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "implement SB-PROJ-3005, and use python:3.12-alpine as the base image.",
+      "fixture": {
+        "repo": "sb-work-plan"
+      },
+      "expected_output": "The alpine request departs from the plan's approach (keep the slim Debian base image), so the run stops and asks before editing the Dockerfile.",
+      "expectations": [
+        "Says the alpine base image departs from the Implementation plan's Approach, which keeps the slim Debian base image, and asks before making that edit",
+        "Dockerfile line 1 still reads `FROM python:3.10-slim` when the run stops",
+        "Does not rewrite the Approach or the before/after table before the user agrees",
         "Does not commit, create a branch or push"
       ]
     }

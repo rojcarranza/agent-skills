@@ -1057,6 +1057,81 @@ slide-sb)      # the SB after implementation: code tasks ticked, the manual one 
   sed -i.bak -e 's/^- \[ \] `/- [x] `/' -e 's/^| TC-1 \(.*\) | | |$/| TC-1 \1 | 1 failed (legacy, known) | |/' SB-PROJ-3002.md
   rm SB-PROJ-3002.md.bak
   G add -A; G commit -qm "SB-PROJ-3002 implemented" ;;
+sb-work-plan)  # an SB whose task flow puts a manual task before the chart task
+  init_repo main; sb_work
+  cat > SB-PROJ-3005.md <<'EOF'
+# Orders / PROJ-3005
+
+> Goal: Run the orders service on Python 3.12 from the registry mirror.
+
+## Acceptance Criteria
+
+- [ ] The orders service image builds on Python 3.12.
+- [ ] The `orders-chart` repository deploys image tag `1.9.0`.
+
+## Implementation plan
+
+### Approach
+
+- Keep the slim Debian base image; move only the Python minor version.
+- Rebuild the image first, then point the chart at the new tag.
+- The chart change waits until the platform team has mirrored `python:3.12-slim` into the registry.
+
+### Task flow
+
+```mermaid
+flowchart TD
+  subgraph repoSvc["repo"]
+    T1["T1 Python 3.12 in Dockerfile and pyproject"]
+  end
+  subgraph manual["Manual"]
+    T2["T2 platform team mirrors python:3.12-slim"]
+  end
+  subgraph chart["orders-chart"]
+    T3["T3 image tag 1.9.0"]
+  end
+  T1 -->|"image 1.9.0"| T3
+  T2 -->|"base image mirrored"| T3
+```
+
+### Change flow
+
+- Not drawn: no runtime path or pipeline changes.
+
+## Core tasks
+
+- [ ] `repo`: raise the Python version in `Dockerfile` and `pyproject.toml`.
+- [ ] Ask the platform team to mirror `python:3.12-slim` into the registry.
+- [ ] `orders-chart`: set image tag `1.9.0` in `values.yaml`.
+
+### `repo`
+
+| # | File/Property | Location | Before | After | Reason | Source |
+|---|---|---|---|---|---|---|
+| 1 | base image | `Dockerfile:1` | `python:3.10-slim` | **`python:3.12-slim`** | Story: image builds on Python 3.12. | story: image builds on Python 3.12 |
+| 2 | `requires-python` | `pyproject.toml:4` | `>=3.10` | **`>=3.12`** | Keeps the package metadata in line with the image. | story: image builds on Python 3.12 |
+
+### `orders-chart`
+
+| # | File/Property | Location | Before | After | Reason | Source |
+|---|---|---|---|---|---|---|
+| 3 | `image.tag` | `values.yaml:4` | `1.8.0` | **`1.9.0`** | The chart must deploy the rebuilt image. | story: deploys image tag `1.9.0` |
+
+## Questions
+
+-
+
+## Notes
+
+- Impacted repositories: `repo` (the open workspace), `orders-chart`.
+
+## Testing
+
+| Test Case ID | Situation | Expected result | Log | Build result link |
+|--------------|-----------|-----------------|-----|-------------------|
+| TC-1 | Run the orders unit tests | Only the known legacy failure remains | | |
+EOF
+  G add -A; G commit -qm "SB-PROJ-3005 with an implementation plan"; push_all ;;
 sb-work-template) init_repo main; sb_work
   cat > SB-template.md <<'EOF'
 # <Project name> / <TICKET-ID>

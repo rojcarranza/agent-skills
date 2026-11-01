@@ -68,6 +68,40 @@ review question, so every SB you create carries it:
 Keep the section headings the bundled template defines; the skill produces
 exactly the sections of the template in use.
 
+## The implementation plan
+
+The bundled template has an `## Implementation plan` section between
+Acceptance Criteria and Core tasks. It tells the implement flow how you want
+the story built:
+
+- **Approach:** your idea about the workflow or the architecture. Put it in
+  the request or the story file, e.g.
+  `/roj-soundboarding create an SB from PROJ-1001.md; upgrade the agents before the plans`,
+  and the section records your words. Without one, the skill drafts the
+  approach from its investigation and marks it `Draft`; confirm or edit it
+  before implementing.
+- **Task flow:** a Mermaid diagram of the core tasks, grouped by repository,
+  showing which task needs which and which open question blocks which task.
+  Drawn when there are two or more core tasks.
+- **Change flow:** a Mermaid diagram of the runtime path or pipeline the
+  story changes, with the new, changed and removed steps. Drawn only when
+  the story changes one.
+
+The diagrams render in the SB file's preview in VS Code and JetBrains (tick
+the Mermaid plugin there if it shows text), on GitHub and on
+<https://mermaid.live>.
+
+`implement` reads the section before the first task. It asks once when the
+approach is still a draft, takes the tasks in task-flow order and stops
+before a task whose prerequisite is unticked or whose blocking question is
+still open. When an edit would depart from the plan, it stops and asks, then
+writes the agreed change into the section, so the plan stays true. The
+checkboxes stay the only progress mark.
+
+A team template without the section keeps its shape: the task flow goes
+under Core tasks, and the approach and change flow under Notes. An SB with no
+plan is implemented in Core tasks order, as before.
+
 ## Implementing safely
 
 `implement` warns when a target repository is on its default branch (the
@@ -91,8 +125,9 @@ the Bamboo API to v12.1.6 and verify agents and plans still work.
 1. `/roj-soundboarding create an SB from PROJ-1001.md` — the skill reads the
    story, finds the impacted repos under PROJECTS_ROOT, records exact
    current versions from the POMs and config files it can read, and writes
-   `SB-PROJ-1001.md` following `assets/SB-template.md`. Unverifiable claims
-   land in Questions, not in Core tasks. Output shape:
+   `SB-PROJ-1001.md` following `assets/SB-template.md`, with a draft
+   approach, a task flow and a change flow in its Implementation plan.
+   Unverifiable claims land in Questions, not in Core tasks. Output shape:
    [`examples/SB-PROJ-1001.md`](examples/SB-PROJ-1001.md). The repositories
    in the example are fictional; every row carries the `path:line` it was
    read from and a Source, and what could not be verified is a Question.
@@ -103,7 +138,9 @@ the Bamboo API to v12.1.6 and verify agents and plans still work.
    [roj-grill-plan](../roj-grill-plan/USAGE.md)).
 3. From the repo where the work happens:
    `/roj-soundboarding implement SB-PROJ-1001` — executes core tasks one at
-   a time, verifies each diff against the SB's before/after table, stops
+   a time in task-flow order, stops at an unticked prerequisite or a
+   departure from the plan, verifies each diff against the SB's
+   before/after table, stops
    after each for approve/revise/skip, ticks checkboxes in the SB file, and
    fills the Testing table Log column with real command results.
 4. You review the working tree and commit manually.
