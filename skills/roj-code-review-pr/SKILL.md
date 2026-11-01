@@ -2,6 +2,8 @@
 name: roj-code-review-pr
 description: Review a Git change for defects before it ships - your own branch with uncommitted work, a teammate's branch, or a Bitbucket Data Center pull request, without checking it out. A PR (URL or id) gets a full written review by default, with non-blocking improvement suggestions and paste-ready PR comments (path:line, fix); say quick or no suggestions to opt out. An own branch uses auto mode, a quick chat-only pass or a full review picked from the diff's size and risk (deploy, CI, Ansible, auth, migrations). Use when the user says "review my branch", "review PR 123", "review the PR <url>", "review origin/feature/x", "code review", "quick review", "find defects in this branch", "review before I push", "suggest improvements to this PR", or asks for defects or risks in a diff, even a pasted one. An optional intent (PR text, Jira story) adds "criterion not met" findings. Git only, no PR host API. To post comments on a Bitbucket PR use roj-review-pr-comment; for comprehension use roj-explain-logic.
 license: MIT
+metadata:
+  cali-tools: git
 allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git status *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git symbolic-ref *) Bash(git merge-base *) Bash(git show *) Bash(git branch --show-current) Bash(git remote get-url *) Bash(git check-ignore *) Bash(git fetch origin *) Bash(graphify query *) Bash(graphify explain *) Bash(graphify path *) Bash(graphify affected *)
 ---
 

@@ -4,6 +4,7 @@ frontmatter breaks the spec, so these fail loudly instead.
 
   python3 -m unittest test_skills -v
 """
+import ast
 import json
 import math
 import os
@@ -228,6 +229,96 @@ class TestSelfContained(SkillTest):
         for d in skill_dirs():
             with self.subTest(skill=d.name):
                 self.assertTrue((d / "USAGE.md").is_file())
+
+
+def declared(fm, key):
+    """A metadata comma list, as cali doctor splits it."""
+    raw = (fm.get("metadata") or {}).get(key, "")
+    return [v.strip() for v in raw.split(",") if v.strip()]
+
+
+def required_env_reads(script):
+    """Variables a script reads from the environment with no default:
+    os.getenv("X"), os.environ["X"], and .get("X") on os.environ or on an
+    `env` mapping passed in its place (bitbucket_pr.py's main(env=...))."""
+    def is_env(node):
+        name = node.attr if isinstance(node, ast.Attribute) else getattr(
+            node, "id", "")
+        return name in ("environ", "env")
+
+    found = set()
+    for node in ast.walk(ast.parse(script.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Subscript) and is_env(node.value):
+            key = node.slice
+        elif (isinstance(node, ast.Call)
+              and isinstance(node.func, ast.Attribute)
+              and (node.func.attr == "getenv" or (
+                  node.func.attr == "get" and is_env(node.func.value)))
+              and len(node.args) == 1 and not node.keywords):
+            key = node.args[0]
+        else:
+            continue
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            found.add(key.value)
+    return found
+
+
+class TestDeclaredNeeds(SkillTest):
+    """Issue #97: each skill declares what it needs in metadata.cali-env (the
+    variables it reads that have no default) and metadata.cali-tools (the
+    programs it runs). `cali doctor` warns on an unset variable or a program
+    missing from PATH, so a wrong declaration warns about the wrong thing."""
+
+    ENV_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
+    TOOL_RE = re.compile(r"^[\w.-]+(\|[\w.-]+)*$")
+
+    @staticmethod
+    def texts(d):
+        """What the skill tells the agent and what its scripts run."""
+        files = [d / "SKILL.md", *sorted((d / "references").glob("*.md")),
+                 *sorted((d / "scripts").glob("*.py"))]
+        return "\n".join(f.read_text(encoding="utf-8") for f in files)
+
+    def test_scripts_read_only_declared_variables(self):
+        for d, fm, _ in self.each():
+            env = set(declared(fm, "cali-env"))
+            for script in sorted((d / "scripts").glob("*.py")):
+                for var in sorted(required_env_reads(script)):
+                    with self.subTest(script=script.name, var=var):
+                        self.assertIn(var, env, f"{script.name} reads {var}: "
+                                      "add it to metadata.cali-env")
+
+    def test_declared_variables_are_used(self):
+        for d, fm, _ in self.each():
+            text = self.texts(d)
+            for var in declared(fm, "cali-env"):
+                with self.subTest(var=var):
+                    self.assertRegex(var, self.ENV_RE)
+                    self.assertRegex(text, rf"(?<![\w$]){var}(?!\w)",
+                                     f"{d.name} never names {var}")
+
+    def test_declared_tools_are_run(self):
+        """Each program of an entry is run as a command: `git diff ...` in
+        prose, or a code line starting with it."""
+        for d, fm, _ in self.each():
+            text = self.texts(d)
+            for entry in declared(fm, "cali-tools"):
+                with self.subTest(entry=entry):
+                    self.assertRegex(entry, self.TOOL_RE)
+                for tool in entry.split("|"):
+                    with self.subTest(tool=tool):
+                        self.assertRegex(
+                            text, rf"(?m)(?:`|^\s*){re.escape(tool)}[ `]",
+                            f"{d.name} never runs {tool}")
+
+    def test_python_is_declared_by_either_name(self):
+        """SCR-15 answer 8: Python is `python` on Windows and `python3` in WSL
+        and Linux, so doctor must accept either: write python3|python."""
+        for d, fm, _ in self.each():
+            for entry in declared(fm, "cali-tools"):
+                if {"python", "python3"} & set(entry.split("|")):
+                    with self.subTest(entry=entry):
+                        self.assertEqual(entry, "python3|python")
 
 
 class TestGraphFirst(unittest.TestCase):
