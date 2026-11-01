@@ -25,6 +25,10 @@ Sections in this order; drop a section only if truly empty and say so.
 
 <repo findings as `path/to/file:line` — one line each, what it shows>
 
+<earlier fixes consulted, one line each: `PROJ-123` or Confluence page title
+and id — what it said and whether this repo confirms it; or "none found" /
+"skipped: <reason>">
+
 ## Hypotheses considered
 
 <rejected ones only, one line each:>
