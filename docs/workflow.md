@@ -50,6 +50,36 @@ Steps marked **Claude Code** do nothing in other agents.
    raw `gh`." Works in any agent, not only Claude Code.
 6. Remove the repo's GitHub Actions workflow only after the pilot criteria
    pass.
+7. Switch off the check suites of installed GitHub apps that never report.
+   GitHub opens a suite on every push for each app with checks access. With
+   Actions off nothing starts them, so they stay `queued` with no runs, and a
+   tool that reads check suites waits on the PR forever, although GitHub's
+   page says "There are no checks for this commit". List them on a recent
+   commit:
+
+   ```bash
+   gh-axi api /repos/<owner>/<repo>/commits/<sha>/check-suites \
+     --jq '.check_suites[] | [.app.id, .app.slug, .status, .latest_check_runs_count]'
+   ```
+
+   Switch off each app that shows `queued` with `0` runs. GitHub takes this
+   call only from a repo admin's classic personal access token with `repo`
+   scope. An OAuth sign-in such as `gh auth login` gets HTTP 403, and so does
+   a fine-grained token, which cannot hold the `checks: write` access the
+   call needs. Read the token with `read -rs GH_TOKEN && export GH_TOKEN` so
+   it stays out of your shell history, then:
+
+   ```bash
+   gh-axi api PATCH /repos/<owner>/<repo>/check-suites/preferences --input - <<'EOF'
+   {"auto_trigger_checks": [{"app_id": 12526, "setting": false},
+                            {"app_id": 1236702, "setting": false}]}
+   EOF
+   ```
+
+   12526 is SonarQube Cloud and 1236702 is Claude; both are off on
+   agent-skills. The apps stay installed and keep their other access. Send
+   `"setting": true` to bring one back, for example before you turn on
+   SonarQube Cloud analysis for the repo.
 
 ## Update the pinned tools
 
