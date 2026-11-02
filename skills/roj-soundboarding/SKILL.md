@@ -35,9 +35,20 @@ user's message, then the environment variable of the same name
   code they describe.
 - PROJECTS_ROOT: the parent directory of that repository root.
 
-State the resolved SOUNDBOARD_DIR and the TEMPLATE in use in one line at
-the start of the run, so the user sees where the SB document will be
-written and which template shapes it.
+**State them first.** Resolve SOUNDBOARD_DIR and TEMPLATE in one shell
+command that reads nothing else: the commands above, a check that
+`SOUNDBOARD_DIR/SB-template.md` exists (`test -f`; PowerShell:
+`Test-Path`), and an `echo` that prints this line as its last output:
+
+`SOUNDBOARD_DIR: <absolute path>; template: <TEMPLATE path> (bundled)`,
+ending `(from SOUNDBOARD_DIR)` instead when that template is in use.
+
+Then write the same line as text in your reply, before the next tool call.
+Only after it read the story, the template, an SB document or any
+repository file. The user sees where the SB document will be written and
+which template shapes it before the investigation starts, and can stop a
+run aimed at the wrong folder. Noting the line only in your reasoning, or
+only in the closing summary, does not state it.
 
 ## Hard rules (all flows)
 
@@ -84,7 +95,9 @@ If the story cannot be found, read or fetched: STOP and ask. Never proceed
 with an invented story. The story's key names the output file (step 5); pasted
 text without a key: ask for a name for the file, once.
 
-1. **Read inputs.** Read the story and TEMPLATE. Extract the goal, the
+1. **Read inputs.** First print and write the SOUNDBOARD_DIR and
+   template line (Configuration); no file read comes before it. Then read
+   the story and TEMPLATE. Extract the goal, the
    acceptance criteria, every repository, system, tool, and version
    mentioned or implied, and the user's approach: an idea about the workflow
    or the architecture in the message or the story file.
