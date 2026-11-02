@@ -167,7 +167,7 @@
       "path": "skills/roj-investigate-issue",
       "ref": "",
       "commit": "",
-      "tree": "fb283c0394da24aacf3dcaeb439c81bbf9c9b50c"
+      "tree": "3c34c48f1554b2bcacf463539e2c1d5d470bcb6c"
     },
     "roj-onboard-repo": {
       "source": ".",
