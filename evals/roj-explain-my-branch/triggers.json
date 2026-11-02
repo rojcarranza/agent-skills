@@ -16,7 +16,7 @@
     "should_trigger": true
   },
   {
-    "query": "/roj-explain-feature-changes release/3.1",
+    "query": "/roj-explain-my-branch release/3.1",
     "should_trigger": true
   },
   {

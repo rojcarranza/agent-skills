@@ -2,7 +2,7 @@
 
 The one format for a finding written as a pull request comment. Two places
 use it and must agree: the `### Comments to paste` section that
-`roj-code-review-pr` ends a PR review with (in `review.md` and in chat), and
+`roj-review-code` ends a PR review with (in `review.md` and in chat), and
 the draft `roj-review-pr-comment` prints and posts. Nothing here posts
 anything; `roj-review-pr-comment` posts, and only on request.
 

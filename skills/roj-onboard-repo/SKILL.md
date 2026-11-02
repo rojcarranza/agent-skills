@@ -1,6 +1,6 @@
 ---
 name: roj-onboard-repo
-description: "Onboards a developer onto an unfamiliar repository with a written guide: Mermaid diagrams of the architecture and one core flow, a code walkthrough anchored to path:line, a reading order, how to run and test it, and a page on reviewing a colleague's PR. Writes .onboarding/ as Markdown plus a one-page index.html. Use when the user says \"onboard me to this repo\", \"tour this codebase\", \"teach me how this works\", \"where do I start\", \"walk me through the architecture\" or \"draw the architecture and explain the code\", or joins a project they have never worked on. For one PR, file or function use roj-explain-logic; for defects use roj-code-review-pr."
+description: "Onboards a developer onto an unfamiliar repository with a written guide: Mermaid diagrams of the architecture and one core flow, a code walkthrough anchored to path:line, a reading order, how to run and test it, and a page on reviewing a colleague's PR. Writes .onboarding/ as Markdown plus a one-page index.html. Use when the user says \"onboard me to this repo\", \"tour this codebase\", \"teach me how this works\", \"where do I start\", \"walk me through the architecture\" or \"draw the architecture and explain the code\", or joins a project they have never worked on. For one PR, file or function use roj-explain-logic; for defects use roj-review-code."
 argument-hint: "[workspace or folder, for a monorepo]"
 license: MIT
 metadata:
@@ -52,7 +52,7 @@ is a dependency.
    does not settle is marked `[?]` and collected in section 9. Never describe
    framework behaviour from memory when the code that implements it is
    readable. Comprehension, not review: no defects, no improvement advice;
-   that is `roj-code-review-pr`.
+   that is `roj-review-code`.
 6. **Writes only under `<ROOT>/.onboarding/`**, and `<ROOT>/.tours/` on
    request. Commands beyond file reads are `git`, the
    read-only `graphify` queries in `references/graph-first.md`, and `node`
@@ -234,7 +234,7 @@ In chat, no diagram (chat panels are not known to render Mermaid):
 6. The next step for reviewing a colleague's PR: read
    `.onboarding/reviewing-prs.md`, then `/skill:roj-explain-logic PR <n>`
    (JetBrains) or `/roj-explain-logic PR <n>` (VS Code) to understand it with
-   this map, then `roj-code-review-pr PR <n>`, then
+   this map, then `roj-review-code PR <n>`, then
    `roj-review-pr-comment PR <n>` for Bitbucket comments (a PR review adds
    non-blocking suggestions after the defects; say `no suggestions` for
    defects only).

@@ -1,4 +1,4 @@
-# roj-explain-feature-changes — usage
+# roj-explain-my-branch — usage
 
 Explains the changes on your own feature branch compared with its base, so
 you understand them and can explain them in PR review. It traces callers,
@@ -30,10 +30,10 @@ Explicit invocation:
 
 | Agent | VS Code | IntelliJ / PyCharm / GoLand |
 | --- | --- | --- |
-| Copilot | `/roj-explain-feature-changes [base]` | `/skill:roj-explain-feature-changes [base]` |
+| Copilot | `/roj-explain-my-branch [base]` | `/skill:roj-explain-my-branch [base]` |
 
-Examples: `/roj-explain-feature-changes`, `/roj-explain-feature-changes develop`,
-`/skill:roj-explain-feature-changes main`.
+Examples: `/roj-explain-my-branch`, `/roj-explain-my-branch develop`,
+`/skill:roj-explain-my-branch main`.
 
 Base branch without an argument: the nearest of `origin/HEAD`'s branch,
 `origin/develop`, `origin/main` and `origin/master` (then their local forms),
@@ -109,7 +109,7 @@ is missing.
    `--skills-only` — skills with requirements then warn and run on their
    fallbacks).
 4. Reopen the IDE, open a feature branch, type
-   `/skill:roj-explain-feature-changes develop` in agent-mode chat.
+   `/skill:roj-explain-my-branch develop` in agent-mode chat.
 5. Approve the `git` commands it proposes in the IDE terminal. The report
    appears at the repository root.
 6. If a `git` command opens a pager (`less`) in the IDE terminal and the run

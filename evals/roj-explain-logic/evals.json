@@ -90,7 +90,7 @@
         "The Intent header says the commit messages were used because no PR text was pasted, and no PR title or description is invented",
         "brief.html holds the same diagram, anchors and headings as brief.md and loads Mermaid only from one pinned cdn.jsdelivr.net script",
         "Prints the git exclude line for .pr-review/ without running it, does not edit .gitignore",
-        "The chat reply is at most 12 lines with no mermaid block and ends with the roj-code-review-pr command in both the /skill: and the / forms",
+        "The chat reply is at most 12 lines with no mermaid block and ends with the roj-review-code command in both the /skill: and the / forms",
         "Names no defect and makes no improvement suggestion: the None returned after the last failed attempt of upload() may appear as plain behaviour in the flow, never as a bug, a risk or an 'is that intended' question"
       ]
     },

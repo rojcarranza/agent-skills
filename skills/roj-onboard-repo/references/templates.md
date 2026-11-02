@@ -204,7 +204,7 @@ areas and flows a PR touches.
 
 Understand the PR with this map: `/skill:roj-explain-logic PR <n>` in
 JetBrains, `/roj-explain-logic PR <n>` in VS Code. Then
-`roj-code-review-pr PR <n>`, and `roj-review-pr-comment PR <n>` for Bitbucket
+`roj-review-code PR <n>`, and `roj-review-pr-comment PR <n>` for Bitbucket
 comments. A PR review adds non-blocking suggestions after the defects; say
 `no suggestions` for defects only.
 ````

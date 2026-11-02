@@ -82,7 +82,7 @@ REQUIRES = {
     # choice in ~/.claude/settings.json skillOverrides, the second was never
     # installed. The skill falls back inline for both, so declaring them only
     # pulled their descriptions into every session for nothing.
-    "roj-explain-feature-changes": ("code-tour",),
+    "roj-explain-my-branch": ("code-tour",),
     # Custom skills never require each other: shared files are copied into
     # each skill by tools/sync_shared.py, so every skill also installs alone
     # through `npx skills add`.
@@ -405,6 +405,7 @@ RETIRED_SKILLS = (
     "roj-idea-to-project", "roj-tour-codebase",
     # Superpowers' systematic-debugging replaced this stand-in.
     "debugging-and-error-recovery",
+    "roj-code-review-pr", "roj-explain-feature-changes",
 )
 # Copilot-only skills no cali.yaml ever installed for Claude: a Claude copy
 # came from somewhere else.

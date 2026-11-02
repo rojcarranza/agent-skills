@@ -3,7 +3,7 @@
 Loaded when the target is a pull request or a branch (SKILL.md Step 1,
 priority 1). Comprehension only: the brief says what the change does and how
 the run differs, never what is wrong with it or how to improve it. That is
-`roj-code-review-pr`.
+`roj-review-code`.
 
 ## Contents
 
@@ -142,7 +142,7 @@ Not checked: <by role>.
   An outcome that looks wrong is stated as plain behaviour, in the flow where
   it happens (`returns None after three failed attempts`), with none of
   `bug`, `risk`, `should`, `missing`, `unsafe` or `is that intended`; judging
-  it is `roj-code-review-pr`'s job. A mismatch between intent and diff is a
+  it is `roj-review-code`'s job. A mismatch between intent and diff is a
   fact for the claims check.
 - Every `path:line` exists at the head, every diagram node is something
   read, every edge a call or message read. A line the diff removed has no
@@ -324,8 +324,8 @@ the brief), and drop the optional items first when the count runs over. Items
 7. `Reference unavailable: <name>` for any reference that could not be opened,
    and the Graph line of SKILL.md.
 8. The zoom offer for a large diff, and the one-line tour offer.
-9. The next step: `/skill:roj-code-review-pr PR <n>` in JetBrains,
-   `/roj-code-review-pr PR <n>` in VS Code, then
+9. The next step: `/skill:roj-review-code PR <n>` in JetBrains,
+   `/roj-review-code PR <n>` in VS Code, then
    `roj-review-pr-comment PR <n>` for Bitbucket comments. A PR review adds
    non-blocking suggestions after the defects; say `no suggestions` for
    defects only.

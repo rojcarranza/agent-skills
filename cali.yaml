@@ -9,11 +9,11 @@ targets: [claude, copilot]
 skills:
   # Own skills, from this clone at its checked-out HEAD. cali.lock pins the
   # tree; `cali update -g --manifest cali.yaml --apply` moves it.
-  roj-code-review-pr:
-    source: .//skills/roj-code-review-pr
+  roj-review-code:
+    source: .//skills/roj-review-code
     targets: [copilot]
-  roj-explain-feature-changes:
-    source: .//skills/roj-explain-feature-changes
+  roj-explain-my-branch:
+    source: .//skills/roj-explain-my-branch
     targets: [copilot]
   roj-explain-logic:
     source: .//skills/roj-explain-logic

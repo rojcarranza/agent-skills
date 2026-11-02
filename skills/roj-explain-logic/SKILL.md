@@ -1,6 +1,6 @@
 ---
 name: roj-explain-logic
-description: "Explains code the user is reading, such as a pull request, a feature branch diff, a file or a function, as a guided walkthrough. For a PR or branch it writes a brief with a flow diagram and an HTML page under .pr-review/. Use when the user says \"explain this PR and draw the flow\", \"brief me on this PR\", \"walk me through this branch\", \"explain this function\", \"what does this method do\", \"who calls this\" or \"trace this flow\", or points at code they want to understand. Also \"explain and review\", which adds a review pass. For the user's own branch use roj-explain-feature-changes; for a whole repo use roj-onboard-repo; for defects use roj-code-review-pr."
+description: "Explains code the user is reading, such as a pull request, a feature branch diff, a file or a function, as a guided walkthrough. For a PR or branch it writes a brief with a flow diagram and an HTML page under .pr-review/. Use when the user says \"explain this PR and draw the flow\", \"brief me on this PR\", \"walk me through this branch\", \"explain this function\", \"what does this method do\", \"who calls this\" or \"trace this flow\", or points at code they want to understand. Also \"explain and review\", which adds a review pass. For the user's own branch use roj-explain-my-branch; for a whole repo use roj-onboard-repo; for defects use roj-review-code."
 argument-hint: "[PR id or URL | branch | file | function] [explain and review]"
 license: MIT
 metadata:

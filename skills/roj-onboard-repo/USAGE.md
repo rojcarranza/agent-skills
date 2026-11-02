@@ -20,7 +20,7 @@ files.
   the conversation.
 
 Not for a single PR, branch, file or function - that is `roj-explain-logic`. Not
-for finding defects - that is `roj-code-review-pr`.
+for finding defects - that is `roj-review-code`.
 
 ## Invoking
 
@@ -120,7 +120,7 @@ comments stay plain text.
    flows, lists the hotspots and the silent seams to watch.
 2. Understand the PR with that map: `/skill:roj-explain-logic PR <n>` in
    JetBrains, `/roj-explain-logic PR <n>` in VS Code.
-3. Then `roj-code-review-pr PR <n>`, and `roj-review-pr-comment PR <n>` for
+3. Then `roj-review-code PR <n>`, and `roj-review-pr-comment PR <n>` for
    Bitbucket comments. A PR review adds non-blocking suggestions after the
    defects; say `no suggestions` for defects only.
 

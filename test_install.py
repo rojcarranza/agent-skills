@@ -118,7 +118,7 @@ class TestRetirePrompts(TempDirTest):
     def retire(self, target="copilot", dry_run=False):
         with mock.patch.multiple(
                 "install", RETIRED_PROMPTS=("roj-create-sb",
-                                            "roj-code-review-pr"),
+                                            "roj-review-code"),
                 claude_commands_dir=mock.Mock(return_value=self.cmds),
                 vscode_prompts_dir=mock.Mock(return_value=self.pdir)):
             return install.retire_prompts(target, self.dest, dry_run)
@@ -132,9 +132,9 @@ class TestRetirePrompts(TempDirTest):
         self.assertFalse(gen.exists())
 
     def test_keeps_real_skill_of_a_retired_name(self):
-        real = self.dest / "roj-code-review-pr"
+        real = self.dest / "roj-review-code"
         real.mkdir()
-        (real / "SKILL.md").write_text("---\nname: roj-code-review-pr\n---\n")
+        (real / "SKILL.md").write_text("---\nname: roj-review-code\n---\n")
         self.assertEqual(self.retire(), [])
         self.assertTrue(real.exists())
 
@@ -795,7 +795,7 @@ class TestExplainFeatureChangesSkill(unittest.TestCase):
     in bash, PowerShell and cmd — the JetBrains terminal on the Windows VDI
     may be any of them."""
 
-    SKILL = install.SKILLS_SRC / "roj-explain-feature-changes"
+    SKILL = install.SKILLS_SRC / "roj-explain-my-branch"
     FILES = [SKILL / "SKILL.md", SKILL / "references" / "tracing.md"]
 
     def snippets(self, text):
@@ -816,7 +816,7 @@ class TestExplainFeatureChangesSkill(unittest.TestCase):
                     self.assertFalse(s.startswith(("grep ", "sed ", "awk ")))
 
     def test_no_custom_skill_is_named(self):
-        others = install.custom_skill_names() - {"roj-explain-feature-changes"}
+        others = install.custom_skill_names() - {"roj-explain-my-branch"}
         for f in self.SKILL.rglob("*.md"):
             text = f.read_text(encoding="utf-8")
             for name in others:
