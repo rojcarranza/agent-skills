@@ -729,6 +729,61 @@ class TestSoundboarding(unittest.TestCase):
                    if l.startswith("-")]
         self.assertEqual([b for b in bullets if b], [])
 
+    @staticmethod
+    def section(text, heading, level="##"):
+        """The body under `heading` up to the next heading of that level."""
+        match = re.search(rf"(?ms)^{level} {re.escape(heading)}\n(.*?)"
+                          rf"(?=^{level} |\Z)", text)
+        return match.group(1) if match else None
+
+    def test_template_puts_the_plan_before_core_tasks(self):
+        """Issue #94, the captain's answer in SCR-15: the Implementation plan
+        sits between Acceptance Criteria and Core tasks and holds the
+        approach, the task flow and the change flow."""
+        template = (self.SB / "assets" / "SB-template.md").read_text("utf-8")
+        heads = self.headings(template)
+        at = heads.index("Implementation plan")
+        self.assertEqual(heads[at - 1:at + 2],
+                         ["Acceptance Criteria", "Implementation plan",
+                          "Core tasks"])
+        plan = self.section(template, "Implementation plan")
+        self.assertEqual(re.findall(r"(?m)^### (.+)$", plan),
+                         ["Approach", "Task flow", "Change flow"])
+
+    def test_example_plan_draws_both_flows(self):
+        """Issue #94: the example the model copies carries a task flow and a
+        change flow, and the task flow's nodes are the SB's own tasks and
+        questions: `Tn` is the n-th Core tasks checkbox, which is how the
+        implement flow (references/implementation-plan.md) reads it."""
+        example = (self.SB / "examples" / "SB-PROJ-1001.md").read_text("utf-8")
+        plan = self.section(example, "Implementation plan")
+        task_flow = MERMAID_RE.findall(self.section(plan, "Task flow", "###"))
+        change = MERMAID_RE.findall(self.section(plan, "Change flow", "###"))
+        self.assertEqual([b.split(None, 1)[0] for b in task_flow],
+                         ["flowchart"])
+        self.assertEqual([b.split(None, 1)[0] for b in change],
+                         ["sequenceDiagram"])
+        tasks = re.findall(r"(?m)^- \[[ x]\] ",
+                           self.section(example, "Core tasks"))
+        questions = re.findall(r"(?m)^- ", self.section(example, "Questions"))
+        nodes = set(re.findall(r'\b([TQ])(\d+)\["\1\2 ', task_flow[0]))
+        self.assertEqual(sorted(int(n) for k, n in nodes if k == "T"),
+                         list(range(1, len(tasks) + 1)))
+        self.assertLessEqual({int(n) for k, n in nodes if k == "Q"},
+                             set(range(1, len(questions) + 1)))
+
+    def test_example_draft_approach_carries_the_marker(self):
+        """Issue #94, answer 4: an approach the agent drafted is marked, and
+        the implement flow asks about it by that marker, so the example must
+        carry the marker exactly as the reference defines it."""
+        ref = (self.SB / "references" / "implementation-plan.md").read_text(
+            "utf-8")
+        marker = re.search(r"```text\n\s*(> \*\*Draft:\*\*.*)\n", ref).group(1)
+        example = (self.SB / "examples" / "SB-PROJ-1001.md").read_text("utf-8")
+        approach = self.section(self.section(example, "Implementation plan"),
+                                "Approach", "###")
+        self.assertEqual(approach.strip().splitlines()[0], marker)
+
     def test_before_after_tables_carry_location_and_source(self):
         header = ("| # | File/Property | Location | Before | After | Reason "
                   "| Source |")

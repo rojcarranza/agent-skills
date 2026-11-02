@@ -160,7 +160,7 @@
       "path": "skills/roj-soundboarding",
       "ref": "",
       "commit": "",
-      "tree": "c720b7d880e13b7ac604af978b085eaa5cd4434e"
+      "tree": "ef238f3963001352548ee886230ea5cd4997ad60"
     },
     "security-and-hardening": {
       "source": "https://github.com/addyosmani/agent-skills",
