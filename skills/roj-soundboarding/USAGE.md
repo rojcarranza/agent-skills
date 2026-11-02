@@ -38,7 +38,7 @@ ticket text. The SB file is named from the ticket key (`SB-PROJ-1001.md`).
 By default the SB document is written to the root of the repository you run
 the skill in, next to the code it describes, and sibling checkouts of that
 repository are searched for the other repos a story touches. The skill says
-where it will write at the start of each run.
+where it will write at the start of each run, before it reads any file.
 
 To keep stories and SB documents in one shared folder instead, set the
 directories once in your shell profile:
