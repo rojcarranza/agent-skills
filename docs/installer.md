@@ -40,8 +40,8 @@ Windows home (WSL only), then install `graphify`. Every
 `cali` command `install.py` runs takes `-g --manifest <clone>/cali.yaml`:
 skills land in `~/.claude/skills` and `~/.copilot/skills`, and `cali.lock`
 is read and written next to `cali.yaml` in the clone. The one exception is
-a Git Bash run when a WSL run owns the Windows Copilot skills: it syncs a
-Claude-only manifest instead (see "WSL: two homes").
+a Git Bash run when a WSL run owns the Windows Copilot skills: it runs no
+`cali sync` at all (see "WSL: two homes").
 
 `--target` limits the cleanup, instructions, MCP servers and `graphify`.
 `cali sync` has no target option, so it always installs every target
@@ -81,9 +81,8 @@ caveman:
   upstream version is a reviewed diff. [`cali.lock`](../cali.lock) records
   the commit and tree of every community skill, and the tree of ours.
 - **One agent only.** `targets: [copilot]` (or `[claude]`) limits an entry.
-  Copilot is the work agent, so every entry is Copilot only except
-  `roj-idea-to-project`, which installs for both. Every community skill,
-  cherry-picks included, is Copilot only.
+  Copilot is the work agent, so every entry is Copilot only, our skills
+  and every community skill, cherry-picks included.
 - **Optional entries** are commented out in `cali.yaml`. Uncomment one and
   re-run `install.py` to install it. Commenting a live entry out drops it
   from `cali.lock` on the next run, but `cali sync` never deletes a folder:
@@ -148,16 +147,16 @@ skills in `cali.yaml` for that target.
   that folder) is left alone.
 
 - A retired skill (`RETIRED_SKILLS` in `install.py`: the pruned community
-  skills, `roj-tour-codebase`, `roj-code-review-pr-fast`) in either agent is
-  moved to the same backup folder when it is a real folder whose `SKILL.md`
-  declares that name - only our own installs and `cali.yaml` ever put a skill
-  of that name there - or a link an older installer made. A folder of that
+  skills, `roj-tour-codebase`, `roj-code-review-pr-fast`, the archived
+  `roj-idea-to-project`) in either agent is moved to the same backup folder
+  when it is a real folder whose `SKILL.md` declares that name - only our
+  own installs and `cali.yaml` ever put a skill of that name there - or a
+  link an older installer made. A folder of that
   name declaring another name is kept with the left-over warning below.
 - A skill Cali no longer installs for that agent but that is not retired -
-  a Copilot-only skill in `~/.claude/skills` (every one but
-  `roj-idea-to-project`) - is only moved to the same backup folder when it is
-  a link an older installer made (into a checkout of this repo, or
-  dangling). A real folder is kept:
+  a Copilot-only skill in `~/.claude/skills` - is only moved to the same
+  backup folder when it is a link an older installer made (into a checkout
+  of this repo, or dangling). A real folder is kept:
   Cali keeps no record of the agents a skill was dropped from, so nothing
   shows who put it there. The run and `--status` print its full path with a
   warning that it is left over; delete it by hand if it is stale. Skills
@@ -245,18 +244,9 @@ Not delivered to Windows: Claude Code (out of scope: Claude on Windows is a
 Git Bash run), `graphify` (its CLI has to be on the Windows PATH too), the
 personal instructions and the GitHub MCP server. Run `install.py` from Git
 Bash for those extras: with WSL owning the Copilot skills it installs them
-and the Claude Code skills, and no Copilot skills (with `--target copilot`
-it runs no `cali sync` at all).
-
-`cali sync` has no option to install one target, and a second manifest
-next to `cali.yaml` would share and prune `cali.lock`. So that Git Bash run
-writes `<clone>/.cali-claude/` (git-ignored): a `cali.yaml` holding the
-`cali.yaml` skills that target Claude, limited to Claude, and a `cali.lock`
-holding their `cali.lock` pins, then runs
-`cali sync -g --manifest <clone>/.cali-claude/cali.yaml`. The folder sits in
-the clone because Cali resolves a `.//` source to the repo that holds the
-manifest. Cali keys its pristine copies by tree, so the main manifest and
-this one share them.
+and runs no `cali sync`, since every `cali.yaml` skill is Copilot only.
+Earlier versions synced a Claude-only manifest from `<clone>/.cali-claude/`
+there; that folder is no longer written or read, and can be deleted.
 
 Why a copy and not `cali sync` with `HOME` set to the Windows home: Cali
 honours `HOME`, but it would also install the Claude target there, write its

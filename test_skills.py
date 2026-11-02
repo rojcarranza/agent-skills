@@ -749,9 +749,6 @@ class TestEvals(unittest.TestCase):
 
     FIXTURES = ROOT / "evals" / "fixtures"
     BITBUCKET_MODES = {"normal", "reviewed", "prior"}
-    CLAUDE_MODES = {"missing", "present", "outdated"}
-    # Fixtures that are a bare folder, for skills that start a project.
-    NO_GIT = {"idea-empty"}
 
     # Every shipped skill must keep an eval set: a skill without evals
     # fails test_required_eval_sets_exist.
@@ -776,9 +773,6 @@ class TestEvals(unittest.TestCase):
                     if "bitbucket" in e["fixture"]:
                         self.assertIn(e["fixture"]["bitbucket"],
                                       self.BITBUCKET_MODES)
-                    if "claude" in e["fixture"]:
-                        self.assertIn(e["fixture"]["claude"],
-                                      self.CLAUDE_MODES)
 
     @unittest.skipUnless(BASH and shutil.which("git"), "needs bash and git")
     def test_every_fixture_builds(self):
@@ -794,25 +788,7 @@ class TestEvals(unittest.TestCase):
                         [BASH, str(self.FIXTURES / "build.sh"), kind,
                          str(dest)], capture_output=True, text=True)
                     self.assertEqual(run.returncode, 0, run.stderr)
-                    if kind in self.NO_GIT:
-                        self.assertTrue((dest / "repo").is_dir())
-                        self.assertFalse((dest / "repo" / ".git").exists())
-                    else:
-                        self.assertTrue((dest / "repo" / ".git").is_dir())
-            sp = Path(tmp) / "idea-empty"
-            run = subprocess.run(
-                [BASH, str(self.FIXTURES / "fake-claude.sh"), str(sp),
-                 "missing"], capture_output=True, text=True)
-            self.assertEqual(run.returncode, 0, run.stderr)
-            self.assertTrue((sp / "bin" / "claude").is_file())
-            for kind in sorted(self.NO_GIT | {"idea-brief-2ng",
-                                              "idea-req-gap"} - used):
-                with self.subTest(fixture=kind):
-                    dest = Path(tmp) / f"direct-{kind}"
-                    run = subprocess.run(
-                        [BASH, str(self.FIXTURES / "build.sh"), kind,
-                         str(dest)], capture_output=True, text=True)
-                    self.assertEqual(run.returncode, 0, run.stderr)
+                    self.assertTrue((dest / "repo" / ".git").is_dir())
 
     def test_required_eval_sets_exist(self):
         present = {d.name for d in self.eval_dirs()}
@@ -1106,11 +1082,6 @@ ROUTES = {
         "build one slide for the sprint review",
         "a one slide PowerPoint of the story I finished",
     ],
-    "roj-idea-to-project": [
-        "I have an app idea and want to plan it before building",
-        "set up a new empty repo so an agent can build my product idea",
-        "write requirements and architecture for a new app",
-    ],
 }
 
 
@@ -1366,19 +1337,6 @@ class TestPublishable(unittest.TestCase):
     def test_license_file(self):
         self.assertIn("MIT License",
                       (ROOT / "LICENSE").read_text(encoding="utf-8"))
-
-    def test_marketplace_lists_the_skills_claude_gets(self):
-        """Only skills cali.yaml targets at Claude are in the plugin."""
-        data = json.loads((ROOT / ".claude-plugin" / "marketplace.json")
-                          .read_text(encoding="utf-8"))
-        listed = sorted(s for plugin in data["plugins"]
-                        for s in plugin["skills"])
-        claude = {d["name"] for d in install.manifest_deps()
-                  if d["active"] and (d["targets"] is None
-                                      or "claude" in d["targets"])}
-        self.assertEqual(listed,
-                         [f"./skills/{d.name}" for d in skill_dirs()
-                          if d.name in claude])
 
 
 SHA_RE = re.compile(r"[0-9a-f]{40}")

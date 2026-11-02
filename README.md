@@ -11,7 +11,7 @@ supports.
 
 **Everything, with Cali (recommended)** — my skills, the community skills
 they chain to, personal instructions and the GitHub MCP server, for
-Copilot (`roj-idea-to-project` also for Claude Code). The skills are listed in one manifest
+Copilot. The skills are listed in one manifest
 ([`cali.yaml`](cali.yaml), pinned in [`cali.lock`](cali.lock)) and
 installed by [Cali](https://github.com/rojcarranza/cali).
 
@@ -33,9 +33,8 @@ installed by [Cali](https://github.com/rojcarranza/cali).
    read, and moves retired skills such as `roj-tour-codebase` out of both.
    `--windows-home PATH` names that home if it cannot be found. The WSL run
    then owns the Windows Copilot skills folder, so WSL users run it from Git
-   Bash only for the extras it does not copy - `graphify`, the instructions,
-   the GitHub MCP server and the Claude Code skills; that run leaves the
-   Copilot skills alone.
+   Bash only for the extras it does not copy - `graphify`, the instructions
+   and the GitHub MCP server; that run leaves the Copilot skills alone.
    `install.py` runs `cali sync -g --manifest <clone>/cali.yaml`, writes the
    personal instructions and the GitHub MCP server entry, and installs
    `graphify` (a CLI Cali does not install).
@@ -53,15 +52,7 @@ To add or drop a skill, edit `cali.yaml` and re-run `install.py`.
 SHA in `cali.yaml`, then `cali update -g --manifest cali.yaml --apply`.
 
 **Only some skills, with Node.js** — `npx skills add rojcarranza/agent-skills`
-(interactive), or `-s <skill> -a github-copilot -g`. Only
-`roj-idea-to-project` also supports Claude Code (`-a claude-code github-copilot`).
-
-**Claude Code plugin** — `/plugin marketplace add rojcarranza/agent-skills`,
-then `/plugin install roj-skills@roj-agent-skills`. The plugin carries only
-`roj-idea-to-project`, the one skill that supports Claude; the rest are for
-Copilot. Plugin skills are namespaced (`/roj-skills:roj-idea-to-project`).
-
-Use one route per machine: a plugin plus a skills-dir install lists each skill twice.
+(interactive), or `-s <skill> -a github-copilot -g`.
 
 **In a team repository** — add an `apm.yml` to that repo listing the skills
 it needs, e.g. `rojcarranza/agent-skills/skills/roj-code-review-pr#<commit>` (pin a commit), and
@@ -86,9 +77,14 @@ tools, is in [docs/workflow.md](docs/workflow.md).
 | [`roj-investigate-issue`](skills/roj-investigate-issue/USAGE.md) | Problem `.md` in, validated root cause and fix steps out (Bamboo, Java, Python, Bash, Go, Docker, k8s); searches resolved Jira issues and Confluence pages for an earlier fix. |
 | [`roj-soundboarding`](skills/roj-soundboarding/USAGE.md) | User story (file, pasted Jira text or Jira key) → code-investigated SB document → task-by-task implementation with review stops. Never touches git. |
 | [`roj-grill-plan`](skills/roj-grill-plan/USAGE.md) | Grills a story, SB document or plan in rounds of questions with recommended answers, looks facts up itself, then writes the decisions back into the file. |
-| [`roj-idea-to-project`](skills/roj-idea-to-project/USAGE.md) | Raw app idea → brief, design, EARS requirements, architecture and ADRs, agent config and a checked Definition of Ready, one approved gate at a time with fresh-context reviews, then a hand-off to Superpowers. Installs Superpowers first when it is missing. Never touches git. |
 | [`roj-interview-prep`](skills/roj-interview-prep/USAGE.md) | DevOps technical-interview document generated from a candidate's CV. |
 | [`roj-one-slide`](skills/roj-one-slide/USAGE.md) | One demo slide for a finished story (SB document, story file or ticket text), built on your team's own `.pptx` template: linked key and title, a one-sentence Goal, then a before/after flow diagram or headed points with an optional process flow and screenshot. Renders and checks the slide when LibreOffice is installed. Never touches git. |
+
+**Archived:** `roj-idea-to-project` (raw app idea → build-ready project,
+for Claude Code) was removed in #92. The last commit that has it is
+[`4529a19`](https://github.com/rojcarranza/agent-skills/tree/4529a190bf9a455d2c02b7f896ca7aa41ae41778/skills/roj-idea-to-project);
+`git checkout 4529a19 -- skills/roj-idea-to-project` brings it back.
+`install.py` moves an installed copy to `~/.agent-skills-backups/`.
 
 Diagrams are always Mermaid: `roj-onboard-repo` puts a system map and a
 core-flow diagram in `.onboarding/README.md`, `roj-explain-logic` puts a flow
@@ -223,7 +219,6 @@ skills/<name>/
   references/     detail the agent loads on demand
   assets/         templates the skill fills in
   examples/       sample inputs and outputs
-.claude-plugin/   marketplace.json — the Claude Code plugin view of skills/
 cali.yaml         every skill and community skill install.py installs (Cali manifest)
 cali.lock         the tree each of them is pinned to (and commit, for community skills)
 .apm/instructions/  personal instructions install.py deploys to Copilot
@@ -261,11 +256,10 @@ test_skills.py    spec, publishing, evals and description-routing checks
   (`PROJ-123`, `$SOUNDBOARD_DIR`). Put employer-specific strings in a
   git-ignored `.private-patterns` file (one regex per line) and the tests
   check for them locally.
-- A new skill is one PR: the `skills/<name>/` folder, its
-  `.claude-plugin/marketplace.json` entry, its `cali.yaml` entry
+- A new skill is one PR: the `skills/<name>/` folder, its `cali.yaml` entry
   (`source: .//skills/<name>`) and its `cali.lock` entry. Commit the skill,
   then run `cali sync -g --manifest cali.yaml` to write the lock entry and
-  commit that too; a test fails until all four are in.
+  commit that too; a test fails until all three are in.
 - A change to an existing skill moves its tree: commit it, then run
   `cali update -g --manifest cali.yaml --apply` and commit the `cali.lock`
   change in the same PR. A test fails until you do.
@@ -273,7 +267,7 @@ test_skills.py    spec, publishing, evals and description-routing checks
 ## Tests
 
 ```bash
-python3 -m unittest test_install test_skills test_idea_to_project -v
+python3 -m unittest test_install test_skills -v
 python3 tools/sync_shared.py --check
 npx skills add . --list               # what skills.sh will discover
 ```

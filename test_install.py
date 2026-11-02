@@ -969,10 +969,10 @@ skills:
                          ("github:x/y//skills/tool",
                           "2e08b9177c07bb7249a8a2d1a6758e5db281d002"))
 
-    def test_only_roj_idea_to_project_installs_for_claude(self):
-        # Copilot is the work agent; roj-idea-to-project alone serves both.
-        self.assertEqual(install.managed_skill_names("claude"),
-                         {"roj-idea-to-project"})
+    def test_no_skill_installs_for_claude(self):
+        # Copilot is the work agent; Claude's one skill, roj-idea-to-project,
+        # was archived (issue #92), so nothing in cali.yaml targets Claude.
+        self.assertEqual(install.managed_skill_names("claude"), set())
         self.assertLessEqual(install.custom_skill_names(),
                              install.managed_skill_names("copilot"))
 
@@ -1198,10 +1198,7 @@ class TestLegacyCleanup(TempDirTest):
             self.skipTest("symlinks unsupported here")
 
     def test_stale_names_are_other_target_skills_and_retired_ones(self):
-        retired = {"add-educational-comments", "arch-linux-triage",
-                   "architecture-blueprint-generator", "centos-linux-triage",
-                   "debian-linux-triage", "fedora-linux-triage",
-                   "roj-code-review-pr-fast", "roj-tour-codebase"}
+        retired = set(install.RETIRED_SKILLS)
         # caveman was Copilot only before: no install put it in Claude.
         self.assertEqual(install.stale_skill_names("claude"), {"roj-b"} | retired)
         self.assertEqual(install.stale_skill_names("copilot"), retired)
@@ -1227,8 +1224,8 @@ class TestLegacyCleanup(TempDirTest):
         other = self.tmp / "main-checkout"
         self.make_skill("main-checkout/skills", name="roj-a")
         (other / "install.py").write_text("")
-        (other / ".claude-plugin").mkdir()
-        (other / ".claude-plugin" / "marketplace.json").write_text("{}")
+        (other / "tools").mkdir()
+        (other / "tools" / "sync_shared.py").write_text("")
         root = self.tmp / "claude"
         self.link(root / "roj-a", other / "skills" / "roj-a")
         results, err = self.cleanup("claude", root)
@@ -1870,11 +1867,29 @@ class TestMain(TempDirTest):
         self.assertIn("--skills-only", out)
 
     def test_copy_cali_installed_survives_install(self):
-        self.make_skill("home/claude", name="roj-idea-to-project",
-                        content=OWNED.format("roj-idea-to-project"))
-        self.run_main(["--target", "claude"],
-                      cali_rows=rows("ok", "roj-idea-to-project"))
-        self.assertTrue((self.tmp / "home" / "claude" / "roj-idea-to-project").is_dir())
+        self.make_skill("home/copilot", name="roj-grill-plan",
+                        content=OWNED.format("roj-grill-plan"))
+        self.run_main(["--target", "copilot"],
+                      cali_rows=rows("ok", "roj-grill-plan"))
+        self.assertTrue((self.tmp / "home" / "copilot" / "roj-grill-plan").is_dir())
+
+    def test_archived_roj_idea_to_project_is_moved_aside(self):
+        # Issue #92 archived it; Cali had installed it for both agents and
+        # cali sync never deletes a folder, so install.py moves each copy.
+        for t in ("claude", "copilot"):
+            self.make_skill(f"home/{t}", name="roj-idea-to-project",
+                            content=OWNED.format("roj-idea-to-project") + "body\n")
+        code, _, out, _ = self.run_main(
+            [], cali_rows=rows("ok", "roj-idea-to-project"))
+        self.assertEqual(code, 0)
+        for t in ("claude", "copilot"):
+            with self.subTest(target=t):
+                kept = self.tmp / "home" / "backups" / t / "roj-idea-to-project"
+                self.assertFalse((self.tmp / "home" / t
+                                  / "roj-idea-to-project").exists())
+                self.assertEqual((kept / "SKILL.md").read_text(),
+                                 OWNED.format("roj-idea-to-project") + "body\n")
+                self.assertIn(f"moved to {kept} (retired skill)", out)
 
     def test_copy_cali_did_not_install_is_cleared_before_sync(self):
         self.make_skill("home/copilot", name="code-tour",
@@ -2177,53 +2192,37 @@ class TestWindowsLeg(TempDirTest):
         shutil.rmtree(self.linux)
         shutil.copytree(str(self.skills), str(self.linux))
         (self.linux / "roj-onboard-repo" / "SKILL.md").write_text("wsl copy")
-        self.claude_dir = self.tmp / "clone" / ".cali-claude"
-        self.claude_dir.parent.mkdir()
-        with mock.patch("install.CLAUDE_MANIFEST_DIR", self.claude_dir):
-            return self.run_main(list(argv), wsl=False,
-                                 cali_rows=rows("unlocked", *self.managed))
+        return self.run_main(list(argv), wsl=False,
+                             cali_rows=rows("unlocked", *self.managed))
 
     def assert_copilot_left_alone(self):
         self.assertEqual((self.linux / "roj-onboard-repo" / "SKILL.md")
                          .read_text(), "wsl copy")
         self.assertFalse((self.tmp / "home" / "backups").exists())
 
-    def test_git_bash_run_syncs_claude_only_when_wsl_owns_copilot(self):
-        code, calls, _, _ = self.git_bash_main()
+    def assert_git_bash_skips_sync(self, *argv):
+        # No cali.yaml skill targets Claude since roj-idea-to-project was
+        # archived (issue #92), so a Git Bash run has nothing to sync and
+        # writes no Claude-only manifest; it still does its extras.
+        code, calls, out, _ = self.git_bash_main(*argv)
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [install.cali_argv(
-            "/bin/cali", "sync", manifest=self.claude_dir / "cali.yaml")])
+        self.assertEqual(calls, [])
+        self.assertIn("skipped (Copilot skills come from WSL)", out)
         self.assert_copilot_left_alone()
+
+    def test_git_bash_run_skips_sync_when_wsl_owns_copilot(self):
+        self.assert_git_bash_skips_sync()
         home = self.tmp / "home"
         self.assertTrue((home / "instr" / "copilot.md").is_file())
         self.assertTrue((home / "mcp-copilot.json").is_file())
         self.assertTrue((home / "mcp-claude.json").is_file())
-        # cali.yaml: "only roj-idea-to-project also targets Claude".
-        deps = install.parse_manifest(
-            (self.claude_dir / "cali.yaml").read_text(encoding="utf-8"))
-        self.assertEqual([(d["name"], d["source"], d["targets"]) for d in deps],
-                         [("roj-idea-to-project", ".//skills/roj-idea-to-project",
-                           ("claude",))])
-        lock = json.loads((self.claude_dir / "cali.lock").read_text())
-        repo_lock = json.loads((install.REPO_ROOT / "cali.lock").read_text())
-        self.assertEqual(lock["skills"], {"roj-idea-to-project":
-                                          repo_lock["skills"]["roj-idea-to-project"]})
 
-    def test_git_bash_claude_target_still_syncs_when_wsl_owns_copilot(self):
-        code, calls, out, _ = self.git_bash_main("--target", "claude")
-        self.assertEqual(code, 0)
-        self.assertEqual(calls, [install.cali_argv(
-            "/bin/cali", "sync", manifest=self.claude_dir / "cali.yaml")])
-        self.assertNotIn("skipped", out)
-        self.assert_copilot_left_alone()
+    def test_git_bash_claude_target_skips_sync_when_wsl_owns_copilot(self):
+        self.assert_git_bash_skips_sync("--target", "claude")
+        self.assertTrue((self.tmp / "home" / "mcp-claude.json").is_file())
 
     def test_git_bash_copilot_target_skips_sync_when_wsl_owns_copilot(self):
-        code, calls, out, _ = self.git_bash_main("--target", "copilot")
-        self.assertEqual(code, 0)
-        self.assertEqual(calls, [])
-        self.assertIn("skipped (Copilot skills come from WSL)", out)
-        self.assertFalse(self.claude_dir.exists())
-        self.assert_copilot_left_alone()
+        self.assert_git_bash_skips_sync("--target", "copilot")
         self.assertTrue((self.tmp / "home" / "mcp-copilot.json").is_file())
 
     def test_windows_home_flag_names_the_home(self):

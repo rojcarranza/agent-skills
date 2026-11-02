@@ -120,13 +120,6 @@
       "commit": "",
       "tree": "07fe7cee7006cc1f72d7638047df1205680bf9b0"
     },
-    "roj-idea-to-project": {
-      "source": ".",
-      "path": "skills/roj-idea-to-project",
-      "ref": "",
-      "commit": "",
-      "tree": "f49c63201044f7b05cde90afce0f1ef9069607e4"
-    },
     "roj-interview-prep": {
       "source": ".",
       "path": "skills/roj-interview-prep",

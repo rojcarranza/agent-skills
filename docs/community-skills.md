@@ -178,7 +178,7 @@ Brainstorming, planning, TDD, subagent-driven development and review skills
 from [obra/superpowers](https://github.com/obra/superpowers) (MIT), installed
 as a plugin rather than through `cali.yaml`.
 
-`roj-idea-to-project` requires it and installs it on first run, after a yes:
+No skill here requires it. To install it by hand:
 
 - Claude Code: `claude plugin install superpowers@claude-plugins-official`;
   if that marketplace is not available, `claude plugin marketplace add
@@ -192,4 +192,4 @@ Copilot in VS Code and JetBrains is not supported yet: the skill folders
 install through `cali.yaml` at a pinned commit, but Superpowers ships no
 Copilot tool map and its session-start bootstrap does not run from a
 skills-only install. Curated marketplaces can lag behind the latest release
-(v7.0.0 rebuilt brainstorming); the skill offers `claude plugin update`.
+(v7.0.0 rebuilt brainstorming); `claude plugin update` catches up.

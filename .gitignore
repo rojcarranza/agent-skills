@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .DS_Store
 .private-patterns
+# Claude-only manifest older install.py runs wrote; safe to delete.
 .cali-claude/
 # Slide decks are work templates or work output (roj-one-slide): never commit
 *.pptx
