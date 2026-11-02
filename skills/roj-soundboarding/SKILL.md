@@ -2,6 +2,8 @@
 name: roj-soundboarding
 description: Soundboarding (SB) workflow - turn a user story (a story .md, pasted Jira ticket text, or a Jira key or URL read through a connected Atlassian/Jira tool) into an SB document with codebase-investigated core tasks, or implement an existing SB document task by task with review stops. Use when the user says "soundboarding", "create an SB", "SB document", "implement SB-...", "plan this ticket", "break this ticket into tasks", "break this story into tasks" or "refine this story", or asks to turn a story or ticket into a refined, investigated task list before implementation.
 license: MIT
+metadata:
+  cali-tools: git
 ---
 
 # Soundboarding

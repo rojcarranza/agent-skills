@@ -2,6 +2,8 @@
 name: roj-grill-plan
 description: Grill the user on a user story, an SB (soundboarding) document or a plan pasted in chat, in rounds of numbered questions that each carry a recommended answer, until no decision is left silently assumed. Looks facts up in the repo itself and only asks for decisions, then writes the agreed answers back into the file after confirmation. Use when the user says "grill me on this story", "grill SB-PROJ-123", "stress-test this plan", "poke holes in my plan", "resolve the open questions in the SB", or accepts the grilling offer at the end of a roj-soundboarding run. Not for finding defects in code (roj-code-review-pr) or explaining code (roj-explain-logic).
 license: MIT
+metadata:
+  cali-tools: git
 ---
 
 # Grill Plan

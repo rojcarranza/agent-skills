@@ -97,28 +97,28 @@
       "path": "skills/roj-code-review-pr",
       "ref": "",
       "commit": "",
-      "tree": "588233de5c68fe208211de9e2d1395e0553c2631"
+      "tree": "ba5965df852fdc42e829f2b347156a0d5e010b26"
     },
     "roj-explain-feature-changes": {
       "source": ".",
       "path": "skills/roj-explain-feature-changes",
       "ref": "",
       "commit": "",
-      "tree": "07b5e60d66a0a2ffacdb11dcdb50984d6eeb6d3c"
+      "tree": "3242705a90c9cae62aabff9f4bdbfa0a64c0540f"
     },
     "roj-explain-logic": {
       "source": ".",
       "path": "skills/roj-explain-logic",
       "ref": "",
       "commit": "",
-      "tree": "6b4ce01dd771c705867ecd23f7fcd7d0420fecb8"
+      "tree": "d2d7ee48587b5475148dd113c5c97e3ed76bb070"
     },
     "roj-grill-plan": {
       "source": ".",
       "path": "skills/roj-grill-plan",
       "ref": "",
       "commit": "",
-      "tree": "328e1a639713387518f2612641f074d839825e67"
+      "tree": "07fe7cee7006cc1f72d7638047df1205680bf9b0"
     },
     "roj-idea-to-project": {
       "source": ".",
@@ -146,28 +146,28 @@
       "path": "skills/roj-onboard-repo",
       "ref": "",
       "commit": "",
-      "tree": "a93ddfc4f84fe99738a9724d77f249033db66a29"
+      "tree": "c91526fe3e248ba4f217376982040ac49e6bda8d"
     },
     "roj-one-slide": {
       "source": ".",
       "path": "skills/roj-one-slide",
       "ref": "",
       "commit": "",
-      "tree": "315fc32ab8fb5575fc7cfaea9575c1f51a9b3eb3"
+      "tree": "f85fc7884db68084e4474e6b0384770403c2374f"
     },
     "roj-review-pr-comment": {
       "source": ".",
       "path": "skills/roj-review-pr-comment",
       "ref": "",
       "commit": "",
-      "tree": "f13f755a36de18db5e239d0ccf9b90dbdf4dcbef"
+      "tree": "975122d018f8affae1a82c6e74f93e284788525a"
     },
     "roj-soundboarding": {
       "source": ".",
       "path": "skills/roj-soundboarding",
       "ref": "",
       "commit": "",
-      "tree": "85eb6ae1b1e4a8d91a7abd119929b618d74d02d7"
+      "tree": "db6eb9edda09c654a2b6ee8b4f41d4abb1e446e0"
     },
     "security-and-hardening": {
       "source": "https://github.com/addyosmani/agent-skills",
