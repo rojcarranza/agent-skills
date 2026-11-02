@@ -160,6 +160,11 @@ skills:
     source: github:pbakaus/impeccable//plugin/skills/impeccable
     ref: aeeb3d8c30b5f95aeeb3e893b0f1a308af8fdb8f
     targets: [copilot]
+  # Cali's own skill: Copilot Chat runs cali in agent mode with it.
+  cali:
+    source: github:rojcarranza/cali//skills/cali
+    ref: 68c603293c75650ae2138a1f3a6281696e7d54be
+    targets: [copilot]
   # Optional — uncomment the entry's lines and re-run install.py:
   # grilling:
   #   source: github:mattpocock/skills//skills/productivity/grilling@49dd158d1076134a641b33efb035946536778336

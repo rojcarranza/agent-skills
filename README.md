@@ -17,7 +17,8 @@ installed by [Cali](https://github.com/rojcarranza/cali).
 
 1. Install `cali` from a clone of its repo (`make install`, or
    `sh scripts/install.sh` on Git Bash). `install.py` cannot install it for
-   you: it stops and prints those commands when `cali` is missing.
+   you: it stops and prints those commands when `cali` is missing, and how
+   to update it when it is too old.
 2. Clone this repo and run the installer:
 
    ```bash
@@ -28,16 +29,18 @@ installed by [Cali](https://github.com/rojcarranza/cali).
    ```
 
    On Windows use Git Bash and `python`. On WSL run it inside WSL: it
-   installs into the Linux home and also copies the Copilot skills to your
-   Windows home (`%USERPROFILE%`), which Windows-side VS Code and JetBrains
-   read, and moves retired skills such as `roj-tour-codebase` out of both.
-   `--windows-home PATH` names that home if it cannot be found. The WSL run
-   then owns the Windows Copilot skills folder, so WSL users run it from Git
-   Bash only for the extras it does not copy - `graphify`, the instructions
-   and the GitHub MCP server; that run leaves the Copilot skills alone.
-   `install.py` runs `cali sync -g --manifest <clone>/cali.yaml`, writes the
-   personal instructions and the GitHub MCP server entry, and installs
-   `graphify` (a CLI Cali does not install).
+   installs into the Linux home, and Cali also installs the Copilot skills
+   into your Windows home (`%USERPROFILE%`), which Windows-side VS Code and
+   JetBrains read. Retired skills such as `roj-tour-codebase` are moved out
+   of both. `--windows-home PATH` names that home if it cannot be found. The
+   WSL run then owns the Windows Copilot skills folder, so WSL users run it
+   from Git Bash only for the extras it does not install - `graphify`, the
+   instructions and the GitHub MCP server; that run leaves the Copilot
+   skills alone.
+   `install.py` runs `cali sync --prune -g --manifest <clone>/cali.yaml`
+   (with `--target` when you pass one), writes the personal instructions and
+   the GitHub MCP server entry, and installs `graphify` (a CLI Cali does not
+   install).
    It also installs 13 [Superpowers](docs/community-skills.md#superpowers)
    skills for Copilot Chat, with a start-up note that loads
    `using-superpowers` in every chat: a file in `~/.copilot/instructions` for
@@ -51,17 +54,29 @@ installed by [Cali](https://github.com/rojcarranza/cali).
    `install.py` and APM left for skills Cali installs again, and warns
    about the rest.
 
-To add or drop a skill, edit `cali.yaml` and re-run `install.py`.
+To add or drop a skill, edit `cali.yaml` and re-run `install.py`: a dropped
+skill is backed up and deleted (on WSL, from the Windows home only), unless
+you edited it.
 `install.py --update` lists skills with newer upstream versions; bump the
 SHA in `cali.yaml`, then `cali update -g --manifest cali.yaml --apply`.
 
 **Only some skills, with Node.js** — `npx skills add rojcarranza/agent-skills`
 (interactive), or `-s <skill> -a github-copilot -g`.
 
-**In a team repository** — add an `apm.yml` to that repo listing the skills
-it needs, e.g. `rojcarranza/agent-skills/skills/roj-code-review-pr#<commit>` (pin a commit), and
-run `apm install`. Commit `apm.yml` and `apm.lock.yaml`; teammates run
-`apm install` after cloning.
+**In a team repository** — run Cali inside that repo, without `-g`, naming
+each skill's folder:
+
+```bash
+cali add github:rojcarranza/agent-skills//skills/roj-code-review-pr --target copilot
+cali add https://bitbucket.example.com/scm/PROJ/team-skills.git//skills/<name> --target copilot
+```
+
+The second line is a Bitbucket Data Center repository, named by its clone
+address (`scm/~user/repo.git` for a personal one). Cali installs into
+`.github/skills/` and pins each skill to a commit in `cali.yaml` and
+`cali.lock` in the repo root. Commit all three: Copilot reads
+`.github/skills/` in every clone, and a teammate with Cali runs `cali sync`
+once after cloning so `cali status` and `cali update` work there.
 
 Every flag, the manifest, externals (`graphify`), the Windows VDI and
 JetBrains setup are in [docs/installer.md](docs/installer.md).

@@ -41,6 +41,8 @@ gates:
       test ! -e "$HOME/.claude/skills/caveman"
       test -f "$HOME/.copilot/skills/docx/SKILL.md"
       test ! -e "$HOME/.claude/skills/docx"
+      test -f "$HOME/.copilot/skills/cali/SKILL.md"
+      test ! -e "$HOME/.claude/skills/cali"
       test -f "$HOME/.copilot/instructions/personal.instructions.md"
       test -f "$HOME/.copilot/instructions/superpowers.instructions.md"
       grep -q "BEGIN agent-skills" "$HOME/.config/github-copilot/intellij/global-copilot-instructions.md"
