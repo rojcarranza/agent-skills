@@ -9,7 +9,7 @@
       },
       "expected_output": "SB-PROJ-3001.md in the repo root following the bundled template: exact current values read, a draft approach with a task flow in the Implementation plan, orders-gateway under Questions, nothing invented, nothing committed.",
       "expectations": [
-        "States the resolved SOUNDBOARD_DIR (the repo root) and that the bundled template is used, in a message sent before reading the story or any repository file",
+        "States the resolved SOUNDBOARD_DIR (the repo root) and that the bundled template is used, printed by the resolution command or written in the reply before reading the story or any repository file",
         "SB-PROJ-3001.md has exactly the template sections: Goal, Acceptance Criteria, Implementation plan, Core tasks, Questions, Notes, Testing - no extra section and no sprint review question",
         "The Implementation plan's Approach starts with the `> **Draft:**` marker, since neither the request nor the story gives an approach",
         "The Task flow is a ```mermaid flowchart with one node per core task (T1, T2, ...) matching the Core tasks checkboxes in order, grouped by repository",
@@ -58,7 +58,7 @@
       },
       "expected_output": "The team template in the repo root overrides the bundled one: its Rollout section and standing question appear in the SB.",
       "expectations": [
-        "States that SB-template.md from SOUNDBOARD_DIR is used instead of the bundled template, in a message sent before reading the story or any repository file",
+        "States that SB-template.md from SOUNDBOARD_DIR is used instead of the bundled template, printed by the resolution command or written in the reply before reading the story or any repository file",
         "SB-PROJ-3001.md contains the `## Rollout` section from the team template, between Core tasks and Questions",
         "The Questions section includes the on-call rota standing question from the team template",
         "Adds no `## Implementation plan` section, because the team template has none; a task flow, if drawn, sits under Core tasks",
