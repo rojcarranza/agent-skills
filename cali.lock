@@ -15,6 +15,13 @@
       "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
       "tree": "abe5c2fed8c215d4b86b77be1d8a7d0b0562651c"
     },
+    "cali": {
+      "source": "https://github.com/rojcarranza/cali",
+      "path": "skills/cali",
+      "ref": "68c603293c75650ae2138a1f3a6281696e7d54be",
+      "commit": "68c603293c75650ae2138a1f3a6281696e7d54be",
+      "tree": "7065a589968ecf2acc790956028fb6c4fb238439"
+    },
     "caveman": {
       "source": "https://github.com/juliusbrussee/caveman",
       "path": "skills/caveman",

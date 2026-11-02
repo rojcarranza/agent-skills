@@ -5,7 +5,8 @@ default, commented ones are optional: uncomment and re-run `install.py`.
 Every live one installs for Copilot only (`targets: [copilot]`).
 Sources: `github/awesome-copilot`, `juliusbrussee/caveman`,
 `addyosmani/agent-skills`, `warpdotdev/common-skills`, `anthropics/skills`,
-`vercel-labs/skills`, `pbakaus/impeccable` and `mattpocock/skills`. Each skill in `cali.yaml` gets a section here.
+`vercel-labs/skills`, `pbakaus/impeccable`, `rojcarranza/cali` and
+`mattpocock/skills`. Each skill in `cali.yaml` gets a section here.
 
 ## code-tour
 Creates CodeTour `.tour` walkthroughs through a repo, PR, or bug.
@@ -156,6 +157,18 @@ Its long builds spawn shipped agents (`impeccable-finish-reviewer`,
 folder, and Cali does not install them. Without them the skill falls back to
 its `reference/degraded/` in-thread passes. Agents left in `~/.claude/agents/`
 by impeccable's own installer are not updated with the pinned skill.
+
+## cali
+Teaches the agent to run Cali itself in agent mode (`CALI_AGENT=1`): read
+`cali status`, install, sync, preview and apply updates, and follow its `next:`
+line. From `rojcarranza/cali`, fetched from its `skills/` folder, so Copilot Chat
+can manage skills where a terminal agent is blocked.
+- `Which of my skills are outdated?`
+- `Update my skills and tell me what changed`
+
+Its rules stop on an update conflict and ask which side to keep, and leave
+`--force` and `--adopt` to you. In this repo, change `cali.yaml` and re-run
+`install.py` rather than letting it `cali add` a skill nothing records.
 
 ## grilling
 Interviews you about a plan, decision or idea in rounds: every question that
