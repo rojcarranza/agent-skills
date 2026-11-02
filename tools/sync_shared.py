@@ -24,7 +24,7 @@ SKILLS = Path(__file__).resolve().parent.parent / "skills"
 # dir shares every *.md in it; an owner file shares just that file; an owner
 # with a `*` shares the files that glob matches (review lenses travel as
 # `lang-*.md` and `platform-*.md`).
-REVIEW = "roj-code-review-pr/references/"
+REVIEW = "roj-review-code/references/"
 SHARED = {
     REVIEW + "review-method.md": (
         "roj-review-pr-comment/references",
@@ -44,7 +44,7 @@ SHARED = {
     ),
     REVIEW + "base-resolution.md": (
         "roj-explain-logic/references",
-        "roj-explain-feature-changes/references",
+        "roj-explain-my-branch/references",
     ),
     REVIEW + "forge-bitbucket-dc.md": (
         "roj-review-pr-comment/references",
@@ -53,7 +53,7 @@ SHARED = {
     REVIEW + "repo-map.md": (
         "roj-review-pr-comment/references",
         "roj-explain-logic/references",
-        "roj-explain-feature-changes/references",
+        "roj-explain-my-branch/references",
     ),
     REVIEW + "improvement-pass.md": (
         "roj-review-pr-comment/references",
@@ -65,14 +65,14 @@ SHARED = {
         "roj-review-pr-comment/references",
         "roj-onboard-repo/references",
         "roj-explain-logic/references",
-        "roj-explain-feature-changes/references",
+        "roj-explain-my-branch/references",
         "roj-investigate-issue/references",
         "roj-soundboarding/references",
         "roj-grill-plan/references",
     ),
     "roj-onboard-repo/references/mermaid.md": (
         "roj-explain-logic/references",
-        "roj-explain-feature-changes/references",
+        "roj-explain-my-branch/references",
         "roj-soundboarding/references",
     ),
     "roj-onboard-repo/references/html-page.md": (

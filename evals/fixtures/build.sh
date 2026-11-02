@@ -533,7 +533,7 @@ EOF
 }
 
 pr_review_file() { # $1 = the head the prepared review.md says it reviewed. Written
-  # untracked under .pr-review/pr-7/, as roj-code-review-pr writes it.
+  # untracked under .pr-review/pr-7/, as roj-review-code writes it.
   mkdir -p .pr-review/pr-7
   local head12=${1:0:12} body
   IFS= read -r -d '' body <<'EOF' || true

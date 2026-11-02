@@ -343,15 +343,15 @@ keeps the CLI out of a repo-managed file.
 
 Installing graphify saves nothing by itself: a skill has to ask the graph
 before reading files. Eight skills do, through the shared
-`references/graph-first.md` (owned by `roj-code-review-pr`, copied by
+`references/graph-first.md` (owned by `roj-review-code`, copied by
 `tools/sync_shared.py`):
 
 | Skill | Graph step |
 | --- | --- |
 | `roj-onboard-repo` | `GRAPH_REPORT.md` as the starting map; `graphify path` for the core flow |
 | `roj-explain-logic` | `graphify explain` / `path` for callers and callees |
-| `roj-explain-feature-changes` | `graphify affected` / `explain` while tracing |
-| `roj-code-review-pr`, `roj-review-pr-comment` | `graphify affected` in the system pass (callers of changed symbols) |
+| `roj-explain-my-branch` | `graphify affected` / `explain` while tracing |
+| `roj-review-code`, `roj-review-pr-comment` | `graphify affected` in the system pass (callers of changed symbols) |
 | `roj-investigate-issue` | `graphify query "<error line>"` in phase 2 |
 | `roj-soundboarding` | one `graphify query` per acceptance criterion |
 | `roj-grill-plan` | `graphify query` for each fact a question needs |
@@ -363,7 +363,7 @@ disk. Skills only run the read-only graphify queries (allowed alongside
 `git` in their command rules and `allowed-tools`); they never update or
 create the graph, and suggest `graphify update .` when it is stale. The graph only says where to
 look: findings and quotes still come from reading the lines.
-`roj-code-review-pr` in quick mode stays diff-local and never uses it. No skill
+`roj-review-code` in quick mode stays diff-local and never uses it. No skill
 creates `graphify-out/` unasked. Per repo, `graphify update .` builds a
 code-only graph in seconds without an LLM (this repo: about 1,500 nodes);
 `/graphify .` also maps docs and spends tokens doing it. Re-run

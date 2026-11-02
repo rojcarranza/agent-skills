@@ -1,6 +1,6 @@
 # Using the roj-review-pr-comment skill
 
-Reviews a Bitbucket Data Center pull request with the `roj-code-review-pr`
+Reviews a Bitbucket Data Center pull request with the `roj-review-code`
 method and turns the result into Bitbucket comments. By default you get a
 **draft**: each finding as `path:line` plus the comment text, ready to paste
 into the PR. It posts to the PR only when you say post or comment, or answer
@@ -64,7 +64,7 @@ never guessed from `origin/HEAD`.
 4. Reviews the diff with the method's severity and confidence gates, and
    drops findings that restate a comment already on the PR. When
    `.pr-review/pr-<id>/review.md` is a full review of the same head
-   (`roj-code-review-pr` writes it), the draft says `Findings reused from
+   (`roj-review-code` writes it), the draft says `Findings reused from
    review.md @ <head12>`: those findings are re-checked against the diff and
    nothing is reviewed twice. A different head, or no file, means a fresh
    review.
@@ -81,7 +81,7 @@ A clean PR is reported as "No findings." - the skill never invents findings.
 
 ## Suggestions (`improve`)
 
-On by default, as in `roj-code-review-pr` for a PR; say `no suggestions` for
+On by default, as in `roj-review-code` for a PR; say `no suggestions` for
 defects only. The draft has two headings, `Inline
 comments - defects (n)` and `Inline comments - suggestions (n)`. Defects fill
 the inline slots first; suggestions take at most 5 of the slots left, and the
@@ -93,7 +93,7 @@ leaves the suggestions in the draft, listed in the closing line, unless the
 request or your yes says `improve`. With `no suggestions` nothing is
 suggested and nothing like it is posted. The rules are in
 `references/improvement-pass.md`; the text of every comment is
-`references/pr-comments.md`, the format `roj-code-review-pr` also ends a PR
+`references/pr-comments.md`, the format `roj-review-code` also ends a PR
 review with.
 
 Works the same from bash and PowerShell: git commands are single lines, and

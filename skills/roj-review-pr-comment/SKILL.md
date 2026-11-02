@@ -1,6 +1,6 @@
 ---
 name: roj-review-pr-comment
-description: "Reviews a Bitbucket Data Center pull request without a checkout and writes the findings as paste-ready inline comments (file:line plus text), defects first, then non-blocking improvement suggestions. Posts the defect comments through the Bitbucket REST API only when the user says post or comment and BITBUCKET_TOKEN is set; add improve to post suggestions too. Use when the user says \"review PR 123 and comment\", \"draft review comments for PR 42\" \"post the review on this PR\" or \"leave inline comments on this Bitbucket pull request\", or gives a Bitbucket PR URL. Reuses a full review of the same head. For a review without comments use roj-code-review-pr."
+description: "Reviews a Bitbucket Data Center pull request without a checkout and writes the findings as paste-ready inline comments (file:line plus text), defects first, then non-blocking improvement suggestions. Posts the defect comments through the Bitbucket REST API only when the user says post or comment and BITBUCKET_TOKEN is set; add improve to post suggestions too. Use when the user says \"review PR 123 and comment\", \"draft review comments for PR 42\" \"post the review on this PR\" or \"leave inline comments on this Bitbucket pull request\", or gives a Bitbucket PR URL. Reuses a full review of the same head. For a review without comments use roj-review-code."
 argument-hint: "[PR id or URL] [post] [improve | no suggestions]"
 license: MIT
 metadata:
@@ -12,14 +12,14 @@ allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git show *) 
 
 # Review PR - draft comments, post on request
 
-Review a Bitbucket Data Center PR with the `roj-code-review-pr` method and
+Review a Bitbucket Data Center PR with the `roj-review-code` method and
 turn the result into Bitbucket comments: a draft to paste, and, when asked,
 the same comments posted through the REST API. The draft also carries
 non-blocking suggestions (`improve`, on by default for a PR; `no suggestions`
 turns it off), kept apart from the defects. The comment text and layout are
-`references/pr-comments.md`, the same format `roj-code-review-pr` ends a PR
+`references/pr-comments.md`, the same format `roj-review-code` ends a PR
 review with. A full review of the same head already written by
-`roj-code-review-pr` is reused, not repeated.
+`roj-review-code` is reused, not repeated.
 
 Rules for the whole run:
 
@@ -69,7 +69,7 @@ Rules for the whole run:
 ## 1. Load the method
 
 Read `references/review-method.md` and `references/cross-cutting.md` from
-this skill's folder - copies of `roj-code-review-pr`'s method, so this skill
+this skill's folder - copies of `roj-review-code`'s method, so this skill
 runs on its own. If they cannot be read, say so and stop. No review without
 the method.
 

@@ -41,7 +41,7 @@ Each step starts with a bold name and its anchor:
   deliberate no-op is worth a sentence - as a fact about the code, never as a
   criticism.
 - **No review.** No severity, no suggestion, no "this could be improved". A
-  reader who wants that runs `roj-code-review-pr`.
+  reader who wants that runs `roj-review-code`.
 - **Second person, no ceremony.** "You are now inside the retry loop", not
   "The reader will observe that".
 - **Execution order, always.** The reader follows control, not the file tree.

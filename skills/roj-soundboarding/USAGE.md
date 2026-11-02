@@ -108,7 +108,7 @@ plan is implemented in Core tasks order, as before.
 skill never creates a branch; `git switch -c <type>/<TICKET-ID>` carries your
 uncommitted edits along), runs a baseline test before the first task so
 failures that predate the work are not blamed on it, runs the narrowest
-relevant check after each task, and ends by offering `roj-code-review-pr` on
+relevant check after each task, and ends by offering `roj-review-code` on
 the working tree, passing the SB's acceptance criteria in the review request
 as what to check the change against. Once every code task is ticked it also
 offers a demo slide through `roj-one-slide`.

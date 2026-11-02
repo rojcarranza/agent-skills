@@ -1,5 +1,5 @@
 ---
-name: roj-explain-feature-changes
+name: roj-explain-my-branch
 description: "Explains the changes on the user's own Git feature branch against its base branch (develop or main) so they can explain them in PR review: what changed, why, how the new code works, before and after behavior and callers. Writes paste-ready PR text and per-change PR comments. Use when the user says \"explain my changes compared to develop\", \"help me understand what I changed in this branch\", \"generate something I can paste into my PR\" or \"help me explain these changes to my reviewer\". Not a code review, and not for a single file, a function or a branch the user did not write."
 argument-hint: "[base branch]"
 license: MIT
@@ -63,7 +63,7 @@ fallback.
 ## Phase 1 — Resolve the base branch
 
 Follow `references/base-resolution.md`: the user's argument
-(`/roj-explain-feature-changes release/2.4`), else the nearest of
+(`/roj-explain-my-branch release/2.4`), else the nearest of
 `origin/HEAD`'s branch, `develop`, `main` and `master`. Nothing resolves: ask
 which branch to compare against. Never guess.
 

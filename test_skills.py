@@ -143,8 +143,11 @@ class TestSpec(SkillTest):
         for d, fm, _ in self.each():
             desc = fm["description"]
             self.assertLessEqual(len(desc), DESCRIPTION_CAP)
-            self.assertNotRegex(re.sub(r'"[^"]*"', "", desc),
-                                r"(?i)\b(you|your|I|my)\b")
+            # Quoted triggers and skill names (roj-explain-my-branch) are
+            # not second-person prose.
+            prose = re.sub(r'"[^"]*"', "", desc)
+            prose = re.sub(r"\broj-[a-z-]+", "", prose)
+            self.assertNotRegex(prose, r"(?i)\b(you|your|I|my)\b")
 
     def test_argument_hint(self):
         """Every skill takes input (a PR, a file, a story), so each hints at
@@ -352,7 +355,7 @@ class TestGraphFirst(unittest.TestCase):
     one (references/graph-first.md)."""
 
     USES_GRAPH = ("roj-onboard-repo", "roj-explain-logic",
-                  "roj-explain-feature-changes", "roj-code-review-pr",
+                  "roj-explain-my-branch", "roj-review-code",
                   "roj-review-pr-comment", "roj-investigate-issue",
                   "roj-soundboarding", "roj-grill-plan")
     COMMANDS = ("graphify query", "graphify explain", "graphify path",
@@ -368,7 +371,7 @@ class TestGraphFirst(unittest.TestCase):
                     (skill / "references" / "graph-first.md").is_file())
 
     def test_reference_covers_the_commands_and_the_guards(self):
-        text = (SKILLS / "roj-code-review-pr" / "references"
+        text = (SKILLS / "roj-review-code" / "references"
                 / "graph-first.md").read_text("utf-8")
         for needle in self.COMMANDS + ("graphify-out/graph.json",
                                        "--budget", "INFERRED"):
@@ -376,7 +379,7 @@ class TestGraphFirst(unittest.TestCase):
                 self.assertIn(needle, text)
 
     def test_graph_is_read_only(self):
-        text = (SKILLS / "roj-code-review-pr" / "references"
+        text = (SKILLS / "roj-review-code" / "references"
                 / "graph-first.md").read_text("utf-8")
         self.assertIn("Built from commit:", text)
         self.assertIn("Never run `graphify update`", text)
@@ -384,8 +387,8 @@ class TestGraphFirst(unittest.TestCase):
     def test_command_rules_allow_the_graph_queries(self):
         # Skills whose rules list allowed commands must also allow the
         # read-only queries, or the graph step cannot run there.
-        for name in ("roj-onboard-repo", "roj-explain-feature-changes",
-                     "roj-code-review-pr", "roj-review-pr-comment"):
+        for name in ("roj-onboard-repo", "roj-explain-my-branch",
+                     "roj-review-code", "roj-review-pr-comment"):
             with self.subTest(name):
                 text = (SKILLS / name / "SKILL.md").read_text("utf-8")
                 self.assertIn("read-only `graphify` queries", text)
@@ -414,7 +417,7 @@ class TestGraphFirst(unittest.TestCase):
                     self.assertIn(status, closing)
 
     def test_graph_reference_has_only_three_statuses(self):
-        text = (SKILLS / "roj-code-review-pr" / "references"
+        text = (SKILLS / "roj-review-code" / "references"
                 / "graph-first.md").read_text("utf-8")
         flat = " ".join(text.split())
         statuses = set(re.findall(r"`Graph: [^`]*`", flat))
@@ -517,7 +520,7 @@ class TestOnboardRepoGuide(unittest.TestCase):
 
 
 class TestReviewModes(unittest.TestCase):
-    """roj-code-review-pr absorbed the fast review as its quick mode, and the
+    """roj-review-code absorbed the fast review as its quick mode, and the
     skills that read a branch diff ship the shared base resolution."""
 
     def test_fast_skill_is_gone(self):
@@ -525,8 +528,8 @@ class TestReviewModes(unittest.TestCase):
         self.assertFalse((ROOT / "evals" / "roj-code-review-pr-fast").exists())
 
     def test_diff_reading_skills_ship_base_resolution(self):
-        for name in ("roj-code-review-pr", "roj-explain-logic",
-                     "roj-explain-feature-changes"):
+        for name in ("roj-review-code", "roj-explain-logic",
+                     "roj-explain-my-branch"):
             with self.subTest(name):
                 self.assertTrue((SKILLS / name / "references" /
                                  "base-resolution.md").is_file())
@@ -537,9 +540,9 @@ class TestRepoMap(unittest.TestCase):
     map orients and never counts as evidence, and an untracked guide is never
     reviewed as if it were the change."""
 
-    OWNER = SKILLS / "roj-code-review-pr" / "references" / "repo-map.md"
-    CONSUMERS = ("roj-code-review-pr", "roj-explain-logic",
-                 "roj-review-pr-comment", "roj-explain-feature-changes")
+    OWNER = SKILLS / "roj-review-code" / "references" / "repo-map.md"
+    CONSUMERS = ("roj-review-code", "roj-explain-logic",
+                 "roj-review-pr-comment", "roj-explain-my-branch")
     OUTPUT_DIRS = (".onboarding/", ".pr-review/")
 
     def test_every_consumer_names_the_reference_and_ships_it(self):
@@ -564,7 +567,7 @@ class TestRepoMap(unittest.TestCase):
 
     def test_review_skill_keeps_agent_output_folders_out_of_the_change(self):
         for rel in ("SKILL.md", "references/full-review.md"):
-            text = (SKILLS / "roj-code-review-pr" / rel).read_text("utf-8")
+            text = (SKILLS / "roj-review-code" / rel).read_text("utf-8")
             flat = " ".join(text.split())
             for folder in self.OUTPUT_DIRS:
                 with self.subTest(file=rel, folder=folder):
@@ -573,7 +576,7 @@ class TestRepoMap(unittest.TestCase):
     def test_reference_commands_stay_inside_each_skills_allowed_tools(self):
         """The two commands the reference runs must pass the review skills'
         allow-lists, so reading the map never triggers an approval stop."""
-        for name in ("roj-code-review-pr", "roj-review-pr-comment"):
+        for name in ("roj-review-code", "roj-review-pr-comment"):
             fm, _ = frontmatter((SKILLS / name / "SKILL.md").read_text("utf-8"))
             tools = fm["allowed-tools"]
             with self.subTest(skill=name):
@@ -588,7 +591,7 @@ class TestImprovementPass(unittest.TestCase):
     full review report lives in .pr-review/pr-<n>/review.md, where the comment
     skill finds it for the same head instead of reviewing twice."""
 
-    REVIEW = SKILLS / "roj-code-review-pr"
+    REVIEW = SKILLS / "roj-review-code"
     COMMENT = SKILLS / "roj-review-pr-comment"
     OWNER = REVIEW / "references" / "improvement-pass.md"
 
@@ -605,7 +608,7 @@ class TestImprovementPass(unittest.TestCase):
                     .read_text("utf-8"), self.OWNER.read_text("utf-8"))
 
     def test_skills_that_never_suggest_do_not_ship_the_pass(self):
-        for name in ("roj-explain-logic", "roj-explain-feature-changes",
+        for name in ("roj-explain-logic", "roj-explain-my-branch",
                      "roj-onboard-repo"):
             with self.subTest(skill=name):
                 self.assertFalse((SKILLS / name / "references" /
@@ -693,11 +696,11 @@ class TestPrReviewDefaults(unittest.TestCase):
     model reads it before it reviews."""
 
     def test_skill_md_stays_short_enough_for_a_small_model(self):
-        text = (SKILLS / "roj-code-review-pr" / "SKILL.md").read_text("utf-8")
+        text = (SKILLS / "roj-review-code" / "SKILL.md").read_text("utf-8")
         self.assertLess(len(text.splitlines()), 300)
 
     def test_evals_cover_the_defaults_and_the_ansible_fixtures(self):
-        data = json.loads((ROOT / "evals" / "roj-code-review-pr"
+        data = json.loads((ROOT / "evals" / "roj-review-code"
                            / "evals.json").read_text("utf-8"))
         fixtures = {e["fixture"]["repo"] for e in data["evals"]}
         self.assertGreaterEqual(fixtures, {"ansible", "ansible-bb-pr"})
@@ -1103,7 +1106,7 @@ then this to use used user users using want when which with you your""".split())
 # owner and not to a sibling: the owner's description must score strictly
 # highest. Add a row when a description changes or two skills start to blur.
 ROUTES = {
-    "roj-code-review-pr": [
+    "roj-review-code": [
         "review my pull request before I merge",
         "do a code review of this branch and find defects",
         "quick review of my uncommitted changes",
@@ -1121,7 +1124,7 @@ ROUTES = {
         "what does this method do and who calls it",
         "explain this pull request and draw how the change flows",
     ],
-    "roj-explain-feature-changes": [
+    "roj-explain-my-branch": [
         "explain my changes compared to develop",
         "help me explain this branch to my reviewer",
         "generate text I can paste into my PR describing what I changed",

@@ -1,4 +1,4 @@
-# roj-code-review-pr - usage
+# roj-review-code - usage
 
 Reviews a Git change for defects: your own branch (uncommitted work
 included), a teammate's branch, or a Bitbucket Data Center pull request,
@@ -51,8 +51,8 @@ Explicit invocation differs per agent:
 
 | Agent | Command |
 | --- | --- |
-| Copilot, VS Code | `/roj-code-review-pr` |
-| Copilot, JetBrains | `/skill:roj-code-review-pr` |
+| Copilot, VS Code | `/roj-review-code` |
+| Copilot, JetBrains | `/skill:roj-review-code` |
 
 Both are personal scope once installed, so they reach every project
 with no per-repository seeding.
@@ -247,7 +247,7 @@ work VDI.
 
 If the skill does not appear in JetBrains: confirm chat is in agent mode,
 that the Copilot plugin is current, and that `install.py --status` lists
-`roj-code-review-pr` under `~/.copilot/skills`. Type `/skill:` to list
+`roj-review-code` under `~/.copilot/skills`. Type `/skill:` to list
 everything - the picker filters on the namespaced name, so `/code-rev`
 matches nothing there.
 

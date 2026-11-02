@@ -13,7 +13,7 @@ Creates CodeTour `.tour` walkthroughs through a repo, PR, or bug.
 - `Create a code tour of the auth flow for a new joiner`
 - `Make an RCA tour for the bug fixed in PR #97`
 
-`roj-explain-logic`, `roj-investigate-issue`, `roj-soundboarding` and `roj-code-review-pr`
+`roj-explain-logic`, `roj-investigate-issue`, `roj-soundboarding` and `roj-review-code`
 chain to this skill at the end of a run and fall back to writing a minimal
 `.tour` inline when it is absent. `roj-onboard-repo` invokes it by name, once,
 only when the reader asks for a tour of the core flow.
@@ -115,9 +115,9 @@ From `warpdotdev/common-skills` (MIT), fetched from its `.agents/skills/`
 folder.
 - `Write the PR description for this branch`
 
-`roj-explain-feature-changes` requires it and hands it verified facts for the
+`roj-explain-my-branch` requires it and hands it verified facts for the
 PR Explanation section, skipping its `gh` steps. Without it,
-`roj-explain-feature-changes` uses its own fallback rules.
+`roj-explain-my-branch` uses its own fallback rules.
 
 ## find-skills
 Searches the open skills ecosystem (`npx skills find <query>`) when a task

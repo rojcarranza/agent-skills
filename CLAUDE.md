@@ -45,7 +45,7 @@
   `test_skills.py`.
 - Shared files have one owner: edit the owner file listed in `tools/sync_shared.py`,
   then run `python3 tools/sync_shared.py` — never edit the copies in
-  `roj-review-pr-comment`, `roj-explain-logic` or `roj-explain-feature-changes`.
+  `roj-review-pr-comment`, `roj-explain-logic` or `roj-explain-my-branch`.
 - No personal paths, real ticket IDs or employer details in `skills/`.
   Employer-specific patterns live in the git-ignored `.private-patterns`.
 - A new skill is one PR: `skills/<name>/`, its `cali.yaml` entry

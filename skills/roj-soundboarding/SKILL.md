@@ -251,7 +251,7 @@ Multiple matches: list them and ask which. No match: STOP and ask.
    to Notes). Report a per-repository list of changed files for manual
    review and commit, plus the manual tasks still open.
    When any code task was approved, offer in one line: "Review the working
-   tree with roj-code-review-pr?" On a yes, chain to `roj-code-review-pr` on
+   tree with roj-review-code?" On a yes, chain to `roj-review-code` on
    the working tree, and put the SB's Acceptance Criteria in the review
    request as what to check the change against; if the skill is not
    installed, say so and stop. Never start the review unasked.

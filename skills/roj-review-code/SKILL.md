@@ -1,5 +1,5 @@
 ---
-name: roj-code-review-pr
+name: roj-review-code
 description: "Reviews a Git change for defects before it ships: the user's own branch with uncommitted work, a teammate's branch, or a Bitbucket Data Center pull request, without a checkout. A PR gets a full written review with non-blocking improvement suggestions and paste-ready path:line comments (quick or no suggestions opts out); an own branch gets a quick or full pass picked from the diff's size and risk. Use when the user says \"review my branch\", \"review my pull request\", \"review PR 123\", \"code review\", \"quick review\", \"find defects in this branch\" or \"suggest improvements to this PR\". Git only; to post comments use roj-review-pr-comment, to understand code use roj-explain-logic."
 argument-hint: "[PR id or URL | branch] [quick | no suggestions | improve]"
 license: MIT
