@@ -26,9 +26,8 @@ import install  # noqa: E402
 SPEC_KEYS = {"name", "description", "license", "compatibility", "metadata",
              "allowed-tools", "argument-hint"}
 # Every description loads into every session, so it stays short (the spec
-# allows 1024). roj-idea-to-project is exempt until its archive piece lands.
+# allows 1024).
 DESCRIPTION_CAP = 700
-CAP_EXEMPT = {"roj-idea-to-project"}
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 # Paths a SKILL.md tells the agent to open, relative to the skill root.
 LOCAL_REF_RE = re.compile(r"(?<![\w/.~-])((?:references|assets|scripts|examples)"
@@ -142,8 +141,6 @@ class TestSpec(SkillTest):
         """Best practice: a description loads in every session, so it stays
         under DESCRIPTION_CAP and speaks about the user, never to them."""
         for d, fm, _ in self.each():
-            if d.name in CAP_EXEMPT:
-                continue
             desc = fm["description"]
             self.assertLessEqual(len(desc), DESCRIPTION_CAP)
             self.assertNotRegex(re.sub(r'"[^"]*"', "", desc),
@@ -153,8 +150,6 @@ class TestSpec(SkillTest):
         """Every skill takes input (a PR, a file, a story), so each hints at
         it in the slash-command menu."""
         for d, fm, _ in self.each():
-            if d.name in CAP_EXEMPT:
-                continue
             hint = fm.get("argument-hint", "")
             self.assertTrue(hint, "add argument-hint")
             self.assertLessEqual(len(hint), 80)
