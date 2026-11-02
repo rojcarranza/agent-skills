@@ -1,6 +1,7 @@
 ---
 name: roj-one-slide
-description: Build one PowerPoint slide that presents an implemented story at a sprint demo or review, on the team's own deck template - story key and title, a one-sentence goal, then a before/after flow diagram or headed points with an optional process flow and screenshot. Input is an SB document from roj-soundboarding, a story file or pasted story text. Use when the user says "one slide", "demo slide", "sprint review slide", "make a slide for PROJ-123" or "present this story", or asks for a PowerPoint summary of a story they finished.
+description: "Builds one PowerPoint slide that presents an implemented story at a sprint demo or review, on the team's own deck template: story key and title, a one-sentence goal, then a before/after flow diagram or headed points with an optional process flow and screenshot. Input is an SB document from roj-soundboarding, a story file or pasted story text. Use when the user says \"one slide\", \"demo slide\", \"sprint review slide\", \"make a slide for PROJ-123\" or \"present this story\"."
+argument-hint: "[SB document | story file | story key]"
 license: MIT
 metadata:
   cali-tools: python3|python

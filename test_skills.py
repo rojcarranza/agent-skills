@@ -24,7 +24,10 @@ import sync_shared  # noqa: E402
 import install  # noqa: E402
 
 SPEC_KEYS = {"name", "description", "license", "compatibility", "metadata",
-             "allowed-tools"}
+             "allowed-tools", "argument-hint"}
+# Every description loads into every session, so it stays short (the spec
+# allows 1024).
+DESCRIPTION_CAP = 700
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 # Paths a SKILL.md tells the agent to open, relative to the skill root.
 LOCAL_REF_RE = re.compile(r"(?<![\w/.~-])((?:references|assets|scripts|examples)"
@@ -133,6 +136,23 @@ class TestSpec(SkillTest):
             self.assertLessEqual(len(desc), 1024)
             self.assertRegex(desc, r"\bUse (when|this)\b",
                              "say when to use the skill")
+
+    def test_description_is_short_and_third_person(self):
+        """Best practice: a description loads in every session, so it stays
+        under DESCRIPTION_CAP and speaks about the user, never to them."""
+        for d, fm, _ in self.each():
+            desc = fm["description"]
+            self.assertLessEqual(len(desc), DESCRIPTION_CAP)
+            self.assertNotRegex(re.sub(r'"[^"]*"', "", desc),
+                                r"(?i)\b(you|your|I|my)\b")
+
+    def test_argument_hint(self):
+        """Every skill takes input (a PR, a file, a story), so each hints at
+        it in the slash-command menu."""
+        for d, fm, _ in self.each():
+            hint = fm.get("argument-hint", "")
+            self.assertTrue(hint, "add argument-hint")
+            self.assertLessEqual(len(hint), 80)
 
     def test_plain_values_parse_as_written(self):
         """Unquoted YAML ends a value at ' #' (comment) and fails on ': '.
@@ -1307,7 +1327,7 @@ class TestPublishable(unittest.TestCase):
         for f in sorted([*SKILLS.rglob("*.md"), *SKILLS.rglob("*.json"),
                          *SKILLS.rglob("*.py"), *SKILLS.rglob("*.sh"),
                          *(ROOT / "evals").rglob("*.json"),
-                         *(ROOT / ".apm").rglob("*.md"),
+                         *(ROOT / "instructions").rglob("*.md"),
                          ROOT / "cali.yaml"]):
             text = f.read_text(encoding="utf-8")
             for n, line in enumerate(text.splitlines(), 1):
@@ -1379,7 +1399,7 @@ class TestManifest(unittest.TestCase):
                          {"claude", "copilot"})
 
     def test_instructions_apply_everywhere(self):
-        text = (ROOT / ".apm" / "instructions"
+        text = (ROOT / "instructions"
                 / "personal.instructions.md").read_text(encoding="utf-8")
         self.assertTrue(text.startswith("---\n"))
         self.assertIn('applyTo: "**"', text.split("---", 2)[1])

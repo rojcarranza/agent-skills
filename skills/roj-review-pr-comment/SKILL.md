@@ -1,6 +1,7 @@
 ---
 name: roj-review-pr-comment
-description: "Review a Bitbucket Data Center pull request without checking it out and write the findings as ready-to-paste inline comments (file:line plus text), defects first, then non-blocking improvement suggestions. Posts the defect comments to the PR through the Bitbucket REST API only when the user says post or comment, or answers yes, and a Bitbucket access token is configured in BITBUCKET_TOKEN; otherwise it stays a draft. Suggestions are posted too only when the request or the yes says improve. Use when the user asks to \"review PR 123 and comment\", \"draft review comments for PR 42\", \"post the review on this PR\", or gives a Bitbucket PR URL and wants comments. Say no suggestions for defects only. Reuses a full review of the same head instead of reviewing twice. Uses the roj-code-review-pr method. For a review with no comments, or a branch without a PR, use roj-code-review-pr."
+description: "Reviews a Bitbucket Data Center pull request without a checkout and writes the findings as paste-ready inline comments (file:line plus text), defects first, then non-blocking improvement suggestions. Posts the defect comments through the Bitbucket REST API only when the user says post or comment and BITBUCKET_TOKEN is set; add improve to post suggestions too. Use when the user says \"review PR 123 and comment\", \"draft review comments for PR 42\" \"post the review on this PR\" or \"leave inline comments on this Bitbucket pull request\", or gives a Bitbucket PR URL. Reuses a full review of the same head. For a review without comments use roj-code-review-pr."
+argument-hint: "[PR id or URL] [post] [improve | no suggestions]"
 license: MIT
 metadata:
   cali-env: BITBUCKET_URL, BITBUCKET_TOKEN

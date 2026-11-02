@@ -328,7 +328,10 @@ def resolve_windows_home(override=None):
 # copied them again. Cali never replaces a folder it did not install (sync
 # reports it as kept), and it deploys Copilot skills to ~/.copilot/skills,
 # so APM's ~/.agents/skills copies would load twice.
-INSTRUCTIONS_SRC = REPO_ROOT / ".apm" / "instructions" / "personal.instructions.md"
+INSTRUCTIONS_SRC = REPO_ROOT / "instructions" / "personal.instructions.md"
+# Where earlier commits kept the file (APM's folder), so their versions still
+# count as ours to update.
+INSTRUCTIONS_OLD_RELS = (".apm/instructions/personal.instructions.md",)
 
 
 def legacy_skill_names():
@@ -540,18 +543,20 @@ def shipped_instructions():
     on disk plus each committed one (none when git or history is missing).
     A deployed file equal to one of them is ours to update."""
     texts = {INSTRUCTIONS_SRC.read_text(encoding="utf-8")}
-    rel = INSTRUCTIONS_SRC.relative_to(REPO_ROOT).as_posix()
+    rels = (INSTRUCTIONS_SRC.relative_to(REPO_ROOT).as_posix(),
+            *INSTRUCTIONS_OLD_RELS)
     try:
-        log = subprocess.run(["git", "log", "--format=%H", "--", rel],
-                             cwd=str(REPO_ROOT), capture_output=True,
-                             text=True, timeout=60)
-        for sha in log.stdout.split() if log.returncode == 0 else ():
-            show = subprocess.run(["git", "show", f"{sha}:{rel}"],
-                                  cwd=str(REPO_ROOT), capture_output=True,
-                                  timeout=60)
-            if show.returncode == 0:
-                texts.add(show.stdout.decode("utf-8", "replace")
-                          .replace("\r\n", "\n"))
+        for rel in rels:
+            log = subprocess.run(["git", "log", "--format=%H", "--", rel],
+                                 cwd=str(REPO_ROOT), capture_output=True,
+                                 text=True, timeout=60)
+            for sha in log.stdout.split() if log.returncode == 0 else ():
+                show = subprocess.run(["git", "show", f"{sha}:{rel}"],
+                                      cwd=str(REPO_ROOT), capture_output=True,
+                                      timeout=60)
+                if show.returncode == 0:
+                    texts.add(show.stdout.decode("utf-8", "replace")
+                              .replace("\r\n", "\n"))
     except (OSError, subprocess.SubprocessError):
         pass
     return texts
