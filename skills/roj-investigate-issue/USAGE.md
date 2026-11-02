@@ -32,6 +32,17 @@ error text. Useful content:
 
     Context: <anything you know — works locally, only this agent, ...>
 
+## Earlier fixes (Jira and Confluence)
+
+Before forming hypotheses the skill searches resolved Jira issues and
+Confluence pages (Data Center) for a fix someone documented already, and
+cites what it finds as a lead, validated in the repo before it counts. It is
+read-only. Set `JIRA_URL`, `JIRA_TOKEN`, `CONFLUENCE_URL` and
+`CONFLUENCE_TOKEN` (personal access tokens) in your environment; `cali
+doctor` reports a missing one. Without them the skill asks you to paste the
+matching issues or pages instead, or to say "skip". Needs `python3` (or
+`python` on Windows).
+
 ## Install
 
 Copilot only. Install it with the rest of this repo: see

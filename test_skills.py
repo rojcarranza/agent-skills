@@ -1381,6 +1381,178 @@ class TestReviewPrCommentSkill(unittest.TestCase):
             self.assertFalse(tool.startswith(("Bash(gh", "Bash(curl")), tool)
 
 
+class TestAtlassianSearchScript(unittest.TestCase):
+    """scripts/atlassian_search.py (issue #91): the earlier-fix phase of
+    roj-investigate-issue reads Jira and Confluence over REST with personal
+    access tokens, read-only, and degrades to a pasted fallback."""
+
+    SKILL = SKILLS / "roj-investigate-issue"
+    TOKEN = "pat-secret-value"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.script = load_module(cls.SKILL / "scripts" / "atlassian_search.py")
+
+    def serve(self, jira_total=7):
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from urllib.parse import parse_qs, urlsplit
+        test = self
+        seen = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                url = urlsplit(self.path)
+                q = parse_qs(url.query)
+                seen.append((url.path, q, self.headers.get("Authorization")))
+                if self.headers.get("Authorization") != f"Bearer {test.TOKEN}":
+                    return self.reply(401, {})
+                if url.path == "/rest/api/2/search":
+                    issues = [] if "nomatch" in q["jql"][0] else [
+                        {"key": "OPS-12", "fields": {
+                            "summary": "Agent fails: no JDK 17",
+                            "status": {"name": "Done"},
+                            "resolution": {"name": "Fixed"},
+                            "resolutiondate": "2025-03-04T10:00:00.000+0000"}}]
+                    return self.reply(200, {"total": jira_total if issues else 0,
+                                            "issues": issues})
+                if url.path == "/rest/api/2/issue/OPS-12":
+                    return self.reply(200, {"key": "OPS-12", "fields": {
+                        "summary": "Agent fails: no JDK 17",
+                        "status": {"name": "Done"},
+                        "resolution": {"name": "Fixed"},
+                        "description": "x" * 3000,
+                        "comment": {"total": 1, "comments": [{
+                            "author": {"displayName": "Dev"},
+                            "created": "2025-03-04T09:00:00.000+0000",
+                            "body": "Install JDK 17 on the agent."}]}}})
+                if url.path == "/rest/api/search":
+                    return self.reply(200, {"totalSize": 1, "results": [{
+                        "title": "Agent capabilities",
+                        "excerpt": "set the @@@hl@@@JDK@@@endhl@@@ &amp; path",
+                        "lastModified": "2025-02-01T00:00:00.000Z",
+                        "resultGlobalContainer": {"title": "Build"},
+                        "content": {"id": "555"}}]})
+                if url.path == "/rest/api/content/555":
+                    return self.reply(200, {"id": "555", "title": "Agent capabilities",
+                        "space": {"name": "Build"},
+                        "version": {"when": "2025-02-01T00:00:00.000Z"},
+                        "body": {"storage": {"value":
+                            "<p>Add <b>JDK</b> capability.</p><script>x()</script>"}}})
+                self.reply(404, {})
+
+            def reply(self, status, body):
+                data = json.dumps(body).encode()
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+        url = f"http://127.0.0.1:{server.server_port}"
+        env = {"JIRA_URL": url, "JIRA_TOKEN": self.TOKEN,
+               "CONFLUENCE_URL": url, "CONFLUENCE_TOKEN": self.TOKEN}
+        return env, seen
+
+    def run_cmd(self, argv, env):
+        import io
+        out = io.StringIO()
+        code = self.script.main(argv, env=env, out=out)
+        self.assertNotIn(self.TOKEN, out.getvalue())
+        return code, json.loads(out.getvalue())
+
+    def test_skill_declares_its_needs_for_cali_doctor(self):
+        fm, _ = frontmatter((self.SKILL / "SKILL.md").read_text("utf-8"))
+        self.assertEqual(
+            [v.strip() for v in fm["metadata"]["cali-env"].split(",")],
+            ["JIRA_URL", "JIRA_TOKEN", "CONFLUENCE_URL", "CONFLUENCE_TOKEN"])
+        self.assertEqual(fm["metadata"]["cali-tools"], "python3|python")
+
+    def test_jira_search_lists_resolved_issues_leanly(self):
+        env, seen = self.serve()
+        code, data = self.run_cmd(
+            ["jira", "--text", 'JDK "17"', "--project", "OPS"], env)
+        self.assertEqual(code, 0)
+        self.assertEqual(data["results"][0], {
+            "key": "OPS-12", "summary": "Agent fails: no JDK 17",
+            "status": "Done", "resolution": "Fixed", "resolved": "2025-03-04"})
+        self.assertEqual((data["count"], data["total"]), (1, 7))
+        self.assertIn("6 more not shown", data["note"])
+        self.assertIn("jira-issue", data["next"])
+        jql = seen[0][1]["jql"][0]
+        self.assertIn('text ~ "JDK \\"17\\""', jql)
+        self.assertIn("resolution is not EMPTY", jql)
+        self.assertIn('project = "OPS"', jql)
+
+    def test_all_flag_drops_the_resolved_filter(self):
+        env, seen = self.serve()
+        self.run_cmd(["jira", "--text", "jdk", "--all"], env)
+        self.assertNotIn("resolution", seen[0][1]["jql"][0])
+
+    def test_empty_result_is_explicit_and_ok(self):
+        env, _ = self.serve()
+        code, data = self.run_cmd(["jira", "--text", "nomatch"], env)
+        self.assertEqual((code, data["count"]), (0, 0))
+        self.assertIn("no match", data["note"])
+
+    def test_jira_issue_truncates_and_keeps_the_fix_comment(self):
+        env, _ = self.serve()
+        _, data = self.run_cmd(["jira-issue", "--key", "OPS-12"], env)
+        self.assertEqual(len(data["description"]), self.script.MAX_TEXT)
+        self.assertEqual(data["descriptionFullChars"], 3000)
+        self.assertEqual(data["comments"][0]["body"],
+                         "Install JDK 17 on the agent.")
+
+    def test_confluence_search_and_page_read_as_text(self):
+        env, _ = self.serve()
+        _, hits = self.run_cmd(["confluence", "--text", "jdk",
+                                "--space", "BUILD"], env)
+        self.assertEqual(hits["results"][0]["id"], "555")
+        self.assertNotIn("@@@", hits["results"][0]["excerpt"])
+        _, page = self.run_cmd(["confluence-page", "--id", "555"], env)
+        self.assertEqual(page["body"], "Add JDK capability.")
+
+    def test_missing_or_rejected_token_has_its_own_exit_code(self):
+        env, _ = self.serve()
+        code, data = self.run_cmd(
+            ["jira", "--text", "x"], {**env, "JIRA_TOKEN": ""})
+        self.assertEqual((code, data["exit"]), (3, 3))
+        self.assertIn("paste", data["next"])
+        code, _ = self.run_cmd(["jira", "--text", "x"],
+                               {**env, "JIRA_TOKEN": "wrong"})
+        self.assertEqual(code, 4)
+        code, _ = self.run_cmd(["jira", "--text", "x"], {})
+        self.assertEqual(code, 2)
+        self.assertEqual(self.run_cmd(["token-status"], {})[1],
+                         {"jira": {"url": False, "token": False},
+                          "confluence": {"url": False, "token": False}})
+
+    def test_clear_text_remote_url_and_unknown_flags_fail_loud(self):
+        code, _ = self.run_cmd(["jira", "--text", "x"], {
+            "JIRA_URL": "http://jira.example.com", "JIRA_TOKEN": "t"})
+        self.assertEqual(code, 2)
+        env, _ = self.serve()
+        self.assertEqual(self.run_cmd(["jira", "--text", "x", "--bogus"],
+                                      env)[0], 2)
+        self.assertEqual(self.run_cmd(["jira", "--text", "x", "--limit",
+                                       "99"], env)[0], 2)
+
+    def test_skill_runs_the_phase_and_keeps_it_read_only(self):
+        body = (self.SKILL / "SKILL.md").read_text("utf-8")
+        self.assertIn("references/earlier-fixes.md", body)
+        ref = (self.SKILL / "references" / "earlier-fixes.md").read_text("utf-8")
+        self.assertIn("Paste fallback", ref)
+        self.assertNotIn("POST", (self.SKILL / "scripts"
+                                  / "atlassian_search.py").read_text("utf-8"))
+
+
 class TestBitbucketPrScript(unittest.TestCase):
     """scripts/bitbucket_pr.py against the stand-in server the evals use."""
 

@@ -2,6 +2,9 @@
 name: roj-investigate-issue
 description: Investigate a reported bug or build failure, validate the root cause in the checked-out repo, and write a step-by-step solution report as a Markdown file. Use when the user says "investigate this issue", "validate this bug", "why did this pipeline/build fail", "find the root cause", or drops a problem/context .md file containing an error, stack trace, or build log. Covers Atlassian Bamboo pipelines, build plans and agents, plus Java, Python, Bash, Go, Dockerfiles, and Kubernetes manifests. Do NOT use for pure comprehension requests ("explain this code", "walk me through") — that is roj-explain-logic's job.
 license: MIT
+metadata:
+  cali-env: JIRA_URL, JIRA_TOKEN, CONFLUENCE_URL, CONFLUENCE_TOKEN
+  cali-tools: python3|python
 ---
 
 # Investigate Issue
@@ -15,6 +18,9 @@ Rules that hold for the whole run:
 
 - Evidence is the problem `.md` (pasted logs/errors) plus the local repo.
   There is no live Bamboo access — never invent build state.
+- Jira and Confluence are read-only leads (phase 2b), never proof: a past
+  fix is cited with its key or page id and validated in this repo before it
+  becomes the root cause.
 - No fix is proposed before a root cause survives validation.
 - Root cause is labeled **Confirmed** (reproduced locally) or
   **Probable** (evidence-only) — never presented as certain when it is not.
@@ -82,6 +88,25 @@ Locate the code behind the failure:
   pins, base images in Dockerfiles, agent OS hints (shebangs, image
   tags, capability files).
 
+## Phase 2b — Earlier fixes
+
+Someone may have solved this before. Search resolved Jira issues and
+Confluence pages for the decisive error line and the failing component;
+details, the exact commands and the paste fallback are in
+`references/earlier-fixes.md`. Read it now.
+
+- Read-only; run `scripts/atlassian_search.py token-status` first. Both
+  products have a URL and token: search. Either missing: do not stop — ask
+  the user once to paste matching issues or pages, or say "skip".
+- Searching sends words from the problem to the company's own Jira and
+  Confluence. Use the error text and component names, never secrets, and
+  never post, comment or edit.
+- The hits feed phase 3 as hypotheses with `Earlier fix: PROJ-123` as the
+  evidence for; they never skip phase 4. Record the keys/ids consulted, and
+  that nothing was found when so, for the report's Evidence section.
+- Skip with a reason in the report when the failure is plainly local (a typo
+  in the repo, say) or the user says "no history".
+
 ## Phase 3 — Hypothesize
 
 If a systematic debugging skill is available
@@ -93,6 +118,7 @@ invoke it now and let its discipline govern phases 3–4. Inline fallback:
 - Ground Bamboo-class hypotheses in `references/bamboo-failures.md`;
   ground docker/k8s/language classes in `references/domain-checks.md`.
   Load only the reference matching the phase-1 class.
+- Add each phase-2b earlier fix as a hypothesis with its key or page id.
 - Rejected hypotheses are kept — the report lists them with the
   disqualifying evidence.
 
