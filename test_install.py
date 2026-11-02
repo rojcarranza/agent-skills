@@ -1203,11 +1203,11 @@ class TestLegacyCleanup(TempDirTest):
 
     def test_stale_names_are_other_target_skills_and_retired_ones(self):
         retired = set(install.RETIRED_SKILLS)
-        # caveman was Copilot only before: no install put it in Claude.
-        self.assertEqual(install.stale_skill_names("claude"), {"roj-b"} | retired)
-        # Superpowers' systematic-debugging replaced this Copilot stand-in.
-        self.assertEqual(install.stale_skill_names("copilot"),
-                         retired | {"debugging-and-error-recovery"})
+        # caveman was Copilot only before: no install put it in Claude, and
+        # neither did one put the debugging stand-in Superpowers replaced.
+        self.assertEqual(install.stale_skill_names("claude"),
+                         {"roj-b"} | retired - {"debugging-and-error-recovery"})
+        self.assertEqual(install.stale_skill_names("copilot"), retired)
 
     def test_legacy_names_are_custom_plus_manifest(self):
         self.assertEqual(install.legacy_skill_names(),
