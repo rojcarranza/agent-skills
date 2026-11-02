@@ -51,7 +51,7 @@ Copilot only. Install it with the rest of this repo: see
 work VDI.
 
 The installer also fetches the chained helper skills:
-`debugging-and-error-recovery` (addyosmani/agent-skills) and
+`systematic-debugging` (Superpowers) and
 `context-map` (awesome-copilot). The skill works without them — they
 sharpen the method when present.
 

@@ -42,6 +42,14 @@ gates:
       test -f "$HOME/.copilot/skills/docx/SKILL.md"
       test ! -e "$HOME/.claude/skills/docx"
       test -f "$HOME/.copilot/instructions/personal.instructions.md"
+      test -f "$HOME/.copilot/instructions/superpowers.instructions.md"
+      grep -q "BEGIN agent-skills" "$HOME/.config/github-copilot/intellij/global-copilot-instructions.md"
+      for n in brainstorming systematic-debugging using-superpowers writing-plans; do
+        test -f "$HOME/.copilot/skills/$n/SKILL.md"
+        test ! -e "$HOME/.claude/skills/$n"
+      done
+      test ! -e "$HOME/.copilot/skills/writing-skills"
+      test ! -e "$HOME/.copilot/skills/debugging-and-error-recovery"
       test ! -e "$HOME/.claude/rules/personal.md"
       grep -q github-mcp-server "$HOME/.claude.json"
       grep -q github-mcp-server "$HOME/.copilot/mcp-config.json"

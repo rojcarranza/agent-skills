@@ -43,14 +43,27 @@ Terse-output mode — cuts output tokens while keeping technical substance.
 - `Caveman mode: explain this build failure`
 - Combine with other skills: `use caveman mode` appended to any prompt.
 
-## debugging-and-error-recovery
-Systematic debugging discipline: reproduce, isolate, fix, verify. From
-`addyosmani/agent-skills`, Copilot only — on Claude the superpowers plugin's
-`systematic-debugging` fills the same role.
-- `Debug why the payment webhook test fails intermittently`
+## Superpowers
+13 of the 15 skills of [`obra/superpowers`](https://github.com/obra/superpowers)
+7.0.0 (`brainstorming`, `writing-plans`, `executing-plans`,
+`subagent-driven-development`, `systematic-debugging`,
+`test-driven-development`, `using-git-worktrees`, `requesting-code-review`,
+`receiving-code-review`, `verification-before-completion`,
+`finishing-a-development-branch`, `dispatching-parallel-agents` and
+`using-superpowers`), Copilot only: Claude has the plugin.
+`writing-skills` and `diagnosing-superpowers` are left out. The skills call
+each other, so they install as a set. They stay inert in Copilot Chat without
+a start-up note, so `install.py` also writes
+`instructions/superpowers.instructions.md` (VS Code) and a marked block
+in JetBrains' global instruction file; both load `using-superpowers` in every
+chat and map Claude's tool names to Copilot's.
+- `/brainstorming` in VS Code, `/skill:brainstorming` in JetBrains.
+- `Debug why the payment webhook test fails intermittently` uses
+  `systematic-debugging`, which replaced the `debugging-and-error-recovery`
+  stand-in.
 
-`roj-investigate-issue` hands phases 3–4 to it (or to `systematic-debugging`)
-when present and keeps an inline hypothesis list otherwise.
+`roj-investigate-issue` hands phases 3–4 to `systematic-debugging` when
+present and keeps an inline hypothesis list otherwise.
 
 ## observability-and-instrumentation
 Adds logging, metrics and tracing to code that lacks them. Cherry-pick from

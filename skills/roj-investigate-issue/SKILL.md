@@ -110,8 +110,7 @@ details, the exact commands and the paste fallback are in
 
 ## Phase 3 — Hypothesize
 
-If a systematic debugging skill is available
-(`debugging-and-error-recovery`, or `systematic-debugging` on Claude),
+If the `systematic-debugging` skill is available,
 invoke it now and let its discipline govern phases 3–4. Inline fallback:
 
 - Write a ranked hypothesis list. Each entry: cause, evidence for,

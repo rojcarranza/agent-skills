@@ -577,6 +577,10 @@ class TestCliPathHint(ExternalTest):
                            return_value=self.tmp / "agents"), \
                 mock.patch("install.instruction_path",
                            return_value=self.tmp / "instr.md"), \
+                mock.patch("install.startup_note_path",
+                           return_value=self.tmp / "note.md"), \
+                mock.patch("install.jetbrains_instruction_path",
+                           return_value=self.tmp / "jb.md"), \
                 mock.patch("install.claude_rules_path",
                            return_value=self.tmp / "rules.md"), \
                 mock.patch("install.target_root", return_value=dest), \
@@ -827,7 +831,7 @@ class TestSkillDependencies(unittest.TestCase):
     cali.yaml instead of silently relying on a manual install."""
 
     # Claude plugins (not skills.sh skills) that our skills chain to.
-    PLUGIN_PROVIDED = {"systematic-debugging"}
+    PLUGIN_PROVIDED = set()
     # Matches of the scanner below that are not skill names.
     NOT_SKILLS = {"code-review", "file:line", "git", "path:start-end",
                   "target", "yield"}
@@ -883,7 +887,7 @@ class TestSkillDependencies(unittest.TestCase):
         found = self.referenced()
         for name in ("code-tour", "context-map", "caveman",
                      "acquire-codebase-knowledge", "write-pr-description",
-                     "debugging-and-error-recovery", "find-skills"):
+                     "systematic-debugging", "find-skills"):
             with self.subTest(name):
                 self.assertIn(name, found)
 
@@ -1199,8 +1203,10 @@ class TestLegacyCleanup(TempDirTest):
 
     def test_stale_names_are_other_target_skills_and_retired_ones(self):
         retired = set(install.RETIRED_SKILLS)
-        # caveman was Copilot only before: no install put it in Claude.
-        self.assertEqual(install.stale_skill_names("claude"), {"roj-b"} | retired)
+        # caveman was Copilot only before: no install put it in Claude, and
+        # neither did one put the debugging stand-in Superpowers replaced.
+        self.assertEqual(install.stale_skill_names("claude"),
+                         {"roj-b"} | retired - {"debugging-and-error-recovery"})
         self.assertEqual(install.stale_skill_names("copilot"), retired)
 
     def test_legacy_names_are_custom_plus_manifest(self):
@@ -1541,7 +1547,14 @@ class TestInstructions(TempDirTest):
             "copilot": self.tmp / "home" / ".copilot" / "instructions"
                        / "personal.instructions.md",
             "claude": None}
+        self.note = self.tmp / "home" / ".copilot" / "instructions" \
+            / "superpowers.instructions.md"
+        self.jetbrains = self.tmp / "home" / "jetbrains" / "global.md"
         for p in (mock.patch("install.INSTRUCTIONS_SRC", self.src),
+                  mock.patch("install.startup_note_path",
+                             side_effect=lambda t: self.note),
+                  mock.patch("install.jetbrains_instruction_path",
+                             return_value=self.jetbrains),
                   mock.patch("install.instruction_path",
                              side_effect=lambda t: self.dest[t]),
                   mock.patch("install.shipped_instructions",
@@ -1549,10 +1562,12 @@ class TestInstructions(TempDirTest):
             p.start()
             self.addCleanup(p.stop)
 
-    def deploy(self, target, dry_run=False):
+    def deploy(self, target, dry_run=False, everything=False):
         err = io.StringIO()
         with mock.patch("sys.stderr", err):
             results = install.install_instructions(target, dry_run)
+        if not everything:  # the personal file; the note has its own tests
+            results = [r for r in results if r[1] == "personal.instructions.md"]
         return results, err.getvalue()
 
     def test_claude_gets_no_instructions(self):
@@ -1618,6 +1633,53 @@ class TestInstructions(TempDirTest):
         results, _ = self.deploy("copilot", dry_run=True)
         self.assertFalse(self.dest["copilot"].exists())
         self.assertEqual(results[0][2], "installed")
+
+
+    # SCR-15 piece 1: the Superpowers start-up note and JetBrains' file.
+    def test_startup_note_deployed_beside_the_personal_file(self):
+        self.deploy("copilot")
+        self.assertEqual(self.note.read_text(),
+                         install.STARTUP_NOTE_SRC.read_text(encoding="utf-8"))
+
+    def test_jetbrains_block_holds_note_then_personal_instructions(self):
+        results, _ = self.deploy("copilot", everything=True)
+        text = self.jetbrains.read_text()
+        self.assertIn(("copilot", "global.md", "installed"), results)
+        self.assertTrue(text.startswith(install.JETBRAINS_BEGIN))
+        self.assertTrue(text.endswith(install.JETBRAINS_END + "\n"))
+        self.assertLess(text.index("using-superpowers"), text.index("# Rules"))
+        self.assertNotIn("applyTo", text)  # front matter is dropped
+
+    def test_jetbrains_keeps_own_text_and_replaces_only_the_block(self):
+        self.jetbrains.parent.mkdir(parents=True)
+        self.jetbrains.write_text("Mine above.\n\n" + install.JETBRAINS_BEGIN
+                                  + "\nstale\n" + install.JETBRAINS_END
+                                  + "\n\nMine below.\n")
+        self.deploy("copilot")
+        text = self.jetbrains.read_text()
+        self.assertTrue(text.startswith("Mine above.\n\n"))
+        self.assertTrue(text.endswith(install.JETBRAINS_END + "\n\nMine below.\n"))
+        self.assertNotIn("stale", text)
+        self.assertEqual(text.count(install.JETBRAINS_BEGIN), 1)
+
+    def test_jetbrains_appends_the_block_to_a_file_without_markers(self):
+        self.jetbrains.parent.mkdir(parents=True)
+        self.jetbrains.write_text("Mine only.\n")
+        self.deploy("copilot")
+        text = self.jetbrains.read_text()
+        self.assertTrue(text.startswith("Mine only.\n"))
+        self.assertIn(install.JETBRAINS_BEGIN, text)
+
+    def test_jetbrains_second_run_is_silent(self):
+        self.deploy("copilot")
+        before = self.jetbrains.read_text()
+        results, _ = self.deploy("copilot", everything=True)
+        self.assertEqual(results, [])
+        self.assertEqual(self.jetbrains.read_text(), before)
+
+    def test_jetbrains_dry_run_writes_nothing(self):
+        self.deploy("copilot", dry_run=True)
+        self.assertFalse(self.jetbrains.exists())
 
 
 class TestRetireClaudeRules(TempDirTest):
@@ -1708,6 +1770,17 @@ class TestInstructionSources(unittest.TestCase):
                              Path("/h/.copilot/instructions/personal.instructions.md"))
 
 
+    def test_jetbrains_paths(self):
+        with mock.patch("install.Path.home", return_value=Path("/h")):
+            self.assertEqual(
+                install.jetbrains_instruction_path(windows=False),
+                Path("/h/.config/github-copilot/intellij/global-copilot-instructions.md"))
+            self.assertEqual(
+                install.jetbrains_instruction_path(home=Path("/mnt/c/Users/me")),
+                Path("/mnt/c/Users/me/AppData/Local/github-copilot/intellij/"
+                     "global-copilot-instructions.md"))
+
+
 class TestMain(TempDirTest):
     """main() end to end with cali, externals and homes faked."""
 
@@ -1736,6 +1809,11 @@ class TestMain(TempDirTest):
                 mock.patch("install.instruction_path",
                            side_effect=lambda t: None if t == "claude"
                            else home / "instr" / f"{t}.md"),
+                mock.patch("install.startup_note_path",
+                           side_effect=lambda t: None if t == "claude"
+                           else home / "instr" / "note.md"),
+                mock.patch("install.jetbrains_instruction_path",
+                           return_value=home / "jetbrains.md"),
                 mock.patch("install.mcp_config_path",
                            side_effect=lambda t: home / f"mcp-{t}.json"),
                 mock.patch("install.claude_commands_dir",

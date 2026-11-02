@@ -108,8 +108,17 @@ Where things land:
 | Instructions | none (`~/.claude/CLAUDE.md` is yours) | `~/.copilot/instructions/personal.instructions.md` |
 | MCP servers | `~/.claude.json` (`mcpServers`) | `~/.copilot/mcp-config.json` (`mcpServers`) |
 
-The instruction file is `instructions/personal.instructions.md`, deployed
-to Copilot as is. Claude gets none: it reads the global `~/.claude/CLAUDE.md`.
+The instruction files are `instructions/personal.instructions.md` and
+`instructions/superpowers.instructions.md` (the Superpowers start-up
+note and tool map), both deployed to `~/.copilot/instructions/` as is. VS Code
+reads that folder; JetBrains does not, it reads one global file
+(`~/.config/github-copilot/intellij/global-copilot-instructions.md`, or
+`%LOCALAPPDATA%\github-copilot\intellij\global-copilot-instructions.md` on
+Windows, per Microsoft's Java blog of July 9, 2025; the WSL run also writes
+the Windows one). `install.py` writes the note and the personal instructions
+there between `<!-- BEGIN agent-skills ... -->` and `<!-- END agent-skills -->`;
+text outside the markers is kept, and edits inside are replaced on the next run.
+Claude gets none: it reads the global `~/.claude/CLAUDE.md`.
 An earlier `~/.claude/rules/personal.md` is moved to the backup folder (see
 "Old installs") when its body is a version this repo shipped; an edited copy
 or a link is kept with a warning. A deployed file is replaced when it is
@@ -161,7 +170,8 @@ skills in `cali.yaml` for that target.
   shows who put it there. The run and `--status` print its full path with a
   warning that it is left over; delete it by hand if it is stale. Skills
   that were always Copilot only (`NEVER_CLAUDE_SKILLS`: `caveman`,
-  `debugging-and-error-recovery`) are never stale in `~/.claude/skills`. A
+  `debugging-and-error-recovery`, which Superpowers' `systematic-debugging`
+  replaced and Copilot's copy is moved aside as retired) are never stale in `~/.claude/skills`. A
   folder with any other name, such as `no-mistakes`, is never touched.
 - `~/.claude/rules/personal.md`, which earlier versions deployed for
   Claude, is moved to `<backup>/claude/personal.md` when its body is a
