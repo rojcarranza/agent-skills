@@ -68,8 +68,10 @@ add, change or remove, in run order.
 - Each message starts with `+`, `~` or `-` and ends with `planned` for a step
   the core tasks will make, or `read` for what the code does today.
 - A removed step is a `Note over` inside a red `rect` block.
-- No runtime path or pipeline changes (a version bump, a value no path reads
-  differently): write `- Not drawn: no runtime path or pipeline changes.`
+- A step that builds, deploys or runs a new version or image is a changed
+  step: `~ start the image with agent 12.1.6 on JDK 21, planned`.
+- No step runs differently (a doc, a test, a value nothing reads at run
+  time): write `- Not drawn: no runtime path or pipeline changes.`
 
 ## A template without the section
 

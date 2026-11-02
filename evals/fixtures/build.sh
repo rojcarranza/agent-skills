@@ -1096,7 +1096,19 @@ flowchart TD
 
 ### Change flow
 
-- Not drawn: no runtime path or pipeline changes.
+```mermaid
+sequenceDiagram
+  autonumber
+  participant B as orders image build
+  participant C as orders-chart
+  participant K as orders pods
+  rect rgba(255,190,0,0.15)
+    B->>C: ~ build orders 1.9.0 from python:3.12-slim, planned
+  end
+  rect rgba(255,190,0,0.15)
+    C->>K: ~ deploy image tag 1.9.0, planned
+  end
+```
 
 ## Core tasks
 

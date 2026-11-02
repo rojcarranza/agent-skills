@@ -13,6 +13,7 @@
         "SB-PROJ-3001.md has exactly the template sections: Goal, Acceptance Criteria, Implementation plan, Core tasks, Questions, Notes, Testing - no extra section and no sprint review question",
         "The Implementation plan's Approach starts with the `> **Draft:**` marker, since neither the request nor the story gives an approach",
         "The Task flow is a ```mermaid flowchart with one node per core task (T1, T2, ...) matching the Core tasks checkboxes in order, grouped by repository",
+        "The Change flow is a ```mermaid sequenceDiagram that marks the image build or the deployment on the new version as `~` changed steps, not a `Not drawn:` line",
         "Before values are the ones in the files: `python:3.10-slim` in Dockerfile, `>=3.10` for requires-python in pyproject.toml, and tag `1.8.0` in the orders-chart checkout values.yaml",
         "Every before/after row has a Location in `path:line` form and a Source",
         "orders-gateway is listed under Questions as not cloned locally and no contents of it are described",
