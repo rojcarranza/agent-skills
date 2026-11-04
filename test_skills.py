@@ -1248,22 +1248,6 @@ except ImportError:
     HAVE_PPTX = False
 
 
-class TestOneSlideSpecs(unittest.TestCase):
-    """The bundled example specs are what the agent starts from."""
-
-    ASSETS = SKILLS / "roj-one-slide" / "assets"
-
-    def test_examples_cover_both_bodies_and_the_required_fields(self):
-        kinds = set()
-        for f in sorted(self.ASSETS.glob("example-*.json")):
-            with self.subTest(example=f.name):
-                spec = json.loads(f.read_text("utf-8"))
-                self.assertTrue(spec["title"])
-                self.assertTrue(spec["body"]["goal"])
-                kinds.add(spec["body"]["kind"])
-        self.assertEqual(kinds, {"before_after", "sections"})
-
-
 @unittest.skipUnless(HAVE_PPTX, "needs python-pptx")
 class TestOneSlideScript(unittest.TestCase):
     """build_slide.py puts exactly one slide on the user's template, leaves
@@ -1294,9 +1278,76 @@ class TestOneSlideScript(unittest.TestCase):
         prs.save(str(self.template))
         self.template_bytes = self.template.read_bytes()
 
+    def team_deck(self, width=12192000, title_pt=28, body_pt=18):
+        """A deck with a team's sizes, unlike python-pptx's default 44/32pt."""
+        from pptx import Presentation
+        prs = Presentation()
+        prs.slide_width = width
+        master = prs.slide_master
+        margin = 838200 if width > 9144000 else 457200  # as Office's own decks
+        for ph in master.placeholders:
+            if ph.placeholder_format.idx in (0, 1):
+                ph.left, ph.width = margin, width - 2 * margin
+        self.set_text_sizes(master, title_pt, body_pt)
+        return prs
+
+    @staticmethod
+    def set_text_sizes(master, title_pt, body_pt):
+        from pptx.oxml.ns import qn
+        styles = master._element.find(qn("p:txStyles"))
+        for style, pt in (("p:titleStyle", title_pt), ("p:bodyStyle", body_pt)):
+            styles.find(qn(style)).find(qn("a:lvl1pPr")).find(
+                qn("a:defRPr")).set("sz", str(pt * 100))
+
+    def save_deck(self, prs, name="deck.pptx"):
+        path = self.tmp / name
+        prs.save(str(path))
+        return path
+
+    def add_second_master(self, prs, layout_name):
+        """Copy the deck's master, theme and "Title and Content" layout into
+        a second master, as pasting slides from another deck does."""
+        from lxml import etree
+        from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+        from pptx.opc.package import Part
+        from pptx.opc.packuri import PackURI
+        from pptx.oxml.ns import qn
+        from pptx.parts.slide import SlideLayoutPart, SlideMasterPart
+        package = prs.part.package
+        old_master = prs.slide_master.part
+        old_layout = prs.slide_layouts[1].part
+        old_theme = old_master.part_related_by(RT.THEME)
+        theme = etree.fromstring(old_theme.blob)
+        dk2 = theme.find(".//" + qn("a:dk2"))[0]
+        dk2.getparent().replace(dk2, etree.Element(
+            qn("a:srgbClr"), val="FFFF00"))
+        new_theme = Part(PackURI("/ppt/theme/theme2.xml"),
+                         old_theme.content_type, package, etree.tostring(theme))
+        master = SlideMasterPart.load(
+            PackURI("/ppt/slideMasters/slideMaster2.xml"),
+            old_master.content_type, package, old_master.blob)
+        layout = SlideLayoutPart.load(
+            PackURI("/ppt/slideLayouts/slideLayout12.xml"),
+            old_layout.content_type, package, old_layout.blob)
+        layout._element.cSld.set("name", layout_name)
+        layout.relate_to(master, RT.SLIDE_MASTER)
+        master.relate_to(new_theme, RT.THEME)
+        id_list = master._element.find(qn("p:sldLayoutIdLst"))
+        for child in list(id_list):
+            id_list.remove(child)
+        etree.SubElement(id_list, qn("p:sldLayoutId"), {
+            "id": "2147483800",
+            qn("r:id"): master.relate_to(layout, RT.SLIDE_LAYOUT)})
+        etree.SubElement(prs.part._element.find(qn("p:sldMasterIdLst")),
+                         qn("p:sldMasterId"), {
+            "id": "2147483801", qn("r:id"): prs.part.relate_to(
+                master, RT.SLIDE_MASTER)})
+        return prs.slide_masters[1]
+
     def build(self, spec, template=None):
         spec_path, out = self.tmp / "spec.json", self.tmp / "out.pptx"
-        spec_path.write_text(json.dumps(spec), "utf-8")
+        spec_path.write_text(
+            spec if isinstance(spec, str) else json.dumps(spec), "utf-8")
         run = subprocess.run(
             [sys.executable, str(self.SCRIPT), "--template",
              str(template or self.template), "--spec", str(spec_path),
@@ -1369,6 +1420,576 @@ class TestOneSlideScript(unittest.TestCase):
         self.assertIn("goal is longer than one line", run.stderr)
         self.assertIn("too long for its box", run.stderr)
         self.assertFalse(out.exists())
+
+    def test_bundled_examples_build(self):
+        """The specs SKILL.md starts from, against references/slide-spec.md,
+        on a wide deck and a 10-inch one: a note beside the first stage and
+        glued arrows between flow steps. Rejects an example that drifts from
+        the schema and a note with no room on a narrow deck."""
+        assets = SKILLS / "roj-one-slide" / "assets"
+        a = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+        for width in (12192000, 9144000):
+            deck = self.save_deck(self.team_deck(width))
+            with self.subTest(width=width, example="before-after"):
+                spec = json.loads(
+                    (assets / "example-before-after.json").read_text("utf-8"))
+                run, out = self.build(spec, deck)
+                self.assertEqual(run.returncode, 0, run.stderr)
+                _, shapes = self.shapes(out)
+                notes = {s.name: s.text_frame.text for s in shapes
+                         if s.name.startswith("Note")}
+                self.assertIn("Removed", notes["Note Before"])
+                self.assertIn("Checkout never waits", notes["Note After"])
+            with self.subTest(width=width, example="sections"):
+                spec = json.loads(
+                    (assets / "example-sections.json").read_text("utf-8"))
+                run, out = self.build(spec, deck)
+                self.assertEqual(run.returncode, 0, run.stderr)
+                _, shapes = self.shapes(out)
+                boxes = {s.shape_id for s in shapes
+                         if s.name.startswith("Step box")}
+                arrows = [s for s in shapes if s.name.startswith("Arrow")]
+                self.assertEqual(len(boxes), 3)
+                self.assertEqual(len(arrows), 2)
+                for arrow in arrows:
+                    self.assertIn(int(arrow._element.find(
+                        f".//{a}stCxn").get("id")), boxes)
+                    self.assertIn(int(arrow._element.find(
+                        f".//{a}endCxn").get("id")), boxes)
+
+    def test_flow_box_holds_the_lines_its_points_wrap_to(self):
+        """Five steps across 16:9 leave 1492790 EMU for text (box width less
+        margins and bullet indent), and 'word word word word' at 12pt
+        Helvetica is wider than that, so three points take six lines. Rejects
+        a box sized as if they took three."""
+        spec = json.loads(json.dumps(self.SECTIONS))
+        spec["body"]["sections"] = []
+        spec["body"]["flow"] = [
+            {"title": f"S{i}", "points": ["word word word word"] * 3}
+            for i in range(5)]
+        run, out = self.build(spec, self.save_deck(self.team_deck()))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        _, shapes = self.shapes(out)
+        box = next(s for s in shapes if s.name.startswith("Step box"))
+        text_room = box.height - box.text_frame.margin_top
+        self.assertGreaterEqual(text_room / 12700, 6 * 12 * 1.2)
+
+    def test_long_words_and_headings_count_their_wrapped_lines(self):
+        for name, change, wanted in (
+                ("title", lambda s: s.update(title="x" * 300),
+                 "the title wraps"),
+                ("point", lambda s: s["body"]["sections"].__setitem__(
+                    0, {"heading": "Next", "points": ["x" * 2000]}),
+                 "sections run"),
+                ("heading", lambda s: s["body"]["sections"].__setitem__(
+                    0, {"heading": "x" * 2000, "points": ["short"]}),
+                 "sections run")):
+            with self.subTest(name):
+                spec = json.loads(json.dumps(self.SECTIONS))
+                change(spec)
+                run, out = self.build(spec, self.save_deck(self.team_deck()))
+                self.assertEqual(run.returncode, 1, run.stderr)
+                self.assertIn(wanted, run.stderr)
+                self.assertFalse(out.exists())
+
+    def test_invalid_specs_are_listed_not_tracebacks(self):
+        bad_image = self.tmp / "shot.png"
+        bad_image.write_text("not an image", "utf-8")
+
+        def sections(**fields):
+            spec = json.loads(json.dumps(self.SECTIONS))
+            spec["body"].update(fields)
+            return spec
+
+        def stages(stage):
+            spec = json.loads(json.dumps(self.BEFORE_AFTER))
+            spec["body"]["before"]["stages"] = [stage]
+            return spec
+
+        no_goal = {"title": "T", "goal": "top level",
+                   "body": {"kind": "sections"}}
+        for name, spec, wanted in (
+                ("not JSON", "{not json", "cannot read the spec"),
+                ("not an object", "[]", "one JSON object"),
+                ("no title", {"body": {}}, "title is required"),
+                ("date not text", {**self.SECTIONS, "date": 20261030},
+                 "date must be text"),
+                ("no body", {"title": "T"}, "body is required"),
+                ("goal outside body", no_goal, "body.goal is required"),
+                ("unknown kind", sections(kind="chart"), "body.kind"),
+                ("section without heading",
+                 sections(sections=[{"points": ["a"]}]), "needs a heading"),
+                ("section without points",
+                 sections(sections=[{"heading": "a"}]), "points must be"),
+                ("flow step without title",
+                 sections(flow=[{"points": ["a"]}, {"title": "b"}]),
+                 "needs a title"),
+                ("image not found", sections(image="missing.png"), "not found"),
+                ("image not a picture", sections(image=str(bad_image)),
+                 "cannot be placed"),
+                ("item without text", stages({"items": [{"mono": True}]}),
+                 "an item is text"),
+                ("empty stage", stages([]), "has no boxes"),
+                ("stages missing", {**self.BEFORE_AFTER, "body": {
+                    "kind": "before_after", "goal": "g"}}, "stages is required"),
+                ("too many boxes", stages([{"items": ["a"]}] * 12),
+                 "too many boxes"),
+                ("note bold not a boolean", {**self.BEFORE_AFTER, "body": {
+                    **self.BEFORE_AFTER["body"], "after": {
+                        **self.BEFORE_AFTER["body"]["after"],
+                        "note": [{"text": "a", "bold": "yes"}]}}},
+                 "bold must be true or false"),
+                ("control character in a caption",
+                 stages({"caption": "a\x0bb", "items": ["c"]}),
+                 "control character"),
+                ("control character in an item",
+                 stages({"items": ["a\x0bb"]}), "control character"),
+                ("control character in a flow title",
+                 sections(flow=[{"title": "a\x0bb"}, {"title": "c"}]),
+                 "control character"),
+                ("lone surrogate in the title",
+                 {**self.SECTIONS, "title": "a\ud800b"},
+                 "control character")):
+            with self.subTest(name):
+                run, out = self.build(spec)
+                self.assertEqual(run.returncode, 1, run.stderr)
+                self.assertNotIn("Traceback", run.stderr)
+                self.assertIn(wanted, run.stderr)
+                self.assertFalse(out.exists())
+
+    def test_null_optional_fields_build_like_absent_ones(self):
+        """Pasted ticket text can have no key; key is optional in slide-spec.md."""
+        spec = {**self.SECTIONS, "key": None, "link": None, "presenter": None,
+                "date": None, "layout": None}
+        run, out = self.build(spec)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, _ = self.shapes(out)
+        self.assertEqual(slide.shapes.title.text_frame.text, "Add retries")
+
+    def test_custom_show_deck_leaves_one_slide_part(self):
+        """A slide in a custom show has two references. Left in place, python-
+        pptx keeps the old part and writes a second slide1.xml, a malformed
+        zip per the OPC rule that part names are unique."""
+        import zipfile
+        from collections import Counter
+        from lxml import etree
+        from pptx import Presentation
+        from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+        from pptx.oxml.ns import qn
+        prs = self.team_deck()
+        old = prs.slides.add_slide(prs.slide_layouts[1])
+        old.shapes.title.text = "old slide"
+        r_id = prs.part.relate_to(old.part, RT.SLIDE)
+        p_ns = "http://schemas.openxmlformats.org/presentationml/2006/main"
+        r_ns = ("http://schemas.openxmlformats.org/officeDocument/2006/"
+                "relationships")
+        prs.part._element.find(qn("p:notesSz")).addnext(etree.fromstring(
+            f'<p:custShowLst xmlns:p="{p_ns}" xmlns:r="{r_ns}">'
+            '<p:custShow name="Demo" id="0"><p:sldLst>'
+            f'<p:sld r:id="{r_id}"/></p:sldLst></p:custShow></p:custShowLst>'))
+        props = prs.part.part_related_by(RT.PRES_PROPS)
+        root = etree.fromstring(props.blob)
+        root.insert(0, etree.fromstring(
+            f'<p:showPr xmlns:p="{p_ns}"><p:custShow id="0"/></p:showPr>'))
+        props._blob = etree.tostring(root)
+
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        with zipfile.ZipFile(out) as package:
+            names = package.namelist()
+            self.assertEqual(
+                [n for n, count in Counter(names).items() if count > 1], [])
+            self.assertEqual(
+                [n for n in names if re.fullmatch(r"ppt/slides/[^/]+", n)],
+                ["ppt/slides/slide1.xml"])
+            self.assertNotIn(b"custShow", package.read("ppt/presProps.xml"))
+        built = Presentation(str(out))
+        self.assertIsNone(built.part._element.find(qn("p:custShowLst")))
+        self.assertNotIn("old slide", self.texts(out)[1])
+
+    def assert_only_the_new_slide(self, out):
+        """OPC requires unique part names; the old text must be gone too."""
+        import zipfile
+        from collections import Counter
+        with zipfile.ZipFile(out) as package:
+            names = package.namelist()
+            self.assertEqual(
+                [n for n, count in Counter(names).items() if count > 1], [])
+            self.assertEqual(
+                [n for n in names if re.fullmatch(r"ppt/slides/[^/]+", n)],
+                ["ppt/slides/slide1.xml"])
+            for name in names:
+                self.assertNotIn(b"old deck text", package.read(name), name)
+
+    def old_slide(self, prs):
+        slide = prs.slides.add_slide(prs.slide_layouts[1])
+        slide.shapes.title.text = "old deck text"
+        return slide
+
+    def test_slide_collapsed_in_outline_view_is_dropped(self):
+        """viewProps.xml points at the slide with its own relationship."""
+        from lxml import etree
+        from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+        from pptx.oxml.ns import qn
+        prs = self.team_deck()
+        old = self.old_slide(prs)
+        view = prs.part.part_related_by(RT.VIEW_PROPS)
+        r_id = view.relate_to(old.part, RT.SLIDE)
+        root = etree.fromstring(view.blob)
+        p_ns = "http://schemas.openxmlformats.org/presentationml/2006/main"
+        r_ns = ("http://schemas.openxmlformats.org/officeDocument/2006/"
+                "relationships")
+        root.append(etree.fromstring(
+            f'<p:outlineViewPr xmlns:p="{p_ns}" xmlns:r="{r_ns}"><p:sldLst>'
+            f'<p:sld r:id="{r_id}" collapse="1"/></p:sldLst></p:outlineViewPr>'))
+        view._blob = etree.tostring(root)
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assert_only_the_new_slide(out)
+        from pptx import Presentation
+        kept = Presentation(str(out)).part.part_related_by(RT.VIEW_PROPS)
+        self.assertIsNone(etree.fromstring(kept.blob).find(f".//{qn('p:sld')}"))
+
+    def test_home_button_on_the_master_loses_its_link_to_a_dropped_slide(self):
+        from lxml import etree
+        from pptx import Presentation
+        from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+        from pptx.oxml.ns import qn
+        prs = self.team_deck()
+        old = self.old_slide(prs)
+        master = prs.slide_master
+        r_id = master.part.relate_to(old.part, RT.SLIDE)
+        name = master._element.find(f".//{qn('p:cNvPr')}")
+        etree.SubElement(name, qn("a:hlinkClick"), {
+            qn("r:id"): r_id, "action": "ppaction://hlinksldjump"})
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assert_only_the_new_slide(out)
+        built = Presentation(str(out)).slide_master._element
+        self.assertIsNone(built.find(f".//{qn('a:hlinkClick')}"))
+
+    def test_output_does_not_describe_the_template_deck(self):
+        """A live deck is the recommended template, and the slide gets sent on:
+        its preview and properties must not show the deck's other stories."""
+        import zipfile
+        prs = self.team_deck()
+        self.old_slide(prs)
+        props = prs.core_properties
+        props.title = "old deck text"
+        props.subject = props.keywords = props.comments = "old deck text"
+        props.category = "old deck text"
+        deck = self.save_deck(prs)
+        with zipfile.ZipFile(deck) as package:
+            for carried in ("docProps/thumbnail.jpeg", "docProps/app.xml"):
+                self.assertIn(carried, package.namelist())
+        run, out = self.build(self.SECTIONS, deck)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assert_only_the_new_slide(out)
+        with zipfile.ZipFile(out) as package:
+            for gone in ("docProps/thumbnail.jpeg", "docProps/app.xml"):
+                self.assertNotIn(gone, package.namelist())
+        from pptx import Presentation
+        self.assertEqual(Presentation(str(out)).core_properties.title,
+                         "PROJ-1 Add retries")
+
+    def office_section_header(self, prs):
+        """Office's 16:9 geometry: a big mid-slide title with the text under."""
+        layout = prs.slide_layouts[2]
+        for ph in layout.placeholders:
+            if ph.placeholder_format.idx == 0:
+                ph.top, ph.height = 1709738, 2852737
+            elif ph.placeholder_format.idx == 1:
+                ph.top, ph.height = 4589463, 1500187
+        return layout
+
+    def test_default_layout_passes_over_a_section_header(self):
+        prs = self.team_deck()
+        section = self.office_section_header(prs)
+        for layout in (prs.slide_layouts[0], section, prs.slide_layouts[1]):
+            prs.slides.add_slide(layout)
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(self.shapes(out)[0].slide_layout.name,
+                         "Title and Content")
+
+    def test_default_layout_falls_back_to_the_templates_story_layout(self):
+        """A deck of section headers and two-column slides still has Title
+        and Content among its layouts; the slide goes there."""
+        for index in (2, 3):  # Section Header, Two Content
+            with self.subTest(index=index):
+                prs = self.team_deck()
+                section = self.office_section_header(prs)
+                layout = section if index == 2 else prs.slide_layouts[3]
+                prs.slides.add_slide(layout)
+                run, out = self.build(self.SECTIONS, self.save_deck(prs))
+                self.assertEqual(run.returncode, 0, run.stderr)
+                self.assertEqual(self.shapes(out)[0].slide_layout.name,
+                                 "Title and Content")
+
+    def test_default_layout_passes_over_a_two_content_slide(self):
+        """Two Content's half-width body refuses both bundled examples."""
+        prs = self.team_deck()
+        for index in (3, 1):  # Two Content, then Title and Content
+            prs.slides.add_slide(prs.slide_layouts[index])
+        deck = self.save_deck(prs)
+        for example in ("before-after", "sections"):
+            with self.subTest(example):
+                spec = json.loads((SKILLS / "roj-one-slide" / "assets"
+                                   / f"example-{example}.json").read_text("utf-8"))
+                run, out = self.build(spec, deck)
+                self.assertEqual(run.returncode, 0, run.stderr)
+                self.assertEqual(self.shapes(out)[0].slide_layout.name,
+                                 "Title and Content")
+
+    def test_refusal_on_an_ill_fitting_layout_points_to_a_better_one(self):
+        """Rejects telling the agent only to cut content when the layout is
+        what leaves no room: a low title, or a body split in two."""
+        spec = json.loads((SKILLS / "roj-one-slide" / "assets"
+                           / "example-before-after.json").read_text("utf-8"))
+        for layout in ("Section Header", "Two Content"):
+            with self.subTest(layout):
+                prs = self.team_deck()
+                self.office_section_header(prs)
+                run, out = self.build({**spec, "layout": layout},
+                                      self.save_deck(prs))
+                self.assertEqual(run.returncode, 1, run.stderr)
+                self.assertIn(f"layout {layout!r} leaves this slide little "
+                              "room", run.stderr)
+                hint = run.stderr.split("set layout to one of:")[1]
+                self.assertIn("'Title and Content'", hint)
+                self.assertNotIn("'Section Header'", hint)
+                self.assertNotIn("'Two Content'", hint)
+                self.assertFalse(out.exists())
+
+    def test_linked_footer_text_keeps_a_valid_link(self):
+        """Every r:id on a slide must name one of the slide's own
+        relationships (OPC); a copied footer link must not dangle."""
+        from pptx import Presentation
+        prs = self.team_deck()
+        footer = next(ph for ph in prs.slide_layouts[1].placeholders
+                      if ph.placeholder_format.type == 15)
+        footer.text_frame.text = "Team wiki"
+        footer.text_frame.paragraphs[0].runs[0].hyperlink.address = (
+            "https://example.com/wiki")
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide = Presentation(str(out)).slides[0]
+        r_ns = ("{http://schemas.openxmlformats.org/officeDocument/2006/"
+                "relationships}")
+        used = {v for e in slide._element.iter() for k, v in e.attrib.items()
+                if k.startswith(r_ns)}
+        self.assertTrue(used)
+        self.assertLessEqual(used, set(slide.part.rels.keys()))
+        placed = next(s for s in slide.placeholders
+                      if s.placeholder_format.type == 15)
+        self.assertEqual(placed.text_frame.paragraphs[0].runs[0].hyperlink
+                         .address, "https://example.com/wiki")
+
+    def test_body_grows_down_from_a_short_bottom_anchored_placeholder(self):
+        """Office's Comparison body is 639762 EMU high and set to the bottom,
+        so six lines of 18pt would rise over the title unless the box holds
+        them. Rejects a box left at the layout's height."""
+        spec = json.loads(json.dumps(self.SECTIONS))
+        spec["layout"] = "Comparison"
+        spec["body"]["sections"] = [
+            {"heading": "Done", "points": ["one", "two", "three"]},
+            {"heading": "Next", "points": "tune backoff"}]
+        run, out = self.build(spec, self.save_deck(self.team_deck()))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, _ = self.shapes(out)
+        body = next(s for s in slide.placeholders
+                    if s.placeholder_format.idx == 1)
+        self.assertEqual(body.top, 1535113)
+        self.assertGreaterEqual(body.height / 12700, 6 * 18 * 1.2)
+
+    def test_body_that_fits_keeps_the_layouts_position(self):
+        """The look on the template stays: no position of its own unless the
+        text needs a taller box."""
+        run, out = self.build(self.SECTIONS, self.save_deck(self.team_deck()))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, _ = self.shapes(out)
+        body = next(s for s in slide.placeholders
+                    if s.placeholder_format.idx == 1)
+        self.assertIsNone(body._element.spPr.find(
+            "{http://schemas.openxmlformats.org/drawingml/2006/main}xfrm"))
+
+    def test_missing_spec_file_is_listed(self):
+        run = subprocess.run(
+            [sys.executable, str(self.SCRIPT), "--template", str(self.template),
+             "--spec", str(self.tmp / "none.json"),
+             "--out", str(self.tmp / "out.pptx")],
+            capture_output=True, text=True)
+        self.assertEqual(run.returncode, 1, run.stderr)
+        self.assertNotIn("Traceback", run.stderr)
+        self.assertIn("cannot read the spec", run.stderr)
+
+    def test_layout_is_the_first_slide_with_title_and_content(self):
+        """A deck opening with a title slide tells stories on its next one."""
+        prs = self.team_deck()
+        for index in (0, 1):
+            prs.slides.add_slide(prs.slide_layouts[index])
+        run, out = self.build(self.BEFORE_AFTER, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, _ = self.shapes(out)
+        self.assertEqual(slide.slide_layout.name, "Title and Content")
+
+    def test_layout_whose_title_overlaps_the_body_is_refused(self):
+        spec = {**self.BEFORE_AFTER, "layout": "Title Slide"}
+        run, out = self.build(spec, self.save_deck(self.team_deck()))
+        self.assertEqual(run.returncode, 1, run.stderr)
+        self.assertIn("overlaps the body region", run.stderr)
+        self.assertIn("'Title and Content'", run.stderr)
+        for refused in ("'Title Slide'", "'Blank'"):
+            self.assertNotIn(refused, run.stderr.split("set layout to")[1])
+        self.assertFalse(out.exists())
+
+    def test_title_only_layout_builds_a_diagram_below_its_title(self):
+        """No body placeholder means no body to overlap; the diagram starts
+        under the title. Sections still need a content placeholder, and the
+        refusal names only layouts that have one."""
+        spec = {**self.BEFORE_AFTER, "layout": "Title Only"}
+        run, out = self.build(spec, self.save_deck(self.team_deck()))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, shapes = self.shapes(out)
+        title_bottom = slide.shapes.title.top + slide.shapes.title.height
+        goal = next(s for s in shapes if s.name == "Goal")
+        self.assertGreaterEqual(goal.top, title_bottom)
+
+        spec = {**self.SECTIONS, "layout": "Title Only"}
+        run, _ = self.build(spec, self.save_deck(self.team_deck()))
+        self.assertEqual(run.returncode, 1, run.stderr)
+        self.assertIn("no content placeholder", run.stderr)
+        self.assertNotIn("'Title Only'", run.stderr.split("set layout to")[1])
+
+    def test_layout_without_a_title_is_refused(self):
+        spec = {**self.BEFORE_AFTER, "layout": "Blank"}
+        run, out = self.build(spec, self.save_deck(self.team_deck()))
+        self.assertEqual(run.returncode, 1, run.stderr)
+        self.assertNotIn("Traceback", run.stderr)
+        self.assertIn("no title placeholder", run.stderr)
+        self.assertFalse(out.exists())
+
+    def test_unknown_layout_lists_every_master(self):
+        prs = self.team_deck()
+        self.add_second_master(prs, "Story")
+        spec = {**self.BEFORE_AFTER, "layout": "Nope"}
+        run, _ = self.build(spec, self.save_deck(prs))
+        self.assertEqual(run.returncode, 1, run.stderr)
+        self.assertIn("'Story'", run.stderr)
+
+    def test_theme_and_text_size_come_from_the_layouts_own_master(self):
+        """The second master has a yellow dk2, the first chip's fill, so the
+        chip text must turn dark (below 2.5:1 with white). The first master's
+        60pt body would refuse the text; the second's 18pt fits it."""
+        from pptx.enum.dml import MSO_THEME_COLOR
+        prs = self.team_deck(body_pt=60)
+        second = self.add_second_master(prs, "Story")
+        self.set_text_sizes(second, 28, 18)
+        prs.slides.add_slide(second.slide_layouts[0])
+        deck = self.save_deck(prs)
+        run, out = self.build(self.SECTIONS, deck)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(self.shapes(out)[0].slide_layout.name, "Story")
+        run, out = self.build(self.BEFORE_AFTER, deck)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        _, shapes = self.shapes(out)
+        chip = next(s for s in shapes if s.name == "Item 3.10")
+        self.assertEqual(chip.text_frame.paragraphs[0].runs[0].font.color
+                         .theme_color, MSO_THEME_COLOR.DARK_1)
+
+    def test_chip_text_follows_the_masters_colour_map(self):
+        """On a dark-background master tx2 is lt2 (EEECE1 in this theme, about
+        1.2:1 with white) and tx1 is white too, so both light chips need dk1
+        text. On the ordinary map tx2 is dk2 (1F497D) and white stays."""
+        from pptx.enum.dml import MSO_THEME_COLOR
+        from pptx.oxml.ns import qn
+        normal = self.team_deck()
+        dark = self.team_deck()
+        dark.slide_master._element.find(qn("p:clrMap")).attrib.update(
+            {"bg1": "dk1", "tx1": "lt1", "bg2": "dk2", "tx2": "lt2"})
+
+        def text_colours(prs):
+            run, out = self.build(self.BEFORE_AFTER, self.save_deck(prs))
+            self.assertEqual(run.returncode, 0, run.stderr)
+            _, shapes = self.shapes(out)
+            colours = {}
+            for s in shapes:
+                if s.name in ("Item 3.10", "Item DEPLOY"):
+                    color = s.text_frame.paragraphs[0].runs[0].font.color
+                    colours[s.name] = color.theme_color if color.type else None
+            return colours
+
+        self.assertEqual(text_colours(dark), {
+            "Item 3.10": MSO_THEME_COLOR.DARK_1,
+            "Item DEPLOY": MSO_THEME_COLOR.DARK_1})
+        self.assertEqual(text_colours(normal), {
+            "Item 3.10": None, "Item DEPLOY": MSO_THEME_COLOR.DARK_1})
+
+    def test_flow_title_stays_readable_on_a_light_accent(self):
+        """White on a yellow accent1 is about 1.1:1, under the 2.5:1 limit."""
+        from lxml import etree
+        from pptx.enum.dml import MSO_THEME_COLOR
+        from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+        from pptx.oxml.ns import qn
+        prs = self.team_deck()
+        theme = prs.slide_master.part.part_related_by(RT.THEME)
+        root = etree.fromstring(theme.blob)
+        accent = root.find(".//" + qn("a:accent1"))[0]
+        accent.getparent().replace(
+            accent, etree.Element(qn("a:srgbClr"), val="FFFF00"))
+        theme._blob = etree.tostring(root)
+        spec = json.loads(json.dumps(self.SECTIONS))
+        spec["body"]["flow"] = [{"title": "One"}, {"title": "Two"}]
+        run, out = self.build(spec, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        _, shapes = self.shapes(out)
+        head = next(s for s in shapes if s.name == "Step title One")
+        self.assertEqual(head.text_frame.paragraphs[0].runs[0].font.color
+                         .theme_color, MSO_THEME_COLOR.DARK_1)
+
+    def test_date_is_fixed_text_not_a_field(self):
+        """A date field shows the day the deck is opened, not the spec's. The
+        layout's date also shares shape id 2 with the title it would clash
+        with on the slide."""
+        prs = self.team_deck()
+        layout = prs.slide_layouts[1]
+        date = next(ph for ph in layout.placeholders
+                    if ph.placeholder_format.type == 16)
+        date._element.nvSpPr.cNvPr.id = 2
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        _, shapes = self.shapes(out)
+        placed = next(s for s in shapes if s.is_placeholder
+                      and s.placeholder_format.type == 16)
+        self.assertEqual(placed.text_frame.text, "October 30, 2026")
+        a = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+        self.assertIsNone(placed._element.find(f".//{a}fld"))
+        ids = [s.shape_id for s in shapes]
+        self.assertEqual(len(ids), len(set(ids)))
+
+    def test_footer_keeps_the_templates_text_under_the_presenter(self):
+        prs = self.team_deck()
+        footer = next(ph for ph in prs.slide_layouts[1].placeholders
+                      if ph.placeholder_format.type == 15)
+        footer.text_frame.text = "Team confidential"
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        _, shapes = self.shapes(out)
+        placed = next(s for s in shapes if s.is_placeholder
+                      and s.placeholder_format.type == 15)
+        self.assertEqual(placed.text_frame.text, "Team confidential")
+        presenter = next(s for s in shapes if s.name == "Presented by")
+        self.assertLessEqual(presenter.top + presenter.height, footer.top)
+
+    def test_empty_footer_stays_empty_with_the_presenter_on_its_line(self):
+        run, out = self.build(self.SECTIONS)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        _, shapes = self.shapes(out)
+        placed = next(s for s in shapes if s.is_placeholder
+                      and s.placeholder_format.type == 15)
+        self.assertEqual(placed.text_frame.text.strip(), "")
+        presenter = next(s for s in shapes if s.name == "Presented by")
+        self.assertGreater(presenter.top, placed.top)
 
     def test_unreadable_template(self):
         bad = self.tmp / "bad.pptx"

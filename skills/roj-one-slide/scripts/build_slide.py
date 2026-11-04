@@ -5,7 +5,8 @@
 
 The template supplies the master, layout, theme colours and fonts; every
 shape this script draws uses theme colours, so the slide looks like the rest
-of the deck. The template's own slides are dropped. The spec format is in
+of the deck. The template's own slides and what describes them (thumbnail,
+slide titles, deck title) are dropped. The spec format is in
 references/slide-spec.md.
 
 Exit codes: 0 built, 1 the spec does not fit or is invalid (every problem is
@@ -17,6 +18,7 @@ import copy
 import datetime
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -30,6 +32,8 @@ try:
     from pptx.enum.dml import MSO_THEME_COLOR, MSO_LINE_DASH_STYLE
     from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE, PP_PLACEHOLDER
     from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+    from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+    from pptx.opc.package import XmlPart
     from pptx.oxml.ns import qn
     from pptx.util import Emu, Pt
 except ImportError:
@@ -38,6 +42,8 @@ except ImportError:
     sys.exit(2)
 
 EMU_PER_PT = 12700
+RELS_NS = ("http://schemas.openxmlformats.org/officeDocument/2006/"
+           "relationships")
 RED = RGBColor(0xFF, 0x00, 0x00)  # the Before/After labels and "Removed"
 # Chip fills, in order of first appearance. The same text gets the same
 # colour on both sides, so a component is recognisable across the divider.
@@ -50,12 +56,6 @@ PALETTE = [
     (MSO_THEME_COLOR.ACCENT_5, 0),
     (MSO_THEME_COLOR.ACCENT_6, 0),
 ]
-THEME_NAMES = {
-    "accent1": MSO_THEME_COLOR.ACCENT_1, "accent2": MSO_THEME_COLOR.ACCENT_2,
-    "accent3": MSO_THEME_COLOR.ACCENT_3, "accent4": MSO_THEME_COLOR.ACCENT_4,
-    "accent5": MSO_THEME_COLOR.ACCENT_5, "accent6": MSO_THEME_COLOR.ACCENT_6,
-    "tx2": MSO_THEME_COLOR.TEXT_2,
-}
 # The look of a shape drawn in PowerPoint with the theme's default style,
 # minus the shadow: a 2nd-weight accent1 outline and light text.
 SHAPE_STYLE = (
@@ -66,6 +66,8 @@ SHAPE_STYLE = (
     '<a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef>'
     '<a:fontRef idx="minor"><a:schemeClr val="{font}"/></a:fontRef>'
     '</p:style>')
+# Left plus right text inset of a placeholder or shape that sets none.
+DEFAULT_INSETS = 182880
 
 PROBLEMS = []
 THEME_RGB = {}  # filled from the template's theme by read_theme()
@@ -100,15 +102,136 @@ def text_width(text, pt, bold=False, mono=False):
 
 
 def line_count(text, pt, width, bold=False):
+    width = max(width, 1)
     words, lines, cur = text.split(), 1, 0
     space = text_width(" ", pt, bold)
     for w in words:
         ww = text_width(w, pt, bold)
-        if cur and cur + space + ww > width:
-            lines, cur = lines + 1, ww
-        else:
-            cur += (space if cur else 0) + ww
+        if cur and cur + space + ww <= width:
+            cur += space + ww
+            continue
+        if cur:
+            lines += 1
+        # A word wider than the line breaks across lines.
+        spill = (ww - 1) // width
+        lines += spill
+        cur = ww - spill * width
     return lines
+
+
+# -------------------------------------------------------------- spec shape
+
+# Characters XML cannot hold, such as a vertical tab pasted from Word.
+NOT_XML_TEXT = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
+
+
+def check_characters(value):
+    if isinstance(value, str):
+        if NOT_XML_TEXT.search(value):
+            problem(f"{value!r} has a control character; retype that text")
+    elif isinstance(value, dict):
+        for child in value.values():
+            check_characters(child)
+    elif isinstance(value, list):
+        for child in value:
+            check_characters(child)
+
+
+def is_text(value):
+    return isinstance(value, str) and bool(value.strip())
+
+
+def line_text(line):
+    """An item or a note line: a string, or a dict with its text."""
+    return line.get("text") if isinstance(line, dict) else line
+
+
+def check_side(key, side):
+    where = f"body.{key}"
+    if (not isinstance(side, dict) or not isinstance(side.get("stages"), list)
+            or not side["stages"]):
+        problem(f"{where}.stages is required for before_after")
+        return
+    for n, stage in enumerate(side["stages"]):
+        boxes = stage if isinstance(stage, list) else [stage]
+        if not boxes:
+            problem(f"{where}.stages[{n}] has no boxes")
+        for box in boxes:
+            if not isinstance(box, dict):
+                problem(f"{where}.stages[{n}]: a box is {{caption, items}}")
+                continue
+            caption, items = box.get("caption", ""), box.get("items", [])
+            if not isinstance(caption, str):
+                problem(f"{where}.stages[{n}]: a caption must be text")
+            if not isinstance(items, list):
+                problem(f"{where}.stages[{n}]: items must be a list")
+                continue
+            if not caption and not items:
+                problem(f"{where}.stages[{n}]: a box needs a caption or items")
+            if not all(is_text(line_text(it)) for it in items):
+                problem(f"{where}.stages[{n}]: an item is text or "
+                        "{\"text\": ...}")
+    note = side.get("note")
+    if note is not None and not (isinstance(note, list) and all(
+            is_text(line_text(l)) for l in note)):
+        problem(f"{where}.note must be a list of lines")
+    elif note and not all(isinstance(l.get("bold", False), bool)
+                          for l in note if isinstance(l, dict)):
+        problem(f"{where}.note: bold must be true or false")
+
+
+def check_sections(body):
+    sections = body.get("sections", [])
+    if not isinstance(sections, list):
+        problem("body.sections must be a list")
+        sections = []
+    for n, sec in enumerate(sections):
+        if not isinstance(sec, dict) or not is_text(sec.get("heading")):
+            problem(f"body.sections[{n}] needs a heading")
+            continue
+        points = sec.get("points")
+        if not (is_text(points) or (isinstance(points, list) and points
+                                    and all(is_text(p) for p in points))):
+            problem(f"body.sections[{n}].points must be text or a list of text")
+    flow = body.get("flow")
+    if flow is not None and not isinstance(flow, list):
+        problem("body.flow must be a list of steps")
+        flow = []
+    for n, step in enumerate(flow or []):
+        if not isinstance(step, dict) or not is_text(step.get("title")):
+            problem(f"body.flow[{n}] needs a title")
+            continue
+        points = step.get("points", [])
+        if not (isinstance(points, list) and all(is_text(p) for p in points)):
+            problem(f"body.flow[{n}].points must be a list of text")
+    if body.get("image") is not None and not is_text(body["image"]):
+        problem("body.image must be a file path")
+
+
+def check_spec(spec):
+    """Everything drawing relies on, checked once before anything is drawn."""
+    if not isinstance(spec, dict):
+        problem("the spec must be one JSON object")
+        return
+    check_characters(spec)
+    if not is_text(spec.get("title")):
+        problem("title is required")
+    for field in ("key", "link", "presenter", "date", "layout"):
+        if spec.get(field) is not None and not isinstance(spec[field], str):
+            problem(f"{field} must be text")
+    body = spec.get("body")
+    if not isinstance(body, dict):
+        problem("body is required")
+        return
+    if not is_text(body.get("goal")):
+        problem("body.goal is required: one sentence, the why of the story")
+    if body.get("kind") == "before_after":
+        for key in ("before", "after"):
+            check_side(key, body.get(key))
+    elif body.get("kind") == "sections":
+        check_sections(body)
+    else:
+        problem("body.kind must be 'before_after' or 'sections'")
 
 
 # ---------------------------------------------------------------- template
@@ -123,21 +246,27 @@ def load_template(path):
         sys.exit(3)
 
 
-def read_theme(prs):
+def read_theme(layout):
     """The theme's colour scheme, so chip text can pick a readable colour."""
-    from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+    master = layout.slide_master
     try:
-        theme = prs.slide_master.part.part_related_by(RT.THEME)
+        theme = master.part.part_related_by(RT.THEME)
         scheme = etree.fromstring(theme.blob).find(".//" + qn("a:clrScheme"))
     except (KeyError, etree.XMLSyntaxError):
         return
-    slots = {"dk1": MSO_THEME_COLOR.TEXT_1, "dk2": MSO_THEME_COLOR.TEXT_2,
-             "lt1": MSO_THEME_COLOR.BACKGROUND_1, **{
-                 f"accent{i}": getattr(MSO_THEME_COLOR, f"ACCENT_{i}")
-                 for i in range(1, 7)}}
-    for child in scheme if scheme is not None else []:
-        slot = slots.get(etree.QName(child).localname)
-        if slot is None or not len(child):
+    if scheme is None:
+        return
+    # The master's colour map decides what tx2 means: dk2, or lt2 on a
+    # dark-background master.
+    clr_map = master._element.find(qn("p:clrMap"))
+    mapping = {"tx2": "dk2", **({} if clr_map is None else clr_map.attrib)}
+    colours = {etree.QName(child).localname: child for child in scheme}
+    slots = {MSO_THEME_COLOR.TEXT_2: "tx2", **{
+        getattr(MSO_THEME_COLOR, f"ACCENT_{i}"): f"accent{i}"
+        for i in range(1, 7)}}
+    for slot, name in slots.items():
+        child = colours.get(mapping.get(name, name))
+        if child is None or not len(child):
             continue
         hexval = child[0].get("val") if child[0].tag == qn("a:srgbClr") \
             else child[0].get("lastClr")
@@ -163,29 +292,126 @@ def is_light(theme, brightness=0):
     return 1.05 / (lum + 0.05) < 2.5
 
 
-def pick_layout(prs, name):
-    layouts = list(prs.slide_layouts)
+def content_count(layout):
+    return sum(ph.placeholder_format.type in (PP_PLACEHOLDER.OBJECT,
+                                              PP_PLACEHOLDER.BODY)
+               for ph in layout.placeholders)
+
+
+def all_layouts(prs):
+    return [lay for master in prs.slide_masters for lay in master.slide_layouts]
+
+
+def title_bottom(layout):
+    title = layout_placeholder(layout, PP_PLACEHOLDER.TITLE,
+                               PP_PLACEHOLDER.CENTER_TITLE)
+    return None if title is None else title.top + title.height
+
+
+def title_is_low(layout, slide_height):
+    """A title ending below the top third: a Section Header, not a story."""
+    bottom = title_bottom(layout)
+    return bottom is not None and bottom > slide_height // 3
+
+
+def body_region_top(layout, slide_height):
+    """Where content starts under the layout's title; None when the layout
+    has no title, or its title sits on the body or low on the slide."""
+    bottom = title_bottom(layout)
+    if bottom is None:
+        return None
+    body = layout_placeholder(layout, PP_PLACEHOLDER.OBJECT,
+                              PP_PLACEHOLDER.BODY)
+    if body is not None:
+        return body.top if bottom <= body.top else None
+    if title_is_low(layout, slide_height):
+        return None
+    return max(bottom, int(slide_height * 0.2))
+
+
+def fits(layout, slide_height, kind):
+    """A title at the top and one body under it: the content takes the body's
+    full width. A before/after diagram can also go under a title alone."""
+    n = content_count(layout)
+    return (body_region_top(layout, slide_height) is not None
+            and not title_is_low(layout, slide_height)
+            and (n == 1 or (n == 0 and kind != "sections")))
+
+
+def layout_hint(prs, kind):
+    """What to do about a refused layout, naming only layouts that fit."""
+    fits_kind = [" ".join(lay.name.split()) for lay in all_layouts(prs)
+                 if fits(lay, prs.slide_height, kind)]
+    if not fits_kind:
+        return "no layout in this template fits; use another template"
+    return "set layout to one of: " + ", ".join(repr(n) for n in fits_kind)
+
+
+def pick_layout(prs, name, kind):
+    layouts = all_layouts(prs)
     if name:
         for lay in layouts:
             if " ".join(lay.name.split()) == " ".join(name.split()):
                 return lay
-        problem(f"layout {name!r} not in the template; it has: "
-                + ", ".join(repr(" ".join(l.name.split())) for l in layouts))
-        return layouts[0]
-    # The layout the template's own first slide uses is the one the team
-    # presents stories on.
-    if len(prs.slides):
-        return prs.slides[0].slide_layout
-    for lay in layouts:
-        kinds = {ph.placeholder_format.type for ph in lay.placeholders}
-        if kinds & {PP_PLACEHOLDER.TITLE} and kinds & {
-                PP_PLACEHOLDER.OBJECT, PP_PLACEHOLDER.BODY}:
+        problem(f"layout {name!r} not in the template; "
+                + layout_hint(prs, kind))
+        return None
+    # A deck the team presents from often opens with a title slide or has
+    # section headers; the first slide with a title at the top and one body
+    # is the one stories are told on, else the template's first such layout.
+    used = [s.slide_layout for s in prs.slides]
+    for lay in used + layouts:
+        if fits(lay, prs.slide_height, "sections"):
             return lay
-    return layouts[0]
+    return (used or layouts)[0]
+
+
+def xml_bytes(root):
+    return etree.tostring(root, xml_declaration=True, encoding="UTF-8",
+                          standalone=True)
+
+
+def drop_custom_shows(prs):
+    """A custom show is a second reference to its slides, which would keep
+    them in the package beside the new slide."""
+    pres = prs.part._element
+    shows = pres.find(qn("p:custShowLst"))
+    if shows is not None:
+        pres.remove(shows)
+    try:
+        props = prs.part.part_related_by(RT.PRES_PROPS)
+    except KeyError:
+        return
+    root = etree.fromstring(props.blob)
+    show_pr = root.find(qn("p:showPr"))
+    chosen = show_pr.find(qn("p:custShow")) if show_pr is not None else None
+    if chosen is not None:
+        show_pr.remove(chosen)
+        props._blob = xml_bytes(root)
+
+
+def drop_links_to(prs, slide_parts):
+    """Any other part pointing at a slide, such as a Home button on the master
+    or a slide collapsed in Outline view, would keep it in the package."""
+    for part in list(prs.part.package.iter_parts()):
+        if part in slide_parts:
+            continue
+        for r_id, rel in list(part.rels.items()):
+            if rel.is_external or rel.target_part not in slide_parts:
+                continue
+            part.rels.pop(r_id)
+            root = (part._element if isinstance(part, XmlPart)
+                    else etree.fromstring(part.blob))
+            for el in [e for e in root.iter() if e.get(qn("r:id")) == r_id]:
+                el.getparent().remove(el)
+            if not isinstance(part, XmlPart):
+                part._blob = xml_bytes(root)
 
 
 def drop_slides(prs):
+    drop_custom_shows(prs)
     sld_ids = prs.slides._sldIdLst
+    slide_parts = {prs.part.related_part(s.rId) for s in sld_ids}
     for sld_id in list(sld_ids):
         prs.part.drop_rel(sld_id.rId)
         sld_ids.remove(sld_id)
@@ -198,6 +424,20 @@ def drop_slides(prs):
                     "{http://schemas.microsoft.com/office/powerpoint/2010/main}"
                     "sectionLst") is not None:
                 ext_lst.remove(ext)
+    drop_links_to(prs, slide_parts)
+
+
+def describe_as_the_slide(prs, spec):
+    """The thumbnail, app.xml (slide titles and counts) and the deck's title
+    all describe the template's slides; PowerPoint rewrites the first two."""
+    package = prs.part.package
+    for r_id, rel in list(package._rels.items()):
+        if rel.reltype in (RT.THUMBNAIL, RT.EXTENDED_PROPERTIES):
+            package._rels.pop(r_id)
+    props = prs.core_properties
+    # 255 is the longest title the property holds.
+    props.title = f"{spec.get('key') or ''} {spec['title']}".strip()[:255]
+    props.subject = props.keywords = props.comments = props.category = ""
 
 
 def layout_placeholder(layout, *types):
@@ -207,11 +447,11 @@ def layout_placeholder(layout, *types):
     return None
 
 
-def body_font_pt(prs, layout):
+def body_font_pt(layout):
     """The size level-1 body text renders at, following PowerPoint's
     inheritance: layout placeholder, master placeholder, master body style."""
     path = "./p:txBody/a:lstStyle/a:lvl1pPr/a:defRPr"
-    master = prs.slide_master
+    master = layout.slide_master
     candidates = [
         layout_placeholder(layout, PP_PLACEHOLDER.OBJECT, PP_PLACEHOLDER.BODY),
         layout_placeholder(master, PP_PLACEHOLDER.BODY)]
@@ -225,6 +465,40 @@ def body_font_pt(prs, layout):
     return 18
 
 
+def set_fixed_date(el, date_text):
+    """A plain run, because PowerPoint refreshes the layout's date field to
+    the day the deck is opened."""
+    tx_body = el.get_or_add_txBody()
+    para, *rest = tx_body.p_lst
+    for extra in rest:
+        tx_body.remove(extra)
+    r_pr = next(para.iter(qn("a:rPr")), None)
+    for child in para.content_children:
+        para.remove(child)
+    run = para.add_r()
+    run.text = date_text
+    if r_pr is not None:
+        run.insert(0, r_pr)
+
+
+def relink(el, source, slide):
+    """A copied element keeps its r:id values; give each one the same
+    relationship on the slide, so a linked footer still points somewhere."""
+    for node in el.iter():
+        for attr, r_id in list(node.attrib.items()):
+            if not attr.startswith("{%s}" % RELS_NS):
+                continue
+            rel = source.part.rels.get(r_id)
+            if rel is None:
+                del node.attrib[attr]
+            elif rel.is_external:
+                node.set(attr, slide.part.relate_to(rel.target_ref, rel.reltype,
+                                                    is_external=True))
+            else:
+                node.set(attr, slide.part.relate_to(rel.target_part,
+                                                    rel.reltype))
+
+
 def clone_footer_placeholders(slide, layout, date_text):
     """add_slide skips date, footer and slide number; copy them from the
     layout so the slide keeps the deck's footer line."""
@@ -236,16 +510,17 @@ def clone_footer_placeholders(slide, layout, date_text):
         if kind not in wanted:
             continue
         el = copy.deepcopy(ph._element)
+        el.nvSpPr.cNvPr.id = slide.shapes._next_shape_id
+        relink(el, layout, slide)
         sp_pr = el.find(qn("p:spPr"))
         for child in list(sp_pr):
             sp_pr.remove(child)  # inherit the layout's position
-        for t in el.iter(qn("a:t")):
-            if kind == PP_PLACEHOLDER.DATE:
-                t.text = date_text
-            elif kind == PP_PLACEHOLDER.SLIDE_NUMBER and t.getparent().tag == qn("a:fld"):
-                t.text = "1"
-            elif kind == PP_PLACEHOLDER.FOOTER:
-                t.text = " "
+        if kind == PP_PLACEHOLDER.DATE:
+            set_fixed_date(el, date_text)
+        elif kind == PP_PLACEHOLDER.SLIDE_NUMBER:
+            for t in el.iter(qn("a:t")):
+                if t.getparent().tag == qn("a:fld"):
+                    t.text = "1"
         tree.append(el)
 
 
@@ -321,9 +596,9 @@ def rounded_box(shapes, name, x, y, w, h, caption="", size=10, top=None):
 def chip(shapes, x, y, w, h, item, colour):
     text, mono = item["text"], item.get("mono", False)
     size = 12
-    while size > 9 and text_width(text, size, True, mono) > w - 180000:
+    while size > 9 and text_width(text, size, True, mono) > w - DEFAULT_INSETS:
         size -= 1
-    if text_width(text, size, True, mono) > w - 180000:
+    if text_width(text, size, True, mono) > w - DEFAULT_INSETS:
         problem(f"chip {text!r} is too long for its box; shorten it")
     shp = shapes.add_shape(MSO_SHAPE.RECTANGLE,
                            Emu(x), Emu(y), Emu(w), Emu(h))
@@ -341,7 +616,7 @@ def chip(shapes, x, y, w, h, item, colour):
     r.font.size = Pt(size)
     r.font.bold = not mono
     if is_light(*colour):
-        r.font.color.theme_color = MSO_THEME_COLOR.TEXT_1
+        r.font.color.theme_color = MSO_THEME_COLOR.DARK_1
     if mono:
         r.font.name = "Consolas"
     if item.get("state") == "removed":
@@ -367,14 +642,10 @@ def arrow(slide, src, dst, src_site=BOTTOM, dst_site=TOP):
 
 # ------------------------------------------------------------------- title
 
-def set_title(slide, spec):
-    title = slide.shapes.title
-    if title is None:
-        problem("the layout has no title placeholder; pick another layout")
-        return
+def set_title(slide, title, spec):
     tf = title.text_frame
     p = tf.paragraphs[0]
-    key, summary = spec.get("key", "").strip(), spec["title"].strip()
+    key, summary = (spec.get("key") or "").strip(), spec["title"].strip()
     if key:
         r = p.add_run()
         r.text = key
@@ -383,7 +654,8 @@ def set_title(slide, spec):
         p.add_run().text = "\u00a0"
     p.add_run().text = summary
     full = f"{key} {summary}".strip()
-    if line_count(full, title_font_pt(slide), title.width, bold=True) > 2:
+    if line_count(full, title_font_pt(slide), title.width - DEFAULT_INSETS,
+                  bold=True) > 2:
         problem(f"the title wraps past two lines ({len(full)} characters); "
                 "shorten the summary")
 
@@ -424,27 +696,21 @@ def normalise_stage(stage):
 
 
 def colour_map(sides):
-    colours, explicit = {}, {}
+    colours = {}
     for side in sides:
         for stage in side["stages"]:
             for box in stage:
                 for it in box["items"]:
-                    if it.get("color"):
-                        name = it["color"]
-                        if name not in THEME_NAMES:
-                            problem(f"color {name!r} unknown; use one of "
-                                    + ", ".join(sorted(THEME_NAMES)))
-                            continue
-                        explicit[it["text"]] = (THEME_NAMES[name], 0)
-                    elif it["text"] not in colours:
+                    if it["text"] not in colours:
                         colours[it["text"]] = PALETTE[len(colours) % len(PALETTE)]
-    colours.update(explicit)
     return colours
 
 
 CHIP_H, CHIP_GAP, CAPTION_H, PAD = 310896, 128016, 228600, 91440
 CAPTION_INSET = 45720
 ARROW_GAP = 256032
+NOTE_GAP, NOTE_MIN_W = 73152, 900000
+MIN_BOX_W = 600000
 
 
 def stage_height(stage, scale):
@@ -483,13 +749,24 @@ def draw_side(slide, side, x, w, top, bottom, colours, removed_style, fit):
     label = side["label"]
     textbox(slide.shapes, f"Label {label}", x, top, 1100000, 300000,
             [[(label, {"bold": True, "rgb": RED})]], 18)
-    y, prev = top + 240000, []
+    y, prev, shift = top + 240000, [], 0
     for si, stage in enumerate(side["stages"]):
         k = len(stage)
         gap = 274320
-        bw = min((w - (k - 1) * gap) // k, 2743200 if k == 1 else 2606040)
+        note_room = NOTE_GAP + NOTE_MIN_W if si == 0 and side.get("note") else 0
+        bw = min((w - note_room - (k - 1) * gap) // k,
+                 2743200 if k == 1 else 2606040)
+        if bw < MIN_BOX_W:
+            problem(f"{label}: stage {si + 1} has too many boxes side by side; "
+                    "merge them")
+            return y
         group_w = k * bw + (k - 1) * gap
-        gx = x + (w - group_w) // 2
+        gx = max(x, x + (w - group_w) // 2 - shift)
+        if note_room:
+            # Centred, moved left only as far as the note beside it needs,
+            # and the stages below follow so their arrows stay straight.
+            shift = max(0, gx + group_w + note_room - (x + w))
+            gx -= shift
         h = rows[si]
         cur = []
         bare = all(not b["caption"] and len(b["items"]) == 1 for b in stage)
@@ -543,11 +820,7 @@ def draw_side(slide, side, x, w, top, bottom, colours, removed_style, fit):
 
 def draw_note(slide, label, note, left, y, right, h, removed_style):
     lines = [l if isinstance(l, dict) else {"text": l} for l in note]
-    x, w = left + 73152, right - left - 73152
-    if w < 900000:
-        problem("no room for the note beside the first stage; make that "
-                "stage a single box, or drop the note")
-        return
+    x, w = left + NOTE_GAP, right - left - NOTE_GAP
     paras = []
     for i, l in enumerate(lines):
         if removed_style:
@@ -568,13 +841,15 @@ def draw_note(slide, label, note, left, y, right, h, removed_style):
         shp.line.color.theme_color = MSO_THEME_COLOR.TEXT_1
         shp.line.color.brightness = 0.5
         shp.line.dash_style = MSO_LINE_DASH_STYLE.DASH
-    total = sum(line_count(l["text"], 10, w - 54864) for l in lines)
+    total = sum(line_count(l["text"], 10, w - 54864,
+                           bold=(removed_style and i == 0) or l.get("bold", False))
+                for i, l in enumerate(lines))
     if total * 10 * 1.25 * EMU_PER_PT > h:
         problem("the note has too much text for its box; keep it to "
                 "three short lines")
 
 
-def build_before_after(slide, prs, layout, body, frame, footer_top):
+def build_before_after(slide, prs, body, frame, footer_top):
     left, top, width = frame
     goal_h = 409343
     textbox(slide.shapes, "Goal", left, top, width, goal_h,
@@ -585,12 +860,9 @@ def build_before_after(slide, prs, layout, body, frame, footer_top):
     region_top = top + goal_h + 100000
     region_bottom = footer_top - 390000
     sides = []
-    for key, default in (("before", "Before"), ("after", "After")):
-        side = body.get(key)
-        if not side or not side.get("stages"):
-            problem(f"body.{key}.stages is required for before_after")
-            return
-        sides.append({"label": side.get("label", default),
+    for key, label in (("before", "Before"), ("after", "After")):
+        side = body[key]
+        sides.append({"label": label,
                       "stages": [normalise_stage(s) for s in side["stages"]],
                       "note": side.get("note")})
     colours = colour_map(sides)
@@ -612,19 +884,13 @@ def build_before_after(slide, prs, layout, body, frame, footer_top):
 
 # ---------------------------------------------------------------- sections
 
-def build_sections(slide, prs, layout, body, frame, footer_top):
+def build_sections(slide, layout, body, frame, footer_top):
     left, top, width = frame
-    ph = None
-    for shape in slide.placeholders:
-        if shape.placeholder_format.type in (PP_PLACEHOLDER.OBJECT,
-                                             PP_PLACEHOLDER.BODY):
-            ph = shape
-            break
-    if ph is None:
-        problem("the layout has no content placeholder for sections; "
-                "pick a 'Title Content' style layout")
-        return
-    size = body_font_pt(prs, layout)
+    ph = next(shape for shape in slide.placeholders
+              if shape.placeholder_format.type in (PP_PLACEHOLDER.OBJECT,
+                                                   PP_PLACEHOLDER.BODY))
+    size = body_font_pt(layout)
+    text_w = width - DEFAULT_INSETS
     tf = ph.text_frame
     paras = [("goal", body["goal"])]
     for sec in body.get("sections", []):
@@ -647,14 +913,15 @@ def build_sections(slide, prs, layout, body, frame, footer_top):
         if kind == "goal":
             r = p.add_run(); r.text = "Goal:"; r.font.bold = True
             p.add_run().text = "\u00a0" + value
-            lines += line_count("Goal: " + value, size, width)
+            lines += line_count("Goal: " + value, size, text_w)
         elif kind == "head":
             p.add_run().text = value.rstrip(":") + ":"
-            lines += 1
+            lines += line_count(value.rstrip(":") + ":", size, text_w)
         elif kind == "inline":
             head, text = value
-            p.add_run().text = f"{head.rstrip(':')}: {text}"
-            lines += line_count(f"{head}: {text}", size, width)
+            line = f"{head.rstrip(':')}: {text}"
+            p.add_run().text = line
+            lines += line_count(line, size, text_w)
         else:
             ppr = p._p.get_or_add_pPr()
             ppr.set("marL", "285750")
@@ -662,18 +929,21 @@ def build_sections(slide, prs, layout, body, frame, footer_top):
             etree.SubElement(ppr, qn("a:buFontTx"))
             etree.SubElement(ppr, qn("a:buChar"), char="-")
             p.add_run().text = value
-            lines += line_count(value, size, width - 285750)
+            lines += line_count(value, size, text_w - 285750)
     # line height plus the template's ~6pt after each paragraph
     text_h = int(lines * size * 1.2 * EMU_PER_PT + len(paras) * 6 * EMU_PER_PT)
     has_visual = body.get("flow") or body.get("image")
     region_bottom = footer_top - 300000
+    # Taller than the layout's box, text set to the bottom would grow up over
+    # the title; the box grows down instead, towards the footer check.
+    if has_visual or text_h > ph.height:
+        ph.left, ph.top, ph.width, ph.height = (Emu(left), Emu(top), Emu(width),
+                                                Emu(text_h))
     if not has_visual:
         if top + text_h > region_bottom:
             problem(f"sections run about {lines} lines; cut points until "
                     "they fit above the footer")
         return
-    ph.left, ph.top, ph.width, ph.height = (Emu(left), Emu(top), Emu(width),
-                                            Emu(text_h))
     vis_top = top + text_h + 200000
     vis_h = region_bottom - vis_top
     if vis_h < 1600000:
@@ -695,7 +965,11 @@ def place_image(slide, path, x, y, w, h):
     if not p.is_file():
         problem(f"image {path} not found")
         return
-    pic = slide.shapes.add_picture(str(p), Emu(x), Emu(y))
+    try:
+        pic = slide.shapes.add_picture(str(p), Emu(x), Emu(y))
+    except (OSError, ValueError) as exc:
+        problem(f"image {path} cannot be placed: {exc}")
+        return
     pic.name = f"Picture {p.name}"
     ratio = min(w / pic.width, h / pic.height)
     pic.width, pic.height = int(pic.width * ratio), int(pic.height * ratio)
@@ -713,12 +987,17 @@ def draw_flow(slide, steps, x, y, w, h):
         return
     gap = 320000
     sw = min((w - (n - 1) * gap) // n, 3200400)
+    if sw < MIN_BOX_W:
+        problem("the flow steps are too narrow; drop a step or the image")
+        return
     x += (w - n * sw - (n - 1) * gap) // 2
     head_h = 420000
     size = 14
+    # Box width less its 91440 side margins and the bullet's 171450 indent.
+    text_w = sw - 2 * 91440 - 171450
     # Size every box to the fullest step, then centre the row in the space.
     text_h = max(
-        sum(line_count(pt, 12, sw - 200000) * 12 * 1.2 + 6
+        sum(line_count(pt, 12, text_w) * 12 * 1.2 + 6
             for pt in step.get("points", [])) for step in steps)
     box_h = head_h // 2 + 80000 + int(text_h * EMU_PER_PT) + 140000
     if head_h // 2 + box_h > h:
@@ -762,7 +1041,9 @@ def draw_flow(slide, steps, x, y, w, h):
         r.text = step["title"]
         r.font.size = Pt(size)
         r.font.bold = True
-        if text_width(step["title"], size, True) > sw - 300000:
+        if is_light(MSO_THEME_COLOR.ACCENT_1):
+            r.font.color.theme_color = MSO_THEME_COLOR.DARK_1
+        if text_width(step["title"], size, True) > sw - 180000 - DEFAULT_INSETS:
             problem(f"flow step title {step['title']!r} is too long")
         if prev is not None:
             arrow(slide, prev, box, RIGHT, LEFT)
@@ -771,10 +1052,13 @@ def draw_flow(slide, steps, x, y, w, h):
 
 # -------------------------------------------------------------------- main
 
-def presenter_box(slide, prs, footer_top, name):
-    w = 3608962
-    textbox(slide.shapes, "Presented by", (prs.slide_width - w) // 2,
-            footer_top + 106966, w, 139926,
+def presenter_box(slide, prs, footer_top, name, above_footer):
+    """Centred on the footer line, or just above a footer with its own text."""
+    w, h = 3608962, 139926
+    if text_width("Presented by: " + name, 10) > w:
+        problem(f"presenter {name!r} is too long for the footer line")
+    y = footer_top - h - 40000 if above_footer else footer_top + 106966
+    textbox(slide.shapes, "Presented by", (prs.slide_width - w) // 2, y, w, h,
             [[("Presented by:\u00a0" + name,
                {"theme": MSO_THEME_COLOR.ACCENT_1})]], 10, PP_ALIGN.CENTER,
             MSO_ANCHOR.BOTTOM)
@@ -795,10 +1079,39 @@ def remove_unused_placeholders(slide, keep_body):
 
 def build(template, spec, out):
     prs = load_template(template)
-    read_theme(prs)
-    layout = pick_layout(prs, spec.get("layout"))
+    body = spec["body"]
+    kind = body["kind"]
+    layout = pick_layout(prs, spec.get("layout"), kind)
+    if layout is None:
+        return False
+    name = " ".join(layout.name.split())
+    read_theme(layout)
     drop_slides(prs)
+    describe_as_the_slide(prs, spec)
     slide = prs.slides.add_slide(layout)
+    title = slide.shapes.title
+    if title is None:
+        problem(f"layout {name!r} has no title placeholder; "
+                + layout_hint(prs, kind))
+        return False
+    top = body_region_top(layout, prs.slide_height)
+    if top is None:
+        problem(f"the title of layout {name!r} overlaps the body region; "
+                + layout_hint(prs, kind))
+        return False
+
+    body_ph = layout_placeholder(layout, PP_PLACEHOLDER.OBJECT,
+                                 PP_PLACEHOLDER.BODY)
+    date_ph = layout_placeholder(layout, PP_PLACEHOLDER.DATE)
+    footer_ph = layout_placeholder(layout, PP_PLACEHOLDER.FOOTER)
+    left = body_ph.left if body_ph is not None else title.left
+    width = body_ph.width if body_ph is not None else title.width
+    footer_top = date_ph.top if date_ph is not None else int(
+        prs.slide_height * 0.95)
+    if kind == "sections" and body_ph is None:
+        problem(f"layout {name!r} has no content placeholder for sections; "
+                + layout_hint(prs, kind))
+        return False
 
     date = spec.get("date") or datetime.date.today().isoformat()
     try:
@@ -808,42 +1121,30 @@ def build(template, spec, out):
         problem(f"date {date!r} is not YYYY-MM-DD")
         date_text = date
     clone_footer_placeholders(slide, layout, date_text)
-    set_title(slide, spec)
+    set_title(slide, title, spec)
 
-    title_ph = layout_placeholder(layout, PP_PLACEHOLDER.TITLE,
-                                  PP_PLACEHOLDER.CENTER_TITLE)
-    body_ph = layout_placeholder(layout, PP_PLACEHOLDER.OBJECT,
-                                 PP_PLACEHOLDER.BODY)
-    date_ph = layout_placeholder(layout, PP_PLACEHOLDER.DATE)
-    left = body_ph.left if body_ph is not None else title_ph.left
-    width = body_ph.width if body_ph is not None else title_ph.width
-    top = body_ph.top if body_ph is not None else int(prs.slide_height * 0.2)
-    footer_top = date_ph.top if date_ph is not None else int(
-        prs.slide_height * 0.95)
-
-    body = spec.get("body") or {}
-    body.setdefault("goal", spec.get("goal", ""))
-    if not body["goal"]:
-        problem("goal is required: one sentence, the why of the story")
-    kind = body.get("kind")
-    keep = None
-    if kind == "sections":
-        keep = body_ph.placeholder_format.idx if body_ph is not None else None
+    keep = body_ph.placeholder_format.idx if kind == "sections" else None
     remove_unused_placeholders(slide, keep)
     if kind == "before_after":
-        build_before_after(slide, prs, layout, body, (left, top, width),
-                           footer_top)
-    elif kind == "sections":
-        build_sections(slide, prs, layout, body, (left, top, width),
-                       footer_top)
+        build_before_after(slide, prs, body, (left, top, width), footer_top)
     else:
-        problem("body.kind must be 'before_after' or 'sections'")
+        build_sections(slide, layout, body, (left, top, width), footer_top)
     if spec.get("presenter"):
-        presenter_box(slide, prs, footer_top, spec["presenter"])
+        presenter_box(slide, prs, footer_top, spec["presenter"],
+                      footer_ph is not None
+                      and bool(footer_ph.text_frame.text.strip()))
 
+    if PROBLEMS and not fits(layout, prs.slide_height, kind):
+        problem(f"layout {name!r} leaves this slide little room (its title "
+                "sits low or its body is split in parts); "
+                + layout_hint(prs, kind))
     if PROBLEMS:
         return False
-    prs.save(str(out))
+    try:
+        prs.save(str(out))
+    except OSError as exc:
+        problem(f"cannot write {out}: {exc}")
+        return False
     return True
 
 
@@ -867,9 +1168,13 @@ def preview(pptx, png):
     with tempfile.TemporaryDirectory() as tmp:
         # A private profile, so a running LibreOffice does not block this.
         profile = Path(tmp, "profile").as_uri()
-        subprocess.run([soffice, f"-env:UserInstallation={profile}",
-                        "--headless", "--convert-to", "png", "--outdir", tmp,
-                        str(pptx)], capture_output=True, timeout=180)
+        try:
+            subprocess.run([soffice, f"-env:UserInstallation={profile}",
+                            "--headless", "--convert-to", "png", "--outdir",
+                            tmp, str(pptx)], capture_output=True, timeout=180)
+        except (OSError, subprocess.SubprocessError) as exc:
+            print(f"preview skipped: LibreOffice failed: {exc}")
+            return False
         made = Path(tmp, Path(pptx).stem + ".png")
         if not made.is_file():
             print("preview skipped: LibreOffice did not produce a PNG")
@@ -887,10 +1192,12 @@ def main(argv=None):
     ap.add_argument("--preview", type=Path,
                     help="also render the slide to this PNG (needs LibreOffice)")
     args = ap.parse_args(argv)
-    spec = json.loads(args.spec.read_text(encoding="utf-8"))
-    for field in ("title",):
-        if not spec.get(field):
-            problem(f"{field} is required")
+    try:
+        spec = json.loads(args.spec.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        problem(f"cannot read the spec {args.spec}: {exc}")
+    else:
+        check_spec(spec)
     if not PROBLEMS and build(args.template, spec, args.out):
         print(f"built: {args.out}")
         if args.preview:
