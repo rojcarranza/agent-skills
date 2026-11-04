@@ -22,7 +22,7 @@ slide. Two complete examples: `assets/example-before-after.json` and
 | `title` | yes | Story summary, without the key. |
 | `presenter` | no | Name after "Presented by:" at the bottom, on the footer line or, when the template's footer has its own text, just above it. |
 | `date` | no | `YYYY-MM-DD`; today when left out. Shown in the footer. |
-| `layout` | no | Template layout name; default is the layout of the template's first slide with a title in the top third and a content placeholder, else of its first slide. |
+| `layout` | no | Template layout name; default is the layout of the template's first slide with a title in the top third and one content placeholder, else the template's first such layout, else its first slide's layout. |
 | `body` | yes | `kind` plus that kind's fields, below. |
 | `body.goal` | yes | One sentence after the bold "Goal:". |
 

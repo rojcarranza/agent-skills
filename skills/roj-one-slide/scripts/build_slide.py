@@ -42,6 +42,8 @@ except ImportError:
     sys.exit(2)
 
 EMU_PER_PT = 12700
+RELS_NS = ("http://schemas.openxmlformats.org/officeDocument/2006/"
+           "relationships")
 RED = RGBColor(0xFF, 0x00, 0x00)  # the Before/After labels and "Removed"
 # Chip fills, in order of first appearance. The same text gets the same
 # colour on both sides, so a component is recognisable across the divider.
@@ -290,10 +292,10 @@ def is_light(theme, brightness=0):
     return 1.05 / (lum + 0.05) < 2.5
 
 
-def has_title_and_content(layout):
-    kinds = {ph.placeholder_format.type for ph in layout.placeholders}
-    return bool(kinds & {PP_PLACEHOLDER.TITLE, PP_PLACEHOLDER.CENTER_TITLE}
-                and kinds & {PP_PLACEHOLDER.OBJECT, PP_PLACEHOLDER.BODY})
+def content_count(layout):
+    return sum(ph.placeholder_format.type in (PP_PLACEHOLDER.OBJECT,
+                                              PP_PLACEHOLDER.BODY)
+               for ph in layout.placeholders)
 
 
 def all_layouts(prs):
@@ -327,15 +329,22 @@ def body_region_top(layout, slide_height):
     return max(bottom, int(slide_height * 0.2))
 
 
+def fits(layout, slide_height, kind):
+    """A title at the top and one body under it: the content takes the body's
+    full width. A before/after diagram can also go under a title alone."""
+    n = content_count(layout)
+    return (body_region_top(layout, slide_height) is not None
+            and not title_is_low(layout, slide_height)
+            and (n == 1 or (n == 0 and kind != "sections")))
+
+
 def layout_hint(prs, kind):
     """What to do about a refused layout, naming only layouts that fit."""
-    fits = [" ".join(lay.name.split()) for lay in all_layouts(prs)
-            if body_region_top(lay, prs.slide_height) is not None
-            and not title_is_low(lay, prs.slide_height)
-            and (kind != "sections" or has_title_and_content(lay))]
-    if not fits:
+    fits_kind = [" ".join(lay.name.split()) for lay in all_layouts(prs)
+                 if fits(lay, prs.slide_height, kind)]
+    if not fits_kind:
         return "no layout in this template fits; use another template"
-    return "set layout to one of: " + ", ".join(repr(n) for n in fits)
+    return "set layout to one of: " + ", ".join(repr(n) for n in fits_kind)
 
 
 def pick_layout(prs, name, kind):
@@ -348,13 +357,13 @@ def pick_layout(prs, name, kind):
                 + layout_hint(prs, kind))
         return None
     # A deck the team presents from often opens with a title slide or has
-    # section headers; the first slide with a title at the top and content
-    # is the one stories are told on.
-    candidates = [s.slide_layout for s in prs.slides] or layouts
-    for lay in candidates:
-        if has_title_and_content(lay) and not title_is_low(lay, prs.slide_height):
+    # section headers; the first slide with a title at the top and one body
+    # is the one stories are told on, else the template's first such layout.
+    used = [s.slide_layout for s in prs.slides]
+    for lay in used + layouts:
+        if fits(lay, prs.slide_height, "sections"):
             return lay
-    return candidates[0]
+    return (used or layouts)[0]
 
 
 def xml_bytes(root):
@@ -472,6 +481,24 @@ def set_fixed_date(el, date_text):
         run.insert(0, r_pr)
 
 
+def relink(el, source, slide):
+    """A copied element keeps its r:id values; give each one the same
+    relationship on the slide, so a linked footer still points somewhere."""
+    for node in el.iter():
+        for attr, r_id in list(node.attrib.items()):
+            if not attr.startswith("{%s}" % RELS_NS):
+                continue
+            rel = source.part.rels.get(r_id)
+            if rel is None:
+                del node.attrib[attr]
+            elif rel.is_external:
+                node.set(attr, slide.part.relate_to(rel.target_ref, rel.reltype,
+                                                    is_external=True))
+            else:
+                node.set(attr, slide.part.relate_to(rel.target_part,
+                                                    rel.reltype))
+
+
 def clone_footer_placeholders(slide, layout, date_text):
     """add_slide skips date, footer and slide number; copy them from the
     layout so the slide keeps the deck's footer line."""
@@ -484,6 +511,7 @@ def clone_footer_placeholders(slide, layout, date_text):
             continue
         el = copy.deepcopy(ph._element)
         el.nvSpPr.cNvPr.id = slide.shapes._next_shape_id
+        relink(el, layout, slide)
         sp_pr = el.find(qn("p:spPr"))
         for child in list(sp_pr):
             sp_pr.remove(child)  # inherit the layout's position
@@ -1106,9 +1134,10 @@ def build(template, spec, out):
                       footer_ph is not None
                       and bool(footer_ph.text_frame.text.strip()))
 
-    if PROBLEMS and title_is_low(layout, prs.slide_height):
-        problem(f"the title of layout {name!r} sits low on the slide, leaving "
-                "little room under it; " + layout_hint(prs, kind))
+    if PROBLEMS and not fits(layout, prs.slide_height, kind):
+        problem(f"layout {name!r} leaves this slide little room (its title "
+                "sits low or its body is split in parts); "
+                + layout_hint(prs, kind))
     if PROBLEMS:
         return False
     try:

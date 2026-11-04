@@ -1712,20 +1712,78 @@ class TestOneSlideScript(unittest.TestCase):
         self.assertEqual(self.shapes(out)[0].slide_layout.name,
                          "Title and Content")
 
-    def test_refusal_on_a_low_title_points_to_a_better_layout(self):
-        """Rejects telling the agent only to cut content when the layout is
-        what leaves no room."""
+    def test_default_layout_falls_back_to_the_templates_story_layout(self):
+        """A deck of section headers and two-column slides still has Title
+        and Content among its layouts; the slide goes there."""
+        for index in (2, 3):  # Section Header, Two Content
+            with self.subTest(index=index):
+                prs = self.team_deck()
+                section = self.office_section_header(prs)
+                layout = section if index == 2 else prs.slide_layouts[3]
+                prs.slides.add_slide(layout)
+                run, out = self.build(self.SECTIONS, self.save_deck(prs))
+                self.assertEqual(run.returncode, 0, run.stderr)
+                self.assertEqual(self.shapes(out)[0].slide_layout.name,
+                                 "Title and Content")
+
+    def test_default_layout_passes_over_a_two_content_slide(self):
+        """Two Content's half-width body refuses both bundled examples."""
         prs = self.team_deck()
-        prs.slides.add_slide(self.office_section_header(prs))
+        for index in (3, 1):  # Two Content, then Title and Content
+            prs.slides.add_slide(prs.slide_layouts[index])
+        deck = self.save_deck(prs)
+        for example in ("before-after", "sections"):
+            with self.subTest(example):
+                spec = json.loads((SKILLS / "roj-one-slide" / "assets"
+                                   / f"example-{example}.json").read_text("utf-8"))
+                run, out = self.build(spec, deck)
+                self.assertEqual(run.returncode, 0, run.stderr)
+                self.assertEqual(self.shapes(out)[0].slide_layout.name,
+                                 "Title and Content")
+
+    def test_refusal_on_an_ill_fitting_layout_points_to_a_better_one(self):
+        """Rejects telling the agent only to cut content when the layout is
+        what leaves no room: a low title, or a body split in two."""
         spec = json.loads((SKILLS / "roj-one-slide" / "assets"
                            / "example-before-after.json").read_text("utf-8"))
-        run, out = self.build(spec, self.save_deck(prs))
-        self.assertEqual(run.returncode, 1, run.stderr)
-        self.assertIn("sits low on the slide", run.stderr)
-        hint = run.stderr.split("set layout to one of:")[1]
-        self.assertIn("'Title and Content'", hint)
-        self.assertNotIn("'Section Header'", hint)
-        self.assertFalse(out.exists())
+        for layout in ("Section Header", "Two Content"):
+            with self.subTest(layout):
+                prs = self.team_deck()
+                self.office_section_header(prs)
+                run, out = self.build({**spec, "layout": layout},
+                                      self.save_deck(prs))
+                self.assertEqual(run.returncode, 1, run.stderr)
+                self.assertIn(f"layout {layout!r} leaves this slide little "
+                              "room", run.stderr)
+                hint = run.stderr.split("set layout to one of:")[1]
+                self.assertIn("'Title and Content'", hint)
+                self.assertNotIn("'Section Header'", hint)
+                self.assertNotIn("'Two Content'", hint)
+                self.assertFalse(out.exists())
+
+    def test_linked_footer_text_keeps_a_valid_link(self):
+        """Every r:id on a slide must name one of the slide's own
+        relationships (OPC); a copied footer link must not dangle."""
+        from pptx import Presentation
+        prs = self.team_deck()
+        footer = next(ph for ph in prs.slide_layouts[1].placeholders
+                      if ph.placeholder_format.type == 15)
+        footer.text_frame.text = "Team wiki"
+        footer.text_frame.paragraphs[0].runs[0].hyperlink.address = (
+            "https://example.com/wiki")
+        run, out = self.build(self.SECTIONS, self.save_deck(prs))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide = Presentation(str(out)).slides[0]
+        r_ns = ("{http://schemas.openxmlformats.org/officeDocument/2006/"
+                "relationships}")
+        used = {v for e in slide._element.iter() for k, v in e.attrib.items()
+                if k.startswith(r_ns)}
+        self.assertTrue(used)
+        self.assertLessEqual(used, set(slide.part.rels.keys()))
+        placed = next(s for s in slide.placeholders
+                      if s.placeholder_format.type == 15)
+        self.assertEqual(placed.text_frame.paragraphs[0].runs[0].hyperlink
+                         .address, "https://example.com/wiki")
 
     def test_body_grows_down_from_a_short_bottom_anchored_placeholder(self):
         """Office's Comparison body is 639762 EMU high and set to the bottom,
@@ -1776,9 +1834,8 @@ class TestOneSlideScript(unittest.TestCase):
         self.assertEqual(slide.slide_layout.name, "Title and Content")
 
     def test_layout_whose_title_overlaps_the_body_is_refused(self):
-        prs = self.team_deck()
-        prs.slides.add_slide(prs.slide_layouts[0])  # Title Slide
-        run, out = self.build(self.BEFORE_AFTER, self.save_deck(prs))
+        spec = {**self.BEFORE_AFTER, "layout": "Title Slide"}
+        run, out = self.build(spec, self.save_deck(self.team_deck()))
         self.assertEqual(run.returncode, 1, run.stderr)
         self.assertIn("overlaps the body region", run.stderr)
         self.assertIn("'Title and Content'", run.stderr)
@@ -1805,9 +1862,8 @@ class TestOneSlideScript(unittest.TestCase):
         self.assertNotIn("'Title Only'", run.stderr.split("set layout to")[1])
 
     def test_layout_without_a_title_is_refused(self):
-        prs = self.team_deck()
-        prs.slides.add_slide(prs.slide_layouts[6])  # Blank
-        run, out = self.build(self.BEFORE_AFTER, self.save_deck(prs))
+        spec = {**self.BEFORE_AFTER, "layout": "Blank"}
+        run, out = self.build(spec, self.save_deck(self.team_deck()))
         self.assertEqual(run.returncode, 1, run.stderr)
         self.assertNotIn("Traceback", run.stderr)
         self.assertIn("no title placeholder", run.stderr)
