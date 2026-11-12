@@ -980,6 +980,19 @@ skills:
         self.assertLessEqual(install.custom_skill_names(),
                              install.managed_skill_names("copilot"))
 
+    def test_only_cali_is_always_installed(self):
+        # Issue #110 (CALI-7 piece 6): /cali stays in every chat, the rest
+        # load on demand.
+        always = {d["name"] for d in install.manifest_deps()
+                  if d["active"] and d["load"] == "always"}
+        self.assertEqual(always, {"cali"})
+
+    def test_load_field_is_read(self):
+        parsed = install.parse_manifest(
+            "skills:\n  a:\n    source: x\n    load: on-demand\n  b:\n"
+            "    source: y\n")
+        self.assertEqual([d["load"] for d in parsed], ["on-demand", "always"])
+
     def test_repo_manifest_matches_its_lock(self):
         # cali sync --frozen would pass: every live skill is locked, nothing else.
         lock = json.loads((install.REPO_ROOT / "cali.lock").read_text("utf-8"))

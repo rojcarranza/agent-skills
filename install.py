@@ -117,7 +117,7 @@ def _unquote(value):
 
 
 def parse_manifest(text: str) -> list:
-    """cali.yaml text -> [{'name', 'source', 'ref', 'targets', 'active'}].
+    """cali.yaml text -> [{'name', 'source', 'ref', 'targets', 'load', 'active'}].
     ref is the `ref:` field, else the @ref of the source; targets is a tuple,
     or None for the manifest's default targets."""
     skills, current, in_skills = [], None, False
@@ -134,7 +134,8 @@ def parse_manifest(text: str) -> list:
         entry = _SKILL_LINE_RE.match(line)
         if entry and not _strip_comment(entry.group(3)):
             current = {"name": entry.group(2), "active": not entry.group(1),
-                       "source": "", "ref": None, "targets": None}
+                       "source": "", "ref": None, "targets": None,
+                       "load": "always"}
             skills.append(current)
             continue
         field = _FIELD_LINE_RE.match(line)
@@ -144,7 +145,7 @@ def parse_manifest(text: str) -> list:
             if key == "targets":
                 current["targets"] = tuple(
                     t.strip() for t in value.strip("[]").split(",") if t.strip())
-            elif key in ("source", "ref"):
+            elif key in ("source", "ref", "load"):
                 current[key] = value
     for dep in skills:
         if dep["ref"] is None and "@" in dep["source"].rsplit("//", 1)[-1]:
