@@ -1,13 +1,36 @@
 # install.py reference
 
-`install.py` installs my Claude Code and GitHub Copilot setup: my skills and
-the community skills they chain to, through
-[Cali](https://github.com/rojcarranza/cali) from the repo's
-[`cali.yaml`](../cali.yaml); the personal instructions; and the GitHub MCP
-server. It also removes what older versions and APM installed and installs
-`graphify`, a CLI Cali does not install. Python >= 3.8, standard library
-only. For a single skill in any agent, `npx skills add` is enough —
-see the [README](../README.md#install).
+Skills and `install.py` are separate. [Cali](https://github.com/rojcarranza/cali)
+installs the skills; `install.py` installs the extras around them and never
+runs `cali`.
+
+## Skills: install cali first
+
+Cali reads this repo's skill list from GitHub, so no clone is needed:
+
+```bash
+go install github.com/rojcarranza/cali/cmd/cali@latest   # or `make install` in a cali clone
+cali setup github:rojcarranza/agent-skills               # once
+cali load roj-one-slide                                  # from any folder
+cali status -g                                           # installed, newer versions
+cali update -g --apply                                   # take newer versions
+```
+
+`cali setup` adds this repo to the `sources:` list in your own `cali.yaml`.
+`cali load` finds the skill there, records it with `load: on-demand` and a
+pin in your own `cali.yaml` and `cali.lock`, and copies it in. On WSL it fills
+both the Linux home and your Windows home. Cali's own documentation has the
+details.
+
+## What install.py does
+
+`install.py` installs my Claude Code and GitHub Copilot extras: the personal
+instructions, the Superpowers start-up note, a JetBrains instruction block,
+the GitHub MCP server and `graphify`, a CLI Cali does not install. It
+touches no skills folder except the one `graphify` writes for itself. It
+runs with no `cali` on the machine. Python >= 3.8, standard library only. For
+a single skill in any agent, `npx skills add` is enough, see the
+[README](../README.md#install).
 
 ## Flags and modes
 
@@ -26,29 +49,16 @@ python3 install.py --windows-home /mnt/c/Users/me   # WSL: name the Windows home
 | --- | --- |
 | `--target` | `claude`, `copilot` or `both` (default `both`) |
 | `--dry-run` | print the planned actions; write and run nothing |
-| `--status` | run `cali list`, then show graphify and leftovers |
-| `--update` | run `cali status`: lists skills with local edits or newer upstream versions; changes nothing |
+| `--status` | show what this script wrote, graphify and leftovers; for skills it points to `cali status -g` |
+| `--update` | prints `cali update -g`; changes nothing |
 | `--upgrade` | upgrade external CLIs (`graphify`) before refreshing their skill files |
 | `--skills-only` | skip `graphify` (e.g. PyPI blocked) |
-| `--windows-home PATH` | WSL only: the Windows home Cali installs the Copilot skills into (default: `%USERPROFILE%`, read through `cmd.exe`) |
+| `--windows-home PATH` | WSL only: the Windows home that gets the JetBrains instructions (default: `%USERPROFILE%`, read through `cmd.exe`) |
 
-Run order: stop with install instructions if `cali` is missing, or with
-update instructions if it is too old to have `cali sync --prune`,
-`--target` and `--windows-home` (a dry run only says so), remove what older
-installs left (see "Old installs"), deploy the personal instructions,
-register the GitHub MCP server, install the Copilot skills into the Windows
-home (WSL only, see "WSL: two homes"), run
-`cali sync --prune -g --manifest <clone>/cali.yaml`, then install
-`graphify`. Every `cali` command `install.py` runs takes
-`-g --manifest <clone>/cali.yaml`: skills land in `~/.claude/skills` and
-`~/.copilot/skills`, and `cali.lock` is read and written next to
-`cali.yaml` in the clone. The one exception is a Git Bash run when a WSL
-run owns the Windows Copilot skills: it runs no `cali sync` at all (see
-"WSL: two homes").
-
-`--target` limits everything, `cali sync` included: it passes the same
-`--target` to `cali sync`. The default, `both`, installs every target
-`cali.yaml` names.
+Run order: deploy the personal instructions, register the GitHub MCP server,
+write the JetBrains block into the Windows home (WSL only), then install
+`graphify`. `--target` limits the instructions, the MCP server and graphify
+to that agent.
 
 The GitHub MCP server is registered only when a GitHub login exists:
 `$token`, else `gh auth token`; with neither, `install.py` skips MCP servers
@@ -62,14 +72,14 @@ In [dotfiles](https://github.com/rojcarranza/.dotfiles),
 checkout (override with `AGENT_SKILLS_DIR`), checks out the pinned ref and
 runs `install.py` as part of normal machine setup.
 
-## The Cali manifest
+## The skills list
 
-[`cali.yaml`](../cali.yaml) is the one list of skills. `install.py` points
-`cali` at it in the clone, so editing `cali.yaml` here and re-running
-`install.py` is the whole workflow. Each skill is a name with a git source:
+[`cali.yaml`](../cali.yaml) is the list Cali reads after `cali setup`. Each
+skill is a name with a git source. This repo keeps no `cali.lock`: the pins
+are yours, in the `cali.yaml` and `cali.lock` that Cali writes for you.
 
 ```yaml
-# Own skill: this clone at its checked-out HEAD, pinned by cali.lock
+# Own skill: this repo, `.//` is the repo Cali reads it from
 roj-explain-logic:
   source: .//skills/roj-explain-logic
 
@@ -81,39 +91,23 @@ caveman:
 ```
 
 - **Pin to a commit.** Every community ref is a full commit SHA, so a new
-  upstream version is a reviewed diff. [`cali.lock`](../cali.lock) records
-  the commit and tree of every community skill, and the tree of ours.
+  upstream version is a reviewed diff.
 - **One agent only.** `targets: [copilot]` (or `[claude]`) limits an entry.
   Copilot is the work agent, so every entry is Copilot only, our skills
   and every community skill, cherry-picks included, except `roj-one-slide`,
-  which installs for Claude too.
-- **Optional entries** are commented out in `cali.yaml`. Uncomment one and
-  re-run `install.py` to install it. Commenting a live entry out, or
-  deleting it, removes the skill on the next run: `cali sync --prune` backs
-  the folder up and deletes it, and drops it from `cali.lock`. A folder you
-  edited is kept. Prune only reaches skills `cali.lock` still lists, so it
-  cleans the machine where you dropped the entry. Another machine pulls a
-  `cali.lock` that no longer names the skill; add the name to
-  `RETIRED_SKILLS` in `install.py` (see "Old installs") so every machine
-  moves it aside.
-- **Bumping a pin.** `install.py --update` lists skills with newer
-  upstream versions. Put the new SHA in `cali.yaml`, then run
-  `cali update -g --manifest cali.yaml --apply` (a re-run of `install.py`
-  only reports `ref changed`), review the `cali.lock` diff and commit it.
-- **Our own skills** come from the clone at its checked-out HEAD
-  (`.//skills/<name>`), so a branch installs its own version before it is
-  merged. A committed edit moves the skill's tree:
-  `cali update -g --manifest cali.yaml --apply` moves `cali.lock` to it.
-  Commit that lock change in the same PR; until then
-  `cali sync --frozen` fails with "locked tree is behind the repo".
-- **Local edits** to an installed skill are kept: `cali sync` never
-  overwrites a folder, and `cali update` merges upstream changes into it.
+  which also targets Claude.
+- **Optional entries** are commented out in `cali.yaml`. Uncomment one to
+  offer it to `cali load`.
+- **Bumping a pin.** Put the new SHA in `cali.yaml` here; a user's
+  `cali update -g --apply` moves their pin.
+- **Local edits** to an installed skill are kept: `cali update` merges
+  upstream changes into it.
 
 Where things land:
 
 | What | Claude Code | Copilot |
 | --- | --- | --- |
-| Skills (Cali) | `~/.claude/skills/<name>/` | `~/.copilot/skills/<name>/` |
+| Skills (`cali load`, not `install.py`) | `~/.claude/skills/<name>/` | `~/.copilot/skills/<name>/` |
 | Instructions | none (`~/.claude/CLAUDE.md` is yours) | `~/.copilot/instructions/personal.instructions.md` |
 | MCP servers | `~/.claude.json` (`mcpServers`) | `~/.copilot/mcp-config.json` (`mcpServers`) |
 
@@ -128,8 +122,8 @@ the Windows one). `install.py` writes the note and the personal instructions
 there between `<!-- BEGIN agent-skills ... -->` and `<!-- END agent-skills -->`;
 text outside the markers is kept, and edits inside are replaced on the next run.
 Claude gets none: it reads the global `~/.claude/CLAUDE.md`.
-An earlier `~/.claude/rules/personal.md` is moved to the backup folder (see
-"Old installs") when its body is a version this repo shipped; an edited copy
+An earlier `~/.claude/rules/personal.md` is moved to
+`~/.agent-skills-backups/<UTC time>/claude/` when its body is a version this repo shipped; an edited copy
 or a link is kept with a warning. A deployed file is replaced when it is
 missing, a version this repo shipped (any commit of that file), or the
 dotfiles repo's link; one you edited, or a link to anything else, is kept
@@ -147,58 +141,29 @@ refreshes those.
 
 ## Old installs
 
-Before Cali, `install.py` copied or linked every skill itself, and then APM
-copied them. Every run removes what those left, but only for skills Cali
-installs again for that agent: our own skills and the active (uncommented)
-skills in `cali.yaml` for that target.
+Earlier versions of `install.py` ran `cali sync` and cleaned up the skill
+folders older installers (the pre-Cali copies, APM, the `roj-` rename and the
+retired prompts) had left. This version touches none of them; `cali doctor`
+lists skill folders Cali did not install, and you can delete them by hand.
 
-- Links into a checkout of this repo (this clone, or another clone or
-  worktree of it), and dangling links, are removed.
-- A copy whose `SKILL.md` declares that name is moved to
-  `~/.agent-skills-backups/<UTC time>/<target>/<name>` only when
-  `cali status` says Cali did not install it (`base-lost` or `unlocked`).
-  It is never deleted: `base-lost` also covers a Cali folder whose data dir
-  was wiped, which may hold local edits. A folder Cali installed is never
-  touched. Without `cali` no copy is moved.
-- APM's Copilot copies in `~/.agents/skills` are removed when
-  `~/.apm/apm.lock.yaml` lists them; anything else there (other tools use
-  that folder) is left alone.
+Earlier versions also linked `~/.config/cali/cali.yaml` (or under
+`$CALI_CONFIG_DIR` / `$XDG_CONFIG_HOME`) to this clone's `cali.yaml`, so Cali
+wrote your loads into the clone. If you ran one, remove the link and run
+`cali setup github:rojcarranza/agent-skills` again:
 
-- A retired skill (`RETIRED_SKILLS` in `install.py`: the pruned community
-  skills, `roj-tour-codebase`, `roj-code-review-pr-fast`, the archived
-  `roj-idea-to-project`) in either agent is moved to the same backup folder
-  when it is a real folder whose `SKILL.md` declares that name - only our
-  own installs and `cali.yaml` ever put a skill of that name there - or a
-  link an older installer made. A folder of that
-  name declaring another name is kept with the left-over warning below.
-- A skill Cali no longer installs for that agent but that is not retired -
-  a Copilot-only skill in `~/.claude/skills` - is only moved to the same
-  backup folder when it is a link an older installer made (into a checkout
-  of this repo, or dangling). A real folder is kept:
-  Cali keeps no record of the agents a skill was dropped from, so nothing
-  shows who put it there. The run and `--status` print its full path with a
-  warning that it is left over; delete it by hand if it is stale. Skills
-  that were always Copilot only (`NEVER_CLAUDE_SKILLS`: `caveman`,
-  `debugging-and-error-recovery`, which Superpowers' `systematic-debugging`
-  replaced and Copilot's copy is moved aside as retired) are never stale in `~/.claude/skills`. A
-  folder with any other name, such as `no-mistakes`, is never touched.
-- `~/.claude/rules/personal.md`, which earlier versions deployed for
-  Claude, is moved to `<backup>/claude/personal.md` when its body is a
-  version this repo shipped. An edited copy or a link is kept with a
-  warning.
+```bash
+rm ~/.config/cali/cali.yaml    # only if it is a link into the agent-skills clone
+```
 
-`--dry-run` lists these moves without making them, and `--status` lists
-whatever is still left. An optional skill still commented out in
-`cali.yaml` is kept with a warning: uncomment it in `cali.yaml` to have
-Cali manage it, or delete it. If `cali sync` then fails, the run says so: the removed entries
-come back once a re-run succeeds. `install.py` never uninstalls `apm` or
-deletes `~/.apm`.
+A WSL run once wrote `.installed-from-wsl` into
+`<Windows home>/.copilot/skills`; nothing reads it now and you can delete it.
+`install.py` never uninstalls `apm` or deletes `~/.apm`.
 
 ## Platforms
 
 Supported: macOS, Linux, Windows Git Bash, WSL Ubuntu. Python >= 3.8,
-standard library only. `cali` is a Go binary with its own installer (see
-its README); it needs `git` on PATH. On Ubuntu 24.04 (WSL) a plain
+standard library only. Cali is a separate Go binary (`go install`, see the
+README); it needs `git` on PATH. On Ubuntu 24.04 (WSL) a plain
 `pip install --user` is refused for the system Python, so install `pipx`
 (`sudo apt install pipx`) or `uv` there for `graphify`.
 
@@ -220,60 +185,27 @@ Homebrew's, gets the generic `uv tool install` / `pipx install` advice instead.
 | --- | --- | --- | --- |
 | Run as | `python3 install.py` | `python install.py` (Windows Python) | `python3 install.py` |
 | Home | `$HOME` | `%USERPROFILE%` | Linux `$HOME` |
-| `cali` lookup | `PATH`, `~/.local/bin` | `PATH` plus `.exe`/`.cmd` suffixes and the pip user Scripts dir | as Linux |
-| Serves | Claude Code, Copilot CLI/VS Code/JetBrains | the same, Windows side | Claude Code and Copilot CLI inside WSL (Linux home) and, through the Windows leg below, Windows-side VS Code and JetBrains (Copilot skills only) |
+| Serves | Claude Code, Copilot CLI/VS Code/JetBrains | the same, Windows side | Claude Code and Copilot CLI inside WSL (Linux home) and, through the Windows leg below, Windows-side JetBrains (instructions only) |
 
 ### WSL: two homes
 
-A WSL run installs into the Linux home with Cali, as on Linux. Windows-side
-VS Code and JetBrains do not read it: they run on Windows and read
-`%USERPROFILE%` (`~/.copilot/skills` there). Installed from WSL alone, a
-Windows IDE keeps showing whatever an earlier Windows install left, and a
-skill added since (say `roj-onboard-repo`) never appears. So when WSL is
-detected and Copilot is a target, Cali also installs the Copilot skills into
-the Windows home:
+Windows-side VS Code and JetBrains do not read the Linux home: they read
+`%USERPROFILE%`. A WSL run of `install.py` writes the JetBrains instruction
+block there:
 
 - The home is `%USERPROFILE%`, asked of Windows through `cmd.exe` interop and
   converted with `wslpath -u`, or the path given to `--windows-home`.
-- `install.py` runs
-  `cali sync --prune --windows-home --target copilot -g --manifest <clone>/cali.yaml`
-  with `CALI_WINDOWS_HOME` set to that home, so skills land in
-  `<Windows home>/.copilot/skills`. Cali's pristine copies, cache and
-  backups stay in the WSL home. This sync runs before the Linux home one:
-  `--prune` removes a skill dropped from `cali.yaml` and its `cali.lock`
-  entry together, so only the first sync can prune it, and the Windows IDEs
-  are where a leftover would keep showing. A skill you drop from
-  `cali.yaml` therefore leaves `~/.copilot/skills` in WSL as a folder Cali no
-  longer lists; delete it there.
-- Before any sync, `install.py` reads `cali status --windows-home` for that
-  home. A folder an earlier run left (older `install.py` versions copied
-  the skills there, and a Git Bash run installs its own) that matches
-  `cali.lock` is kept, and Cali takes it over. One Cali calls `base-lost` or
-  `unlocked` is moved to
-  `<Windows home>/.agent-skills-backups/<UTC time>/copilot/<name>`, and
-  Cali installs it again.
-- The run owns that folder from then on: after the Windows sync succeeds it
-  writes `<Windows home>/.copilot/skills/.installed-from-wsl`, and a Git
-  Bash run that finds the file skips the Copilot skills and the clean-up of
-  Copilot skill folders, so the two runs never undo each other. Delete the
-  file to hand the folder back to Git Bash.
-- Retired skills in the Windows skills folder are moved to the same backup
-  as above, so `roj-tour-codebase` stops showing there.
-- `--dry-run` prints the Windows sync command and the moves; `--status`
-  prints the Windows home, the skills a run would still install there, and
-  leftovers.
-- If the Windows home cannot be resolved (interop off, `wslpath` missing, the
-  path not a directory) the run still installs the Linux home, then prints a
-  warning saying why and how to fix it: pass `--windows-home
-  /mnt/c/Users/<you>`, or run `install.py` from Git Bash.
+- If it cannot be resolved (interop off, `wslpath` missing, the path not a
+  directory) the run still writes the Linux home, then prints a warning
+  saying why and how to fix it: pass `--windows-home /mnt/c/Users/<you>`, or
+  run `install.py` from Git Bash.
+- `--status` prints the Windows home it found.
 
-Not installed into Windows: Claude Code (out of scope: Claude on Windows is a
-Git Bash run), `graphify` (its CLI has to be on the Windows PATH too), the
+Skills reach the Windows home through Cali: `cali setup` finds it once and
+`cali load` then fills both homes. Not written into Windows by `install.py`:
+Claude Code, `graphify` (its CLI has to be on the Windows PATH too), the
 personal instructions and the GitHub MCP server. Run `install.py` from Git
-Bash for those extras: with WSL owning the Copilot skills it installs them
-and runs no `cali sync`, since every `cali.yaml` skill but `roj-one-slide` is Copilot only.
-Earlier versions synced a Claude-only manifest from `<clone>/.cali-claude/`
-there; that folder is no longer written or read, and can be deleted.
+Bash for those.
 
 Which Copilot surface reads which folder (checked against the GitHub and VS
 Code docs): personal skills are read from `~/.copilot/skills`,
@@ -284,12 +216,10 @@ The two homes cover every case: Copilot CLI in WSL reads the Linux home,
 Windows IDEs the Windows one (the Linux home is also the one the Remote - WSL
 extension host should see; this is untested here).
 
-Legacy cleanup on Windows handles copies, never assumes symlinks. Every file
-the installer writes is UTF-8 with `\n` line endings. CI runs the unit tests
-on `ubuntu-latest`, `macos-latest` and `windows-latest` (Git Bash shell),
-plus a real `install.py` smoke test against a scratch home, which builds
-`cali` and runs only when the `CALI_REPO_TOKEN` secret can read the Cali
-repository.
+Every file the installer writes is UTF-8 with `\n` line endings. The
+`installer-smoke` gate in `.no-mistakes.yaml` runs `install.py` against a
+scratch home with no `cali` on the machine and checks it writes the extras
+and no skills.
 
 ## External skills (installed by their own CLI)
 
@@ -414,13 +344,13 @@ Run everything with `python` (Git Bash has no `python3` unless you alias it).
 1. Copy this folder over (or clone the repo).
 2. `python install.py --target both --dry-run` — sanity-check paths.
 3. `python install.py --status` — check what's currently installed.
-4. Install `cali` (its README: `sh scripts/install.sh` from Git Bash). An
-   older `cali` without `cali sync --prune` makes `install.py` stop and say
-   how to update it.
-5. `python install.py --target both` — skills through `cali`, the
-   instructions, the MCP server, then `graphify`.
+4. `python install.py --target both` — the instructions, the MCP server,
+   then `graphify`.
+5. Install `cali`, then load skills (see the top of this page). On a VDI
+   whose WSL cannot find the Windows home, `cali setup` says so and names
+   `CALI_WINDOWS_HOME`.
 6. `python install.py --status` — verify new installs.
-7. Cali fetches every skill from GitHub, so run the install from a network
+7. Cali fetches every skill from GitHub, so run `cali load` from a network
    that reaches GitHub. `--skills-only` only skips `graphify`; it helps when
    PyPI is the blocked part.
 
@@ -441,22 +371,20 @@ close the IDEs, delete `~/.copilot/skills/graphify/references.tmp` and
 Every other skill in the run is unaffected.
 
 From the dotfiles repo root, `python install.py install agent-skills` does
-steps 1–3 and 5.
+steps 1–3 and 4.
 
 Cali installs skills as copies on every platform, so Windows needs no symlink
-rights. Copies are snapshots of the tree in `cali.lock`: an edit to one of
-our skills reaches them after it is committed and
-`cali update -g --manifest cali.yaml --apply` has moved the lock. A re-run
-removes legacy `.bak` copies of retired prompts.
+rights. A copy is a snapshot of the tree Cali pinned when you loaded it:
+`cali update -g --apply` moves it.
 
 Paths on Windows resolve under `%USERPROFILE%`: `~/.claude/skills` for
 Claude, `~/.copilot/skills` for Copilot skills, `~/.copilot/instructions` for
 Copilot instructions.
-`%APPDATA%\Code\User\prompts` is only touched to delete the `.prompt.md`
-copies older installs left there — they are what VS Code's "Migrate Prompt
-Files" dialog lists. **Do not use that dialog's Convert button**: four of the
-old prompts share a name with a real skill, and the converted stubs would
-shadow it. Re-run the installer instead.
+Old `.prompt.md` copies in `%APPDATA%\Code\User\prompts` are what VS Code's
+"Migrate Prompt Files" dialog lists; this version no longer deletes them.
+**Do not use that dialog's Convert button**: four of the old prompts share a
+name with a real skill, and the converted stubs would shadow it. Delete the
+files by hand.
 
 `roj-soundboarding` writes SB documents to the root of the repository it runs
 in. To use one shared folder instead, set `SOUNDBOARD_DIR` and
@@ -490,8 +418,10 @@ Setup checklist:
    date, signed in.
 2. **Settings → Languages & Frameworks → GitHub Copilot → Chat → Agent** —
    enable agent mode. Restart the IDE if the toggle has just appeared.
-3. `python install.py --target copilot` from a network that reaches GitHub
-   (Cali needs it; `--skills-only` only skips `graphify`, for a blocked PyPI).
+3. `cali setup github:rojcarranza/agent-skills`, then `cali load <skill>`
+   (needs a network that reaches GitHub), and `python install.py --target
+   copilot` for the instructions; `--skills-only` only skips `graphify`, for
+   a blocked PyPI.
 4. Reopen the IDE. In agent-mode chat type `/skill:roj-` — all ten custom
    skills should list.
 5. Optional, per repo: `cali add` without `-g` in the team repo puts skills
@@ -499,32 +429,14 @@ Setup checklist:
    repository").
 
 Nothing shows up: confirm chat is in agent mode, that the plugin is current,
-that `install.py --status` lists the skills and prints no leftover
-warnings, and that they are under `~/.copilot/skills`.
+that `cali status -g` lists the skills and `install.py --status` prints no
+leftover warnings, and that they are under `~/.copilot/skills`.
 
-## History: the roj- rename and retired prompts
+## History
 
-Before APM (2026-10), `install.py` copied community skills from
-`skills-inventory.json` and linked our skills. APM then installed them from
-`apm.yml` until Cali replaced it (2026-10-17). Every run removes what both
-left for the skills Cali installs again and warns about the rest (see "Old
-installs").
-
-Every custom skill and prompt carries a `roj-` prefix, so they sort together
-and never collide with a community or plugin skill. Installs made before the
-rename used bare names (`create-sb`, `explain-logic`, ...). Every install run
-removes those leftovers — Copilot copies whose `SKILL.md` declares the old
-name, Claude symlinks, generated Claude commands, and old `.prompt.md`
-files — and logs each as `removed (renamed to roj-...)`. A skill of the same
-bare name that the installer did not write is left alone. `--status` warns
-about any that remain.
-
-`prompts/` used to hold nine `.prompt.md` workflows that the installer turned
-into generated Copilot skills and Claude slash commands (`/roj-create-sb`,
-`/roj-explain-code`, ...). Copilot stopped reading prompt files and each
-workflow duplicated a skill, so they were retired: ask the skill instead
-(`/roj-soundboarding create an SB from ...`, `/roj-explain-logic ...`).
-Every install run removes what the prompts generated — skill dirs and
-commands carrying the `Generated from prompts/` marker, and `.prompt.md`
-copies under our names — logged as `removed (prompts retired — use the
-skill)`. `--status` warns about any that remain.
+Before APM (2026-10), `install.py` copied community skills and linked our
+skills. APM then installed them until Cali replaced it (2026-10-17), and
+`install.py` ran `cali sync` until it stopped installing skills altogether.
+Those installs left skill folders (bare pre-`roj-` names, generated prompt
+skills, APM copies in `~/.agents/skills`, retired skills); this version does
+not remove them. `cali doctor` lists the ones Cali did not install.

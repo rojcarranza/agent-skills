@@ -9,60 +9,55 @@ supports.
 
 ## Install
 
-**Everything, with Cali (recommended)** — my skills, the community skills
-they chain to, personal instructions and the GitHub MCP server, for
-Copilot. The skills are listed in one manifest
-([`cali.yaml`](cali.yaml), pinned in [`cali.lock`](cali.lock)) and
-installed by [Cali](https://github.com/rojcarranza/cali).
+**Skills, with Cali (recommended)** — [Cali](https://github.com/rojcarranza/cali)
+reads the skills from this repo on GitHub, so there is nothing to clone.
+This repo is only the list ([`cali.yaml`](cali.yaml) and `skills/`); Cali
+installs, pins and records what you load in your own `cali.yaml` and
+`cali.lock`.
 
-1. Install `cali` from a clone of its repo (`make install`, or
-   `sh scripts/install.sh` on Git Bash). `install.py` cannot install it for
-   you: it stops and prints those commands when `cali` is missing, and how
-   to update it when it is too old, including a `cali` that cannot read
-   `cali.yaml` (it reports an unknown field such as `load`) before it
-   changes anything. The run also links `~/.config/cali/cali.yaml` to this
-   clone's `cali.yaml`, so `cali load <skill> -g` works from any folder; a
-   manifest you already keep there is left alone.
-2. Clone this repo and run the installer:
+1. Install `cali`: `go install github.com/rojcarranza/cali/cmd/cali@latest`,
+   or `make install` from a clone of its repo.
+2. Tell Cali where the skills are, once, then load what you need from any
+   folder:
 
    ```bash
-   git clone https://github.com/rojcarranza/agent-skills && cd agent-skills
-   python3 install.py --target both        # or claude / copilot
-   python3 install.py --status             # what is installed where
-   python3 install.py --update             # which skills have newer versions
+   cali setup github:rojcarranza/agent-skills
+   cali load roj-one-slide
+   cali status -g          # what is installed, and what has a newer version
+   cali update -g          # newer versions; add --apply to take them
    ```
 
-   On Windows use Git Bash and `python`. On WSL run it inside WSL: it
-   installs into the Linux home, and Cali also installs the Copilot skills
-   into your Windows home (`%USERPROFILE%`), which Windows-side VS Code and
-   JetBrains read. Retired skills such as `roj-tour-codebase` are moved out
-   of both. `--windows-home PATH` names that home if it cannot be found. The
-   WSL run then owns the Windows Copilot skills folder, so WSL users run it
-   from Git Bash only for the extras it does not install - `graphify`, the
-   instructions and the GitHub MCP server; that run leaves the Copilot
-   skills alone.
-   `install.py` runs `cali sync --prune -g --manifest <clone>/cali.yaml`
-   (with `--target` when you pass one), writes the personal instructions and
-   the GitHub MCP server entry, and installs `graphify` (a CLI Cali does not
-   install).
-   It also installs 13 [Superpowers](docs/community-skills.md#superpowers)
-   skills for Copilot Chat, with a start-up note that loads
-   `using-superpowers` in every chat: a file in `~/.copilot/instructions` for
-   VS Code and a marked block in JetBrains' global instruction file.
+   On WSL, `cali setup` also finds your Windows home, so a load fills both
+   the Linux home and `%USERPROFILE%` (what Windows-side VS Code and
+   JetBrains read).
 
-   The GitHub MCP server is added only when a GitHub login exists:
-   `$token`, else `gh auth token` when the GitHub CLI is logged in. With
-   neither (a work machine on Bitbucket, say) it installs skills and
-   instructions only and skips MCP servers — no prompt, nothing to
-   remember. The first run also removes the entries older versions of
-   `install.py` and APM left for skills Cali installs again, and warns
-   about the rest.
+**The extras, with `install.py`** — personal instructions, the Superpowers
+start-up note, the JetBrains instruction block, the GitHub MCP server and
+`graphify`. It installs no skills and never runs `cali`:
 
-To add or drop a skill, edit `cali.yaml` and re-run `install.py`: a dropped
-skill is backed up and deleted (on WSL, from the Windows home only), unless
-you edited it.
-`install.py --update` lists skills with newer upstream versions; bump the
-SHA in `cali.yaml`, then `cali update -g --manifest cali.yaml --apply`.
+```bash
+git clone https://github.com/rojcarranza/agent-skills && cd agent-skills
+python3 install.py --target both        # or claude / copilot
+python3 install.py --status             # what it wrote, leftovers
+```
+
+On Windows use Git Bash and `python`. On WSL run it inside WSL: it also
+writes the JetBrains block into your Windows home (`--windows-home PATH` names
+it if it cannot be found). `--update` only points to `cali update -g`.
+
+The GitHub MCP server is added only when a GitHub login exists: `$token`,
+else `gh auth token` when the GitHub CLI is logged in. With neither (a work
+machine on Bitbucket, say) it writes the instructions only and skips MCP
+servers.
+
+Folders earlier versions of `install.py` left in your skills folders are no
+longer touched; `cali doctor` lists them. Earlier versions of `install.py`
+also linked `~/.config/cali/cali.yaml` to this clone's `cali.yaml`. If you
+ran one, remove the link so Cali writes your loads in your own file, not in
+the clone: `rm ~/.config/cali/cali.yaml` (or under `$CALI_CONFIG_DIR` /
+`$XDG_CONFIG_HOME`), then run `cali setup github:rojcarranza/agent-skills`.
+
+To add or drop a skill in the list, edit `cali.yaml` here.
 
 **Only some skills, with Node.js** — `npx skills add rojcarranza/agent-skills`
 (interactive), or `-s <skill> -a github-copilot -g`.
@@ -107,7 +102,7 @@ tools, is in [docs/workflow.md](docs/workflow.md).
 for Claude Code) was removed in #92. The last commit that has it is
 [`4529a19`](https://github.com/rojcarranza/agent-skills/tree/4529a190bf9a455d2c02b7f896ca7aa41ae41778/skills/roj-idea-to-project);
 `git checkout 4529a19 -- skills/roj-idea-to-project` brings it back.
-`install.py` moves an installed copy to `~/.agent-skills-backups/`.
+`install.py` no longer touches installed skills; delete an old copy by hand.
 
 Diagrams are always Mermaid: `roj-onboard-repo` puts a system map and a
 core-flow diagram in `.onboarding/README.md`, `roj-explain-logic` puts a flow
@@ -242,11 +237,10 @@ skills/<name>/
   references/     detail the agent loads on demand
   assets/         templates the skill fills in
   examples/       sample inputs and outputs
-cali.yaml         every skill and community skill install.py installs (Cali manifest)
-cali.lock         the tree each of them is pinned to (and commit, for community skills)
+cali.yaml         every skill and community skill, as a list Cali reads (`cali setup`)
 instructions/      personal instructions install.py deploys to Copilot
 tools/            sync_shared.py — copies shared files into every skill using them
-install.py        runs cali sync, deploys instructions and MCP servers, installs graphify (docs/installer.md)
+install.py        deploys instructions and MCP servers, installs graphify; installs no skills (docs/installer.md)
 test_install.py   installer tests
 test_skills.py    spec, publishing, evals and description-routing checks
 ```
@@ -282,13 +276,9 @@ test_skills.py    spec, publishing, evals and description-routing checks
   (`PROJ-123`, `$SOUNDBOARD_DIR`). Put employer-specific strings in a
   git-ignored `.private-patterns` file (one regex per line) and the tests
   check for them locally.
-- A new skill is one PR: the `skills/<name>/` folder, its `cali.yaml` entry
-  (`source: .//skills/<name>`) and its `cali.lock` entry. Commit the skill,
-  then run `cali sync -g --manifest cali.yaml` to write the lock entry and
-  commit that too; a test fails until all three are in.
-- A change to an existing skill moves its tree: commit it, then run
-  `cali update -g --manifest cali.yaml --apply` and commit the `cali.lock`
-  change in the same PR. A test fails until you do.
+- A new skill is one PR: the `skills/<name>/` folder and its `cali.yaml`
+  entry (`source: .//skills/<name>`). Cali pins it in the loader's own
+  `cali.lock`; this repo keeps none.
 
 ## Tests
 

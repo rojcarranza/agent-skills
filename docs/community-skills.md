@@ -1,7 +1,7 @@
 # Community skills
 
-Every skill here is listed in [`cali.yaml`](../cali.yaml) — live ones install by
-default, commented ones are optional: uncomment and re-run `install.py`.
+Every skill here is listed in [`cali.yaml`](../cali.yaml) — `cali load <name>` finds them
+there; commented ones are optional: uncomment to offer them.
 Every live one installs for Copilot only (`targets: [copilot]`).
 Sources: `github/awesome-copilot`, `juliusbrussee/caveman`,
 `addyosmani/agent-skills`, `warpdotdev/common-skills`, `anthropics/skills`,
@@ -133,8 +133,7 @@ anything during a run.
 
 Upstream gotcha: its last step offers `npx skills add <owner/repo@skill> -g -y`,
 a one-off global install nothing here records. Treat that as a trial; to
-keep a skill, add it to `cali.yaml` pinned to a commit, re-run `install.py` and
-commit the entry with its `cali.lock` change. The community copy is deliberately not patched.
+keep a skill, add it to `cali.yaml` pinned to a commit and commit the entry. The community copy is deliberately not patched.
 
 ## impeccable
 Designs, critiques and polishes frontend UI: layout, typography, color,
@@ -167,8 +166,8 @@ can manage skills where a terminal agent is blocked.
 - `Update my skills and tell me what changed`
 
 Its rules stop on an update conflict and ask which side to keep, and leave
-`--force` and `--adopt` to you. In this repo, change `cali.yaml` and re-run
-`install.py` rather than letting it `cali add` a skill nothing records.
+`--force` and `--adopt` to you. In this repo, change `cali.yaml` rather than
+letting it `cali add` a skill nothing records.
 
 ## grilling
 Interviews you about a plan, decision or idea in rounds: every question that

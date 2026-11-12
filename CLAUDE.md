@@ -46,12 +46,9 @@
   `roj-review-pr-comment`, `roj-explain-logic` or `roj-explain-my-branch`.
 - No personal paths, real ticket IDs or employer details in `skills/`.
   Employer-specific patterns live in the git-ignored `.private-patterns`.
-- A new skill is one PR: `skills/<name>/`, its `cali.yaml` entry
-  (`source: .//skills/<name>`) and its `cali.lock` entry. Commit the skill
-  first, then `cali sync -g --manifest cali.yaml` writes the lock entry.
-- Any change under `skills/<name>/` moves its tree: after committing it, run
-  `cali update -g --manifest cali.yaml --apply` and commit `cali.lock` in
-  the same PR. `cali sync -g --manifest cali.yaml --frozen` must exit 0.
+- A new skill is one PR: `skills/<name>/` and its `cali.yaml` entry
+  (`source: .//skills/<name>`). This repo keeps no `cali.lock`: cali pins
+  what a user loads in their own `cali.yaml` and `cali.lock`.
 
 ## Before pushing
 
@@ -61,7 +58,7 @@ python3 tools/sync_shared.py --check
 ```
 
 Push through `git push no-mistakes <branch>`, never `origin`: the
-`.no-mistakes.yaml` gates (the checks above, a cali smoke test and the skills
+`.no-mistakes.yaml` gates (the checks above, an installer smoke test and the skills
 listing) run on the Mac under Python 3.12 via `uv`. Use `gh-axi` for GitHub,
 not raw `gh`. Run `/code-review` only on PRs that did not go through
 no-mistakes. The gates are Mac only: before changing the installer, run the
