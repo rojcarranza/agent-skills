@@ -85,7 +85,8 @@ caveman:
   the commit and tree of every community skill, and the tree of ours.
 - **One agent only.** `targets: [copilot]` (or `[claude]`) limits an entry.
   Copilot is the work agent, so every entry is Copilot only, our skills
-  and every community skill, cherry-picks included.
+  and every community skill, cherry-picks included, except `roj-one-slide`,
+  which installs for Claude too.
 - **Optional entries** are commented out in `cali.yaml`. Uncomment one and
   re-run `install.py` to install it. Commenting a live entry out, or
   deleting it, removes the skill on the next run: `cali sync --prune` backs
@@ -270,7 +271,7 @@ Not installed into Windows: Claude Code (out of scope: Claude on Windows is a
 Git Bash run), `graphify` (its CLI has to be on the Windows PATH too), the
 personal instructions and the GitHub MCP server. Run `install.py` from Git
 Bash for those extras: with WSL owning the Copilot skills it installs them
-and runs no `cali sync`, since every `cali.yaml` skill is Copilot only.
+and runs no `cali sync`, since every `cali.yaml` skill but `roj-one-slide` is Copilot only.
 Earlier versions synced a Claude-only manifest from `<clone>/.cali-claude/`
 there; that folder is no longer written or read, and can be deleted.
 
