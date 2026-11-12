@@ -1074,6 +1074,24 @@ Global Flags:
             self.assertEqual(install.missing_cali_flags("/bin/cali"),
                              list(install.CALI_FLAGS))
 
+    def test_manifest_problem_is_cali_s_parse_error(self):
+        # Issue #114: the work computer's cali printed this for every
+        # `load:` line of cali.yaml and exited 1.
+        err = ("cali: parse manifest /mnt/c/dev/agent-skills/cali.yaml: yaml: "
+               "unmarshal errors:\n  line 15: field load not found in type "
+               "manifest.Skill\n")
+        cases = ((mock.Mock(returncode=1, stdout=err), err.strip()),
+                 (mock.Mock(returncode=0, stdout='{"rows": []}'), None),
+                 # a failure that is not about the manifest is not this check's
+                 (mock.Mock(returncode=1, stdout="cali: network down"), None))
+        for run, expected in cases:
+            with self.subTest(expected=expected), mock.patch(
+                    "install.subprocess.run", return_value=run):
+                self.assertEqual(install.cali_manifest_problem("/bin/cali"),
+                                 expected)
+        with mock.patch("install.subprocess.run", side_effect=OSError("x")):
+            self.assertIsNone(install.cali_manifest_problem("/bin/cali"))
+
     def test_windows_status_rows_read_that_home(self):
         out = json.dumps({"rows": [{"skill": "a", "target": "copilot",
                                     "states": ["base-lost"], "detail": ""}]})
@@ -1862,7 +1880,7 @@ class TestMain(TempDirTest):
     def run_main(self, argv, cali="/bin/cali", cali_code=0, lock=False,
                  wsl=False, externals=(), bootstrap=None, token="tok",
                  cali_rows=None, userprofile=None, win_rows=None,
-                 missing_flags=()):
+                 missing_flags=(), manifest_problem=None):
         """cali_rows is what `cali status` says of the home, win_rows of the
         Windows home; self.envs gets the environment of each cali call."""
         home = self.tmp / "home"
@@ -1913,6 +1931,10 @@ class TestMain(TempDirTest):
                 mock.patch("install.cali_status_rows", side_effect=fake_rows),
                 mock.patch("install.missing_cali_flags",
                            return_value=list(missing_flags)),
+                mock.patch("install.cali_manifest_problem",
+                           return_value=manifest_problem),
+                mock.patch("install.default_manifest_link",
+                           return_value=home / "cali-config" / "cali.yaml"),
                 mock.patch("install.github_token", return_value=token),
                 mock.patch("install.EXTERNALS", list(externals)),
                 mock.patch("install.bootstrap_cli",
@@ -1930,6 +1952,9 @@ class TestMain(TempDirTest):
                 code = exc.code if isinstance(exc.code, int) else 1
                 err.write(str(exc.code))
         return code, calls, out.getvalue(), err.getvalue()
+
+    STALE_ERROR = ("cali: parse manifest cali.yaml: yaml: unmarshal errors:\n"
+                   "  line 15: field load not found in type manifest.Skill")
 
     def cali(self, *args):
         return install.cali_argv("/bin/cali", *args)
@@ -1981,6 +2006,50 @@ class TestMain(TempDirTest):
         self.assertIn("git pull, then make install", err)
         self.assertTrue((self.tmp / "home" / "copilot" / "code-tour").exists())
         self.assertFalse((self.tmp / "home" / "instr").exists())
+
+    def test_cali_that_cannot_read_cali_yaml_stops_before_cleanup(self):
+        # Issue #114: a cali that predates a cali.yaml field passes the
+        # flag check, then failed three times mid-run; it stops up front.
+        self.make_skill("home/copilot", name="code-tour",
+                        content=OWNED.format("code-tour"))
+        code, calls, _, err = self.run_main(
+            [], cali_rows=rows("base-lost", "code-tour"),
+            manifest_problem=self.STALE_ERROR)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, [])
+        self.assertIn("older than this cali.yaml", err)
+        self.assertIn("field load not found in type manifest.Skill", err)
+        self.assertIn("make install", err)
+        self.assertTrue((self.tmp / "home" / "copilot" / "code-tour").exists())
+        self.assertFalse((self.tmp / "home" / "instr").exists())
+
+    def test_dry_run_with_unreadable_cali_yaml_warns_and_plans(self):
+        code, calls, _, err = self.run_main(
+            ["--dry-run"], manifest_problem=self.STALE_ERROR)
+        self.assertEqual(code, 0)
+        self.assertIn("a real run would stop here", err)
+
+    def test_run_links_cali_default_manifest(self):
+        # Issue #114: `cali load <skill> -g` found no manifest outside this
+        # clone; the run links one into cali's config folder.
+        code, _, out, _ = self.run_main([])
+        link = self.tmp / "home" / "cali-config" / "cali.yaml"
+        self.assertEqual(code, 0)
+        self.assertEqual(link.resolve(), install.MANIFEST_PATH.resolve())
+        self.assertIn("default manifest", out)
+
+    def test_run_keeps_a_manifest_the_user_already_has(self):
+        link = self.tmp / "home" / "cali-config" / "cali.yaml"
+        link.parent.mkdir(parents=True)
+        link.write_text("version: 1\nskills: {}\n")
+        code, _, _, _ = self.run_main([])
+        self.assertEqual(code, 0)
+        self.assertFalse(link.is_symlink())
+        self.assertEqual(link.read_text(), "version: 1\nskills: {}\n")
+
+    def test_dry_run_links_nothing(self):
+        self.run_main(["--dry-run"])
+        self.assertFalse((self.tmp / "home" / "cali-config").exists())
 
     def test_dry_run_with_old_cali_warns_and_plans(self):
         code, calls, out, err = self.run_main(

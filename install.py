@@ -179,6 +179,15 @@ cali at {exe} is too old for install.py: `cali sync --help` lists no
 {missing}. Update it in your clone of https://github.com/rojcarranza/cali
 (git pull, then make install, or sh scripts/install.sh on Git Bash), open a
 new shell, then re-run install.py."""
+# cali reads cali.yaml strictly: a field it does not know (such as `load`)
+# fails every command with "cali: parse manifest <path>: ...". The flag
+# check above cannot see that, so install.py asks cali to read the manifest.
+CALI_STALE_HINT = """\
+cali at {exe} cannot read {manifest}; it is older than this cali.yaml:
+{detail}
+Update it in your clone of https://github.com/rojcarranza/cali (git pull,
+then make install, or sh scripts/install.sh on Git Bash), open a new shell,
+then re-run install.py."""
 WSL_HINT = ("WSL: Claude Code and Copilot CLI inside WSL read the Linux "
             "home. VS Code and JetBrains on Windows read %USERPROFILE%, which "
             "gets the Copilot skills from this run, not graphify, the "
@@ -246,6 +255,54 @@ def missing_cali_flags(exe: str) -> list:
     except (OSError, subprocess.SubprocessError):
         text = ""
     return [flag for flag in CALI_FLAGS if flag not in text]
+
+
+def cali_manifest_problem(exe: str):
+    """cali's own message when it cannot read cali.yaml (an unknown field
+    from a newer manifest, say), else None. Reads nothing but the manifest:
+    `cali status --offline` makes no network call and changes no folder."""
+    try:
+        run = subprocess.run(cali_argv(exe, "status", "--offline", "--json"),
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                             text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    text = (run.stdout or "").strip()
+    if run.returncode != 0 and "parse manifest" in text:
+        return text
+    return None
+
+
+def default_manifest_link():
+    """Where cali looks for its global manifest when run outside a project:
+    cali's config folder, which $CALI_CONFIG_DIR or $XDG_CONFIG_HOME move."""
+    base = (os.environ.get("CALI_CONFIG_DIR") or os.environ.get("XDG_CONFIG_HOME")
+            or str(Path.home() / ".config"))
+    return Path(base) / "cali" / "cali.yaml"
+
+
+def register_default_manifest(dry_run):
+    """Link cali's global manifest to this clone's cali.yaml, so
+    `cali load <skill> -g` works from any folder (cali falls back to it only
+    where it is given no --manifest). A manifest already there that points
+    elsewhere is the user's: it is left alone."""
+    link = default_manifest_link()
+    try:
+        if link.is_symlink() or link.exists():
+            if link.resolve() == MANIFEST_PATH.resolve():
+                return [("cali", "default manifest", "already linked")]
+            return [("cali", "default manifest",
+                     f"kept {link} (not this clone's cali.yaml)")]
+        if dry_run:
+            return [("cali", "default manifest",
+                     f"dry-run: would link {link}")]
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(MANIFEST_PATH.resolve())
+    except OSError as exc:
+        warn(f"could not link {link} to {MANIFEST_PATH}: {exc} - "
+             "`cali load <skill> -g` needs --manifest cali.yaml")
+        return [("cali", "default manifest", "skipped")]
+    return [("cali", "default manifest", f"linked {link}")]
 
 
 def run_cali(argv: list, env=None) -> int:
@@ -1468,8 +1525,15 @@ def main():
             return
         sys.exit(run_cali(cali_argv(exe, "status")))
     missing = missing_cali_flags(exe) if exe else []
+    hint = None
     if missing:
         hint = CALI_UPDATE_HINT.format(exe=exe, missing=", ".join(missing))
+    else:
+        detail = cali_manifest_problem(exe) if exe else None
+        if detail:
+            hint = CALI_STALE_HINT.format(exe=exe, manifest=MANIFEST_PATH,
+                                          detail=detail)
+    if hint:
         if not args.dry_run:
             sys.exit(hint)
         warn("a real run would stop here:\n" + hint)
@@ -1495,6 +1559,7 @@ def main():
         results.extend(install_instructions(target, args.dry_run))
     if win_home is not None:
         results.extend(clean_windows_home(win_home, args.dry_run, win_rows))
+    results.extend(register_default_manifest(args.dry_run))
     if github_token():
         for target in targets:
             results.extend(register_mcp_servers(target, args.dry_run))
