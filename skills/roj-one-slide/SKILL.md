@@ -1,6 +1,6 @@
 ---
 name: roj-one-slide
-description: "Builds one PowerPoint slide that presents an implemented story at a sprint demo or review, on the team's own deck template: story key and title, a one-sentence goal, then a before/after flow diagram or headed points with an optional process flow and screenshot. Input is an SB document from roj-soundboarding, a story file or pasted story text. Use when the user says \"one slide\", \"demo slide\", \"sprint review slide\", \"make a slide for PROJ-123\" or \"present this story\"."
+description: "Builds one PowerPoint slide that presents an implemented story at a sprint demo or review, on the team's own deck template: story key and title, the Goal, how it was implemented, the result and what is next, with one optional visual (steps, a screenshot or a changed path). Input is an SB document from roj-soundboarding, a story file, pasted story text, or the chat and branch of what was just built. Use when the user says \"one slide\", \"demo slide\", \"sprint review slide\", \"make a slide for PROJ-123\", \"make a slide for what we just did\" or \"present this story\"."
 argument-hint: "[SB document | story file | story key]"
 license: MIT
 metadata:
@@ -38,7 +38,8 @@ State the resolved TEMPLATE and OUTPUT in one line at the start of the run.
 1. **One slide.** Never a second slide, a title slide or an end slide.
 2. **Truthfulness.** Every word on the slide comes from the input or the
    user. An unticked core task is not presented as done: it goes under
-   "Next" or stays off. No invented numbers, results or names.
+   "Next" or stays off. No invented numbers, results or names. Result
+   states only what a Testing row or build shows was run.
 3. **Read-only template, hands-off git.** Never write to TEMPLATE. Never
    commit, branch or push; read-only git commands are allowed.
 4. **Change the spec, not the file.** Every fix is an edit to the JSON spec
@@ -51,21 +52,33 @@ State the resolved TEMPLATE and OUTPUT in one line at the start of the run.
 
 ## Flow
 
-1. **Read the input.** An SB document: the Goal, the Core tasks (ticked
-   ones are done), the before/after tables, the Testing log and Notes. A
-   story file or pasted text: the summary, the goal and the acceptance
-   criteria. The key comes from the file name (`SB-PROJ-1001.md` →
-   `PROJ-1001`) or the text. The title link is a ticket URL found in the
-   input, else `$TICKET_BASE_URL` followed by the key, else none.
-2. **Choose the body** as `references/slide-spec.md` describes under
-   "Choosing the body": `before_after` when the story changed a flow,
-   pipeline, configuration or structure that boxes can show; `sections`
-   otherwise, with a `flow` of 2-5 steps when the work had clear steps and
-   an `image` only when the user gave one.
-3. **Write the spec** to `<KEY>-slide.json` following
+1. **Read the input.** An SB document: the Goal, the Approach and the
+   Task flow or Change flow, the Core tasks (ticked ones are done), the
+   Testing log and Notes. The per-file Before/After tables are background
+   for wording only. A story file or pasted text: the summary, the goal
+   and the acceptance criteria. No file, and the user says "what we just
+   did": the chat and `git log` and `git diff` of the current branch,
+   read-only. The key comes from the file name (`SB-PROJ-1001.md` →
+   `PROJ-1001`), the branch or the text. The title link is a ticket URL
+   found in the input, else `$TICKET_BASE_URL` followed by the key, else
+   none.
+2. **Write the message first**, before any layout: Goal (the SB Goal),
+   How (2-4 points from the Approach, then the ticked core tasks), Result
+   (only Testing rows that were actually run, plus the build result link
+   when there is one) and Next (only open work). Leave Result off when
+   nothing was run; never write a result that was not observed.
+3. **Pick the one visual** as `references/slide-spec.md` describes under
+   "Choosing the visual": a screenshot the user gave goes to the right of
+   the text; steps when the work had 2-5 clear steps; a path change only
+   when the Change flow shows a step removed or replaced in a running
+   path, drawn only from that flow. None fits: text only. Never show a
+   before and after of values (versions, flags, option names): put them
+   in How as code-font words.
+4. **Write the spec** to `<KEY>-slide.json` following
    `references/slide-spec.md`, and the copy rules there. Start from
-   `assets/example-before-after.json` or `assets/example-sections.json`.
-4. **Build.** Run the bundled script by its absolute path inside this
+   `assets/example-story-steps.json` or
+   `assets/example-story-path-change.json`.
+5. **Build.** Run the bundled script by its absolute path inside this
    skill's folder, trying `python`, then `python3`:
    `python <skill>/scripts/build_slide.py --template <TEMPLATE> --spec <KEY>-slide.json --out <KEY>-slide.pptx --preview <KEY>-slide.png`
    - Exit 1 lists every problem (text too long, too many items). Shorten
@@ -74,12 +87,12 @@ State the resolved TEMPLATE and OUTPUT in one line at the start of the run.
    - Exit 2: python-pptx is missing. Ask once to run
      `python -m pip install --user python-pptx`; run it only on a yes.
    - Exit 3: TEMPLATE cannot be read; say so and ask for another path.
-5. **Look at the preview.** When the script printed `preview:`, open the
+6. **Look at the preview.** When the script printed `preview:`, open the
    PNG and check it as the audience will see it: no text cut off or
    overlapping, nothing running into the footer, chip colours readable,
-   no box left mostly empty. Fix through the spec and rebuild. When it
-   printed `preview skipped`, say the slide was not checked visually
-   (LibreOffice renders it) and ask the user to open it.
-6. **Report** in a few lines: the slide's path, what it shows (title,
-   body kind, the one message of the slide), what was left out, and that
-   editing `<KEY>-slide.json` and re-running step 4 rebuilds it.
+   no large part of the slide left empty. Fix through the spec and
+   rebuild. When it printed `preview skipped`, say the slide was not
+   checked visually (LibreOffice renders it) and ask the user to open it.
+7. **Report** in a few lines: the slide's path, what it shows (title,
+   the visual, the one message of the slide), what was left out, and that
+   editing `<KEY>-slide.json` and re-running step 5 rebuilds it.

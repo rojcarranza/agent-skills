@@ -582,8 +582,12 @@ def build_before_after(slide, prs, layout, body, frame, footer_top):
     if line_count("Goal: " + body["goal"], 14, width) > 1:
         problem("goal is longer than one line; cut it to one sentence "
                 "of about 15 words")
-    region_top = top + goal_h + 100000
-    region_bottom = footer_top - 390000
+    draw_before_after(slide, prs, body, left, top + goal_h + 100000,
+                      footer_top - 390000)
+
+
+def draw_before_after(slide, prs, body, left, region_top, region_bottom):
+    """The two-column path drawing, between region_top and region_bottom."""
     sides = []
     for key, default in (("before", "Before"), ("after", "After")):
         side = body.get(key)
@@ -614,6 +618,10 @@ def build_before_after(slide, prs, layout, body, frame, footer_top):
 
 def build_sections(slide, prs, layout, body, frame, footer_top):
     left, top, width = frame
+    full_width = width
+    side = bool(body.get("image_side"))
+    if side:  # screenshot to the right of the text
+        width = int(width * 0.5)
     ph = None
     for shape in slide.placeholders:
         if shape.placeholder_format.type in (PP_PLACEHOLDER.OBJECT,
@@ -665,8 +673,19 @@ def build_sections(slide, prs, layout, body, frame, footer_top):
             lines += line_count(value, size, width - 285750)
     # line height plus the template's ~6pt after each paragraph
     text_h = int(lines * size * 1.2 * EMU_PER_PT + len(paras) * 6 * EMU_PER_PT)
-    has_visual = body.get("flow") or body.get("image")
+    has_visual = (body.get("flow") or body.get("image")
+                  or body.get("path_change"))
     region_bottom = footer_top - 300000
+    if side:
+        if top + text_h > region_bottom:
+            problem(f"the text runs about {lines} lines beside the "
+                    "screenshot; cut points until they fit above the footer")
+        ph.left, ph.top, ph.width, ph.height = (Emu(left), Emu(top),
+                                                Emu(width), Emu(text_h))
+        gap = 250000
+        place_image(slide, body["image"], left + width + gap, top,
+                    full_width - width - gap, region_bottom - top)
+        return
     if not has_visual:
         if top + text_h > region_bottom:
             problem(f"sections run about {lines} lines; cut points until "
@@ -679,6 +698,10 @@ def build_sections(slide, prs, layout, body, frame, footer_top):
     if vis_h < 1600000:
         problem("not enough room under the text for the flow or image; "
                 "cut points or drop one visual")
+        return
+    if body.get("path_change"):
+        draw_before_after(slide, prs, body["path_change"], left, vis_top,
+                          region_bottom)
         return
     flow_w = width
     if body.get("image"):
@@ -725,6 +748,8 @@ def draw_flow(slide, steps, x, y, w, h):
         problem("the flow steps have too many points for the space left; "
                 "cut points or drop a step")
         box_h = h - head_h // 2
+    else:  # grow into the free space instead of leaving it empty
+        box_h = min(h - head_h // 2, max(box_h, 2400000))
     prev = None
     for i, step in enumerate(steps):
         sx = x + i * (sw + gap)
@@ -767,6 +792,30 @@ def draw_flow(slide, steps, x, y, w, h):
         if prev is not None:
             arrow(slide, prev, box, RIGHT, LEFT)
         prev = box
+
+
+def build_story(slide, prs, layout, body, frame, footer_top):
+    """Goal, How, Result and Next as text, plus at most one visual: steps,
+    a screenshot to the right, or a path change. Reuses the sections
+    drawing."""
+    how = body.get("how") or []
+    if not 2 <= len(how) <= 4:
+        problem("story.how takes 2 to 4 points: how it was built")
+    visuals = [k for k in ("flow", "image", "path_change") if body.get(k)]
+    if len(visuals) > 1:
+        problem("a story slide takes one visual; keep one of "
+                + ", ".join(visuals))
+    if body.get("path_change"):
+        for key in ("before", "after"):
+            if not (body["path_change"].get(key) or {}).get("stages"):
+                problem(f"story.path_change.{key}.stages is required")
+    sections = [{"heading": "How", "points": how}]
+    for key in ("result", "next"):
+        if body.get(key):
+            sections.append({"heading": key.capitalize(),
+                             "points": body[key]})
+    body = dict(body, sections=sections, image_side=bool(body.get("image")))
+    build_sections(slide, prs, layout, body, frame, footer_top)
 
 
 # -------------------------------------------------------------------- main
@@ -827,7 +876,7 @@ def build(template, spec, out):
         problem("goal is required: one sentence, the why of the story")
     kind = body.get("kind")
     keep = None
-    if kind == "sections":
+    if kind in ("sections", "story"):
         keep = body_ph.placeholder_format.idx if body_ph is not None else None
     remove_unused_placeholders(slide, keep)
     if kind == "before_after":
@@ -836,8 +885,11 @@ def build(template, spec, out):
     elif kind == "sections":
         build_sections(slide, prs, layout, body, (left, top, width),
                        footer_top)
+    elif kind == "story":
+        build_story(slide, prs, layout, body, (left, top, width),
+                    footer_top)
     else:
-        problem("body.kind must be 'before_after' or 'sections'")
+        problem("body.kind must be 'story', 'before_after' or 'sections'")
     if spec.get("presenter"):
         presenter_box(slide, prs, footer_top, spec["presenter"])
 

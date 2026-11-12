@@ -1,9 +1,10 @@
 # roj-one-slide - usage
 
 Builds the one slide you present at a sprint demo or review for a story you
-finished: the story key (linked to the ticket) and title, a one-sentence
-Goal, then a before/after flow diagram or headed points with an optional
-process flow and screenshot. The slide is built on your team's own deck, so
+finished: the story key (linked to the ticket) and title, the Goal, how it
+was implemented, the result and what is next, with one optional visual:
+steps, a screenshot you give it, or a changed path when a step was removed
+or replaced. The slide is built on your team's own deck, so
 it matches the rest of the demo. Never touches git.
 
 ## When to use
@@ -12,6 +13,8 @@ it matches the rest of the demo. Never touches git.
   hand it the SB document. Flow 2 of `roj-soundboarding` offers this at the
   end.
 - You have a story file or the ticket text and want the slide anyway.
+- You just built something and say "make a slide for what we just did": it
+  reads the chat and the branch's commits.
 
 ## Install
 
@@ -48,6 +51,7 @@ branding.
 - `make a demo slide for SB-PROJ-1001`
 - `one slide for PROJ-1001.md, presented by Alex, add build-result.png`
 - `sprint review slide for this story:` + the pasted ticket text
+- `make a slide for what we just did`
 
 Output, next to the input file: `PROJ-1001-slide.pptx`, the spec it was
 built from (`PROJ-1001-slide.json`) and the preview (`PROJ-1001-slide.png`).
