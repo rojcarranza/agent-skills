@@ -12,60 +12,76 @@ skills:
   roj-review-code:
     source: .//skills/roj-review-code
     targets: [copilot]
+    load: on-demand
   roj-explain-my-branch:
     source: .//skills/roj-explain-my-branch
     targets: [copilot]
+    load: on-demand
   roj-explain-logic:
     source: .//skills/roj-explain-logic
     targets: [copilot]
+    load: on-demand
   roj-grill-plan:
     source: .//skills/roj-grill-plan
     targets: [copilot]
+    load: on-demand
   roj-interview-prep:
     source: .//skills/roj-interview-prep
     targets: [copilot]
+    load: on-demand
   roj-investigate-issue:
     source: .//skills/roj-investigate-issue
     targets: [copilot]
+    load: on-demand
   roj-review-pr-comment:
     source: .//skills/roj-review-pr-comment
     targets: [copilot]
+    load: on-demand
   roj-soundboarding:
     source: .//skills/roj-soundboarding
     targets: [copilot]
+    load: on-demand
   roj-onboard-repo:
     source: .//skills/roj-onboard-repo
     targets: [copilot]
+    load: on-demand
   roj-one-slide:
     source: .//skills/roj-one-slide
     targets: [copilot]
+    load: on-demand
   # Community skills our skills chain to (docs/community-skills.md), all
   # Copilot only.
   code-tour:
     source: github:github/awesome-copilot//skills/code-tour
     ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
     targets: [copilot]
+    load: on-demand
   acquire-codebase-knowledge:
     source: github:github/awesome-copilot//skills/acquire-codebase-knowledge
     ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
     targets: [copilot]
+    load: on-demand
   context-map:
     source: github:github/awesome-copilot//skills/context-map
     ref: 7cce7cfb4b61196c36d7e8eb8475ae84b356b126
     targets: [copilot]
+    load: on-demand
   write-pr-description:
     source: github:warpdotdev/common-skills//.agents/skills/write-pr-description
     ref: 2a03b403b4f8d42cb54b8953697737193b2e8306
     targets: [copilot]
+    load: on-demand
   find-skills:
     source: github:vercel-labs/skills//skills/find-skills
     ref: 87a266971d9460a3d2606075b8e91edc83325472
     targets: [copilot]
+    load: on-demand
   # Copilot only: Claude gets the equivalent from a plugin.
   caveman:  # Claude: caveman plugin
     source: https://github.com/juliusbrussee/caveman//skills/caveman
     ref: 2e08b9177c07bb7249a8a2d1a6758e5db281d002
     targets: [copilot]
+    load: on-demand
   # Superpowers 7.0.0 (v7.0.0), 13 of its 15 skills, Copilot only: Claude has
   # the plugin. writing-skills and diagnosing-superpowers are left out. The
   # skills call each other, so they install as a set; the start-up note that
@@ -75,91 +91,113 @@ skills:
     source: github:obra/superpowers//skills/brainstorming
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   dispatching-parallel-agents:
     source: github:obra/superpowers//skills/dispatching-parallel-agents
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   executing-plans:
     source: github:obra/superpowers//skills/executing-plans
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   finishing-a-development-branch:
     source: github:obra/superpowers//skills/finishing-a-development-branch
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   receiving-code-review:
     source: github:obra/superpowers//skills/receiving-code-review
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   requesting-code-review:
     source: github:obra/superpowers//skills/requesting-code-review
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   subagent-driven-development:
     source: github:obra/superpowers//skills/subagent-driven-development
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   systematic-debugging:
     source: github:obra/superpowers//skills/systematic-debugging
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   test-driven-development:
     source: github:obra/superpowers//skills/test-driven-development
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   using-git-worktrees:
     source: github:obra/superpowers//skills/using-git-worktrees
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   using-superpowers:
     source: github:obra/superpowers//skills/using-superpowers
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   verification-before-completion:
     source: github:obra/superpowers//skills/verification-before-completion
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   writing-plans:
     source: github:obra/superpowers//skills/writing-plans
     ref: bb92a77741419a4ab5f06e711a283343f1ada0c3
     targets: [copilot]
+    load: on-demand
   # Cherry-picks, Copilot only like the rest.
   observability-and-instrumentation:
     source: github:addyosmani/agent-skills//skills/observability-and-instrumentation
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
     targets: [copilot]
+    load: on-demand
   ci-cd-and-automation:
     source: github:addyosmani/agent-skills//skills/ci-cd-and-automation
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
     targets: [copilot]
+    load: on-demand
   security-and-hardening:
     source: github:addyosmani/agent-skills//skills/security-and-hardening
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
     targets: [copilot]
+    load: on-demand
   deprecation-and-migration:
     source: github:addyosmani/agent-skills//skills/deprecation-and-migration
     ref: aeac41d4d005999432bb7312f7ff06383a91d59d
     targets: [copilot]
+    load: on-demand
   pdf:
     source: github:anthropics/skills//skills/pdf
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
     targets: [copilot]
+    load: on-demand
   docx:
     source: github:anthropics/skills//skills/docx
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
     targets: [copilot]
+    load: on-demand
   pptx:
     source: github:anthropics/skills//skills/pptx
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
     targets: [copilot]
+    load: on-demand
   xlsx:
     source: github:anthropics/skills//skills/xlsx
     ref: dbd4588f9e1033efb41dad4bef2f7947c8993d44
     targets: [copilot]
+    load: on-demand
   impeccable:
     source: github:pbakaus/impeccable//plugin/skills/impeccable
     ref: aeeb3d8c30b5f95aeeb3e893b0f1a308af8fdb8f
     targets: [copilot]
+    load: on-demand
   # Cali's own skill: Copilot Chat runs cali in agent mode with it.
   cali:
     source: github:rojcarranza/cali//skills/cali
