@@ -3,15 +3,17 @@
 ## Contents
 
 - Fields
+- Body: story
 - Body: before_after
 - Body: sections
-- Choosing the body
+- Choosing the visual
 - Copy rules
 - Limits the script enforces
 
 The spec is one JSON object that `scripts/build_slide.py` turns into the
-slide. Two complete examples: `assets/example-before-after.json` and
-`assets/example-sections.json`.
+slide. Two complete examples: `assets/example-story-steps.json` and
+`assets/example-story-path-change.json`. Write `story` bodies;
+`before_after` and `sections` stay for specs written earlier.
 
 ## Fields
 
@@ -23,8 +25,40 @@ slide. Two complete examples: `assets/example-before-after.json` and
 | `presenter` | no | Name after "Presented by:" at the bottom. |
 | `date` | no | `YYYY-MM-DD`; today when left out. Shown in the footer. |
 | `layout` | no | Template layout name; default is the layout of the template's first slide. |
-| `body` | yes | `kind` plus that kind's fields, below. |
+| `body` | yes | `kind` (`story`) plus that kind's fields, below. |
 | `body.goal` | yes | One sentence after the bold "Goal:". |
+
+## Body: story
+
+The message first: Goal, How, Result and Next as text in the template's
+content placeholder, then at most one visual.
+
+```json
+"body": {
+  "kind": "story",
+  "goal": "...",
+  "how": ["...", "..."],
+  "result": "...",
+  "next": "...",
+  "flow": [{"title": "Step", "points": ["..."]}]
+}
+```
+
+- `how` (required): 2-4 points, from the SB's Approach, then the ticked
+  core tasks. Property values (versions, flags, option names) appear here
+  as code-font words, never as a drawing.
+- `result` (optional): a string or a list; only Testing rows that were
+  run, plus the build result link. Leave it out when nothing was run.
+- `next` (optional): a string or a list; open work only.
+- One visual at most; two together are refused:
+  - `flow`: 2-5 steps left to right, as in the sections body; the boxes
+    grow to fill the space under the text.
+  - `image`: a screenshot the user gave, to the right of the text, with
+    its proportions kept.
+  - `path_change`: `{"before": {...}, "after": {...}}`, each side in the
+    shape of `before_after` below (`stages`, `note`), drawn under the
+    text. Two to three stages a side fit; the note is one or two lines.
+  - none: text only.
 
 ## Body: before_after
 
@@ -81,17 +115,20 @@ optionally with a process flow and a picture underneath.
 - `image`: a path the user gave (a build result, a dashboard); placed right
   of the flow, or across the bottom without one. Keeps its proportions.
 
-## Choosing the body
+## Choosing the visual
 
-- **before_after** when the story changed how something flows or is
-  wired: a pipeline, a deployment, a config that moved, a component that
-  replaced another. The SB's before/after tables are the raw material;
-  group their rows into the stages a listener would recognise (job or
-  service names as captions, variables or artefacts as items).
-- **sections** for everything else: a new capability, a fix, an upgrade
-  with hurdles. Typical headings: "Challenges", "What changed",
-  "Result", "Next". Add `flow` when the work had 2-5 clear steps; add
-  `image` only when the user supplied one.
+Write the text first, then pick the visual from the content:
+
+- **image** when the user supplied a screenshot (a build result, a
+  dashboard, the feature running): it goes right of the text.
+- **flow** when the work had 2-5 clear steps (the SB's Task flow).
+- **path_change** only when the SB's Change flow removes or replaces a
+  step in a path that runs (a job, a call, a hand-off), and drawn only
+  from that flow. Never from the per-file Before/After tables: a version
+  bump, a flag or a config value is a How point in code font, not a
+  before and after.
+- **none** when no visual fits: the slide is text only. Do not invent a
+  diagram to fill space.
 
 ## Copy rules
 
@@ -101,11 +138,12 @@ one message; the presenter fills in the rest.
 - Title: the story summary as the team knows it, at most about 80
   characters after the key.
 - Goal: the why, one sentence, about 15 words, no "In order to".
-- Points: at most 3 per section, one line each, no full stops. Start with
-  the noun or the verb that matters.
-- Before/after: at most 4 stages a side and 3 items a box. Show only the
-  part of the flow that changed plus one stage of context above and
-  below.
+- Points: at most 3 per section (How up to 4), one line each, no full
+  stops. Start with the noun or the verb that matters.
+- Result: one line, what was run and observed, with the build link when
+  there is one.
+- Path change: 2-3 stages a side and 3 items a box. Show only the part
+  of the flow that changed plus one stage of context.
 - "Next" lists unticked core tasks and follow-ups from Notes, never
   finished work.
 - Never put credentials, internal hostnames or customer names on the slide
@@ -116,6 +154,7 @@ one message; the presenter fills in the rest.
 The script refuses (exit 1) and lists each problem when: the title is over
 110 characters with the key; the goal wraps past one line in a
 before_after slide; a chip, caption or flow title does not fit its box even
-at the smallest font size; the stages do not fit above the footer; a note
+at the smallest font size; the stages do not fit above the footer; a story has fewer than 2 or more
+than 4 How points or more than one visual; a note
 has no room or too many lines; the sections or the flow run past the
 footer. Fix the spec, never the limits.

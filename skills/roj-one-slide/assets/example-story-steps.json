@@ -1,0 +1,22 @@
+{
+  "key": "PROJ-1002",
+  "link": "https://jira.example.com/browse/PROJ-1002",
+  "title": "Add dark mode to the customer portal",
+  "presenter": "Alex",
+  "body": {
+    "kind": "story",
+    "goal": "Let customers switch the portal to a dark theme that follows their system setting.",
+    "how": [
+      "Colour tokens replace the hard-coded chart colours",
+      "A wrapper gives the date picker the theme hooks it lacked",
+      "The theme ships behind a feature flag"
+    ],
+    "result": "Contrast check and unit tests pass; build #412 is green",
+    "next": "roll the theme out to the admin console",
+    "flow": [
+      {"title": "Tokens", "points": ["Colour tokens", "Contrast check"]},
+      {"title": "Components", "points": ["Charts", "Date picker wrapper"]},
+      {"title": "Release", "points": ["Behind a feature flag"]}
+    ]
+  }
+}

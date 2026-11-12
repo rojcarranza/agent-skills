@@ -35,14 +35,29 @@
       "fixture": {
         "repo": "slide-sb"
       },
-      "expected_output": "A PROJ-3002-slide.json beside the SB in the before_after shape: Python 3.10 to 3.12 and image tag 1.8.0 to 1.9.0, the manual gateway task not presented as done.",
+      "expected_output": "A PROJ-3002-slide.json beside the SB with a story body: the Goal, How points from the ticked core tasks (Python 3.12, image tag 1.9.0; the SB has no Approach section), the one run test row as the result, and Next for the unticked gateway task. No before/after drawing, because no step was removed or replaced.",
       "expectations": [
         "Writes PROJ-3002-slide.json next to SB-PROJ-3002.md",
         "Uses key PROJ-3002 and a title taken from the SB, with the goal about running the orders service on Python 3.12",
-        "Chooses body kind before_after and shows python:3.10-slim to python:3.12-slim and image tag 1.8.0 to 1.9.0",
-        "Does not present the unticked gateway task as done; it is left off or appears only as a next step",
-        "Invents no numbers, results or system names that are not in the SB",
+        "Chooses body kind story with a goal, 2 to 4 how points taken from the ticked core tasks, and no path_change",
+        "Mentions the python:3.12-slim base image and the 1.9.0 image tag only as words inside how points, not as a before/after drawing",
+        "Does not present the unticked gateway task as done; it appears only under next or is left off",
+        "Writes a result only from the TC-1 row that was run (one failure, the known legacy one); invents no numbers, results or system names that are not in the SB",
         "Writes no .pptx without a template and runs no git command that writes"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "make a slide spec for what we just did, presented by Alex (template comes later)",
+      "fixture": {
+        "repo": "slide-sb"
+      },
+      "expected_output": "With no SB named, the skill reads the chat and the branch's commits read-only and writes a story spec from them.",
+      "expectations": [
+        "Reads git log or git diff of the current branch without any command that writes",
+        "Writes a <KEY>-slide.json with body kind story and a goal and 2 to 4 how points drawn from the commits",
+        "Leaves result off or limits it to checks that were actually run",
+        "Does not ask for an SB file before looking at the chat and the branch"
       ]
     }
   ]

@@ -1,0 +1,73 @@
+{
+  "key": "PROJ-1001",
+  "link": "https://jira.example.com/browse/PROJ-1001",
+  "title": "Queue payments instead of calling the gateway during checkout",
+  "presenter": "Alex",
+  "body": {
+    "kind": "story",
+    "goal": "Take payments off the checkout request, so a slow gateway no longer fails orders.",
+    "how": [
+      "orders-api enqueues the payment instead of calling the gateway",
+      "A payment-worker retries failed charges",
+      "The receipt email moves to a notifier"
+    ],
+    "path_change": {
+      "before": {
+        "stages": [
+          {
+            "caption": "orders-api",
+            "items": [
+              {
+                "text": "charge_now()",
+                "mono": true
+              }
+            ]
+          },
+          [
+            {
+              "items": [
+                "PAYMENT GATEWAY"
+              ]
+            }
+          ]
+        ],
+        "note": [
+          "Removed",
+          "Blocking gateway call"
+        ]
+      },
+      "after": {
+        "stages": [
+          {
+            "caption": "orders-api",
+            "items": [
+              {
+                "text": "enqueue_payment()",
+                "mono": true
+              }
+            ]
+          },
+          [
+            {
+              "caption": "payment-worker",
+              "items": [
+                "RETRY POLICY"
+              ]
+            },
+            {
+              "caption": "notifier",
+              "items": [
+                "RECEIPT EMAIL"
+              ]
+            }
+          ]
+        ],
+        "note": [
+          "Payments run from a queue"
+        ]
+      }
+    },
+    "result": "Checkout no longer waits on the gateway; integration tests pass",
+    "next": "move refunds onto the same queue"
+  }
+}

@@ -1253,15 +1253,22 @@ class TestOneSlideSpecs(unittest.TestCase):
 
     ASSETS = SKILLS / "roj-one-slide" / "assets"
 
-    def test_examples_cover_both_bodies_and_the_required_fields(self):
-        kinds = set()
+    def test_examples_are_story_slides_with_one_visual_at_most(self):
+        """The slide is the message first (Goal, How), then one visual."""
+        visuals = set()
         for f in sorted(self.ASSETS.glob("example-*.json")):
             with self.subTest(example=f.name):
                 spec = json.loads(f.read_text("utf-8"))
+                body = spec["body"]
                 self.assertTrue(spec["title"])
-                self.assertTrue(spec["body"]["goal"])
-                kinds.add(spec["body"]["kind"])
-        self.assertEqual(kinds, {"before_after", "sections"})
+                self.assertEqual(body["kind"], "story")
+                self.assertTrue(body["goal"])
+                self.assertIn(len(body["how"]), (2, 3, 4))
+                found = [k for k in ("flow", "image", "path_change")
+                         if body.get(k)]
+                self.assertLessEqual(len(found), 1)
+                visuals.update(found)
+        self.assertEqual(visuals, {"flow", "path_change"})
 
 
 @unittest.skipUnless(HAVE_PPTX, "needs python-pptx")
@@ -1275,6 +1282,11 @@ class TestOneSlideScript(unittest.TestCase):
         "title": "Add retries", "presenter": "Alex", "date": "2026-10-30",
         "body": {"kind": "sections", "goal": "Survive flaky uploads",
                  "sections": [{"heading": "Next", "points": "tune backoff"}]}}
+    STORY = {
+        "key": "PROJ-3", "title": "Add retries", "date": "2026-10-30",
+        "body": {"kind": "story", "goal": "Survive flaky uploads",
+                 "how": ["Retry with backoff", "Cap attempts at five"],
+                 "result": "12 tests pass", "next": "tune backoff"}}
     BEFORE_AFTER = {
         "key": "PROJ-2", "title": "Move to 3.12", "date": "2026-10-30",
         "body": {"kind": "before_after", "goal": "Stay on a supported runtime",
@@ -1288,6 +1300,22 @@ class TestOneSlideScript(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp)
         prs = Presentation()
+        # A 16:9 deck with a wide content placeholder and 16 pt body text,
+        # like the decks teams present from, not python-pptx's 4:3 default.
+        prs.slide_width, prs.slide_height = 12192000, 6858000
+        for ph in prs.slide_layouts[1].placeholders:
+            kind = str(ph.placeholder_format.type)
+            geometry = {"TITLE": (500000, 350000, 11000000, 900000),
+                        "OBJECT": (500000, 1500000, 11000000, 4300000),
+                        "DATE": (500000, 6350000, 2000000, 300000)}
+            for name, box in geometry.items():
+                if name in kind:
+                    ph.left, ph.top, ph.width, ph.height = box
+        for node in prs.slide_master._element.iter(
+                "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+                "defRPr"):
+            if node.get("sz") in ("3200", "4400"):
+                node.set("sz", "1600" if node.get("sz") == "3200" else "2800")
         for _ in range(2):  # a deck in use, not an empty template
             prs.slides.add_slide(prs.slide_layouts[1]).shapes.title.text = "old"
         self.template = self.tmp / "team.pptx"
@@ -1340,6 +1368,84 @@ class TestOneSlideScript(unittest.TestCase):
         _, texts = self.texts(out)
         for want in ("Before", "After", "3.10", "3.12", "DEPLOY", "build"):
             self.assertIn(want, texts)
+
+    def test_bundled_examples_build(self):
+        for f in sorted(SKILLS.glob("roj-one-slide/assets/example-*.json")):
+            with self.subTest(example=f.name):
+                run, out = self.build(json.loads(f.read_text("utf-8")))
+                self.assertEqual(run.returncode, 0, run.stderr)
+
+    def test_story_slide_is_goal_how_result_next_as_text(self):
+        """Intent: the slide says the Goal and how it was implemented, not
+        a before and after of values."""
+        run, out = self.build(self.STORY)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, texts = self.texts(out)
+        joined = "\n".join(texts)
+        for want in ("Goal:", "Survive flaky uploads", "How:",
+                     "Retry with backoff", "Result: 12 tests pass",
+                     "Next: tune backoff"):
+            self.assertIn(want, joined)
+        for absent in ("Before", "After"):
+            self.assertNotIn(absent, texts)
+        self.assertEqual(len(self.shapes(out)[0].shapes.title.text_frame
+                             .paragraphs), 1)
+
+    def test_story_steps_grow_into_the_free_space(self):
+        spec = json.loads(json.dumps(self.STORY))
+        spec["body"]["flow"] = [{"title": "Queue", "points": ["Enqueue"]},
+                                {"title": "Worker", "points": ["Retry"]}]
+        run, out = self.build(spec)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        _, shapes = self.shapes(out)
+        boxes = [s for s in shapes if s.name.startswith("Step box")]
+        self.assertEqual(len(boxes), 2)
+        self.assertGreater(boxes[0].height, 2000000)
+
+    def test_story_screenshot_sits_right_of_the_text(self):
+        from PIL import Image
+        shot = self.tmp / "shot.png"
+        Image.new("RGB", (1200, 700), (200, 220, 240)).save(shot)
+        spec = json.loads(json.dumps(self.STORY))
+        spec["body"]["image"] = str(shot)
+        run, out = self.build(spec)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        slide, shapes = self.shapes(out)
+        pic = [s for s in shapes if s.shape_type == 13]
+        self.assertEqual(len(pic), 1)
+        text = [s for s in slide.placeholders
+                if s.placeholder_format.idx != 0
+                and s.has_text_frame and "Goal:" in s.text_frame.text][0]
+        self.assertGreaterEqual(pic[0].left, text.left + text.width)
+
+    def test_story_path_change_draws_before_and_after_only_on_request(self):
+        run, out = self.build(self.STORY)
+        _, texts = self.texts(out)
+        self.assertNotIn("Before", texts)
+        spec = json.loads(json.dumps(self.STORY))
+        spec["body"]["path_change"] = self.BEFORE_AFTER["body"]
+        run, out = self.build(spec)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        _, texts = self.texts(out)
+        for want in ("Before", "After", "3.10", "3.12"):
+            self.assertIn(want, texts)
+
+    def test_story_refuses_what_the_rules_forbid(self):
+        cases = {
+            "one how point": ({"how": ["only one"]}, "story.how takes 2 to 4"),
+            "two visuals": ({"flow": [{"title": "A", "points": ["x"]},
+                                      {"title": "B", "points": ["y"]}],
+                             "path_change": self.BEFORE_AFTER["body"]},
+                            "takes one visual"),
+        }
+        for name, (extra, message) in cases.items():
+            with self.subTest(case=name):
+                spec = json.loads(json.dumps(self.STORY))
+                spec["body"].update(extra)
+                run, out = self.build(spec)
+                self.assertEqual(run.returncode, 1)
+                self.assertIn(message, run.stderr)
+                self.assertFalse(out.exists())
 
     def test_diagram_stays_editable(self):
         """Native shapes in one group per box and arrows glued to the boxes,
