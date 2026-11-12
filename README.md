@@ -18,7 +18,11 @@ installed by [Cali](https://github.com/rojcarranza/cali).
 1. Install `cali` from a clone of its repo (`make install`, or
    `sh scripts/install.sh` on Git Bash). `install.py` cannot install it for
    you: it stops and prints those commands when `cali` is missing, and how
-   to update it when it is too old.
+   to update it when it is too old, including a `cali` that cannot read
+   `cali.yaml` (it reports an unknown field such as `load`) before it
+   changes anything. The run also links `~/.config/cali/cali.yaml` to this
+   clone's `cali.yaml`, so `cali load <skill> -g` works from any folder; a
+   manifest you already keep there is left alone.
 2. Clone this repo and run the installer:
 
    ```bash
