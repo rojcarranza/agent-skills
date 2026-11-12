@@ -11,17 +11,14 @@ Usage:
   python3 install.py --skills-only       # skip graphify (e.g. PyPI blocked)
 
 Python >= 3.8, standard library only. On Windows run it from Git Bash as
-`python install.py`. On WSL run it inside WSL: cali also installs the Copilot
-skills into the Windows home that Windows-side VS Code and JetBrains read
-(--windows-home PATH names it), and the WSL run from then on owns that
-folder: a Git Bash run there installs graphify, the instructions and the MCP
-server, never the Copilot skills.
+`python install.py`. On WSL run it inside WSL: it also writes the JetBrains
+instructions into the Windows home (--windows-home PATH names it).
 
-cali.yaml lists every skill; this script runs
-`cali sync --prune -g --manifest <clone>/cali.yaml`
-(https://github.com/rojcarranza/cali) to install them. The rest is done
-here: personal instructions, the GitHub MCP server (MCP_SERVERS), removing
-what older versions of this script and APM installed, and graphify
+This script installs no skills and never runs cali. Skills are installed by
+cali (https://github.com/rojcarranza/cali), which reads this repo's cali.yaml
+from GitHub: `cali setup github:rojcarranza/agent-skills` once, then
+`cali load <skill>`. Here: personal instructions, the start-up note, the
+JetBrains block, the GitHub MCP server (MCP_SERVERS) and graphify
 (EXTERNALS), whose own CLI installs its skill.
 
 Any single skill also installs without this script, in any agent the
@@ -89,8 +86,8 @@ REQUIRES = {
 }
 
 
-# cali.yaml: the manifest Cali installs from. Read here only for names and
-# targets — status, legacy cleanup and tests — with a line parser for the
+# cali.yaml: the list cali reads. Read here only for names and
+# targets — tests — with a line parser for the
 # shapes this repo's cali.yaml uses, so no YAML dependency. A commented skill
 # (`  # name:` with its `  #   key: value` lines) is an optional one.
 # shortcut: inline `[a, b]` target lists only; parse YAML properly if
@@ -162,180 +159,6 @@ def manifest_skill_names(active_only=True):
     """Skill folder names cali.yaml installs (or lists, with active_only off)."""
     return {d["name"] for d in manifest_deps()
             if d["active"] or not active_only}
-
-
-# Cali is a Go binary with no PyPI package, so install.py cannot bootstrap
-# it the way it does graphify; a missing cali stops the run with this.
-CALI_INSTALL_HINT = """\
-cali is not installed (or not on PATH). Install it from a clone of
-https://github.com/rojcarranza/cali, open a new shell, then re-run install.py:
-  macOS / Linux / WSL:  make install
-  Windows Git Bash:     sh scripts/install.sh"""
-# The cali options install.py uses, as `cali sync --help` lists them. A cali
-# without one stops the run with CALI_UPDATE_HINT before anything changes.
-CALI_FLAGS = ("--prune", "--target", "--windows-home")
-CALI_UPDATE_HINT = """\
-cali at {exe} is too old for install.py: `cali sync --help` lists no
-{missing}. Update it in your clone of https://github.com/rojcarranza/cali
-(git pull, then make install, or sh scripts/install.sh on Git Bash), open a
-new shell, then re-run install.py."""
-# cali reads cali.yaml strictly: a field it does not know (such as `load`)
-# fails every command with "cali: parse manifest <path>: ...". The flag
-# check above cannot see that, so install.py asks cali to read the manifest.
-CALI_STALE_HINT = """\
-cali at {exe} cannot read {manifest}; it is older than this cali.yaml:
-{detail}
-Update it in your clone of https://github.com/rojcarranza/cali (git pull,
-then make install, or sh scripts/install.sh on Git Bash), open a new shell,
-then re-run install.py."""
-WSL_HINT = ("WSL: Claude Code and Copilot CLI inside WSL read the Linux "
-            "home. VS Code and JetBrains on Windows read %USERPROFILE%, which "
-            "gets the Copilot skills from this run, not graphify, the "
-            "personal instructions or the GitHub MCP server - run install.py "
-            "from Git Bash for those extras only; it leaves the Copilot "
-            "skills to this run.")
-# Written into <Windows home>/.copilot/skills by a WSL run: that run owns the
-# Copilot skills there, so a Git Bash run skips cali sync, which would
-# overwrite them; no cali.yaml skill targets Claude, so nothing is missed.
-WSL_OWNER_MARKER = ".installed-from-wsl"
-WSL_OWNER_TEXT = ("The Copilot skills in this folder are delivered by "
-                  "install.py run inside WSL.\nA Git Bash run of install.py "
-                  "leaves them alone; delete this file to hand them back.\n")
-WINDOWS_HOME_HELP = """\
-WSL: could not find the Windows home ({why}).
-Windows-side VS Code and JetBrains read the Copilot skills there, so they
-will NOT see the skills just installed in the Linux home. Either
-  - re-run with the Windows home named:
-      python3 install.py --windows-home /mnt/c/Users/<your Windows user>
-  - or run install.py from Git Bash on Windows."""
-# Cali states (`cali status --json`) for a folder Cali did not put there:
-# no pristine copy of the locked version, or a skill not locked yet.
-NOT_CALIS = {"base-lost", "unlocked"}
-# States of a skill a run of install.py would (re)install.
-WOULD_INSTALL = NOT_CALIS | {"missing"}
-
-
-def apm_home():
-    """APM's user dir. Only read: its lockfile says what APM deployed."""
-    return Path.home() / ".apm"
-
-
-def cali_argv(exe: str, *args: str, manifest=MANIFEST_PATH) -> list:
-    """A cali command against this clone's cali.yaml, in the global scope:
-    skills land in ~/.claude/skills and ~/.copilot/skills, and cali.lock is
-    read and written next to cali.yaml."""
-    return [exe, *args, "-g", "--manifest", str(manifest)]
-
-
-def sync_argv(exe: str, targets, windows_home=False) -> list:
-    """`cali sync` for targets (one or both of BOTH). --prune also removes,
-    from those targets, the unmodified skills dropped from cali.yaml since
-    cali.lock last listed them; --windows-home installs into the Windows home
-    (windows_env names it) instead of this one."""
-    args = ["sync", "--prune"] + (["--windows-home"] if windows_home else [])
-    if set(targets) != set(BOTH):
-        for target in targets:
-            args += ["--target", target]
-    return cali_argv(exe, *args)
-
-
-def windows_env(win_home):
-    """The environment of a `cali --windows-home` run: CALI_WINDOWS_HOME is
-    the home install.py resolved, so cali never has to pick a profile."""
-    return dict(os.environ, CALI_WINDOWS_HOME=str(win_home))
-
-
-def missing_cali_flags(exe: str) -> list:
-    """The CALI_FLAGS `cali sync --help` does not list (all of them when it
-    cannot run): empty for a cali new enough for this script."""
-    try:
-        run = subprocess.run([exe, "sync", "--help"], stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, text=True, timeout=60)
-        text = run.stdout or ""
-    except (OSError, subprocess.SubprocessError):
-        text = ""
-    return [flag for flag in CALI_FLAGS if flag not in text]
-
-
-def cali_manifest_problem(exe: str):
-    """cali's own message when it cannot read cali.yaml (an unknown field
-    from a newer manifest, say), else None. Reads nothing but the manifest:
-    `cali status --offline` makes no network call and changes no folder."""
-    try:
-        run = subprocess.run(cali_argv(exe, "status", "--offline", "--json"),
-                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                             text=True, timeout=120)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    text = (run.stdout or "").strip()
-    if run.returncode != 0 and "parse manifest" in text:
-        return text
-    return None
-
-
-def default_manifest_link():
-    """Where cali looks for its global manifest when run outside a project:
-    cali's config folder, which $CALI_CONFIG_DIR or $XDG_CONFIG_HOME move."""
-    base = (os.environ.get("CALI_CONFIG_DIR") or os.environ.get("XDG_CONFIG_HOME")
-            or str(Path.home() / ".config"))
-    return Path(base) / "cali" / "cali.yaml"
-
-
-def register_default_manifest(dry_run):
-    """Link cali's global manifest to this clone's cali.yaml, so
-    `cali load <skill> -g` works from any folder (cali falls back to it only
-    where it is given no --manifest). A manifest already there that points
-    elsewhere is the user's: it is left alone."""
-    link = default_manifest_link()
-    try:
-        if link.is_symlink() or link.exists():
-            if link.resolve() == MANIFEST_PATH.resolve():
-                return [("cali", "default manifest", "already linked")]
-            return [("cali", "default manifest",
-                     f"kept {link} (not this clone's cali.yaml)")]
-        if dry_run:
-            return [("cali", "default manifest",
-                     f"dry-run: would link {link}")]
-        link.parent.mkdir(parents=True, exist_ok=True)
-        link.symlink_to(MANIFEST_PATH.resolve())
-    except OSError as exc:
-        warn(f"could not link {link} to {MANIFEST_PATH}: {exc} - "
-             "`cali load <skill> -g` needs --manifest cali.yaml")
-        return [("cali", "default manifest", "skipped")]
-    return [("cali", "default manifest", f"linked {link}")]
-
-
-def run_cali(argv: list, env=None) -> int:
-    """Run cali with its output passed through; returns its exit code."""
-    try:
-        return subprocess.run(argv, env=env).returncode
-    except OSError as exc:
-        warn(f"{' '.join(argv)} failed: {exc}")
-        return 127
-
-
-def cali_status_rows(exe: str, windows_home=None):
-    """{(skill, target): (state, ...)} from `cali status --offline --json`,
-    or None when cali cannot say — callers then remove no copies. With
-    windows_home, the Copilot skills in that Windows home."""
-    args, env = ["status", "--offline", "--json"], None
-    if windows_home is not None:
-        args += ["--windows-home", "--target", "copilot"]
-        env = windows_env(windows_home)
-    try:
-        # stderr passes through, so a failing cali shows its own error.
-        run = subprocess.run(cali_argv(exe, *args), stdout=subprocess.PIPE,
-                             text=True, timeout=120, env=env)
-        rows = json.loads(run.stdout)["rows"] if run.returncode == 0 else None
-        if rows is not None:
-            return {(r["skill"], r["target"]): tuple(r["states"])
-                    for r in rows}
-    except (OSError, subprocess.SubprocessError, ValueError, KeyError,
-            TypeError):
-        pass
-    warn("cali status --offline --json gave no usable result — no skill "
-         "copies are removed this run")
-    return None
 
 
 def github_token():
@@ -428,10 +251,6 @@ def resolve_windows_home(override=None):
     return home, None
 
 
-# Before APM, this script copied or linked every skill itself; APM then
-# copied them again. Cali never replaces a folder it did not install (sync
-# reports it as kept), and it deploys Copilot skills to ~/.copilot/skills,
-# so APM's ~/.agents/skills copies would load twice.
 INSTRUCTIONS_SRC = REPO_ROOT / "instructions" / "personal.instructions.md"
 # Where earlier commits kept the file (APM's folder), so their versions still
 # count as ours to update.
@@ -443,170 +262,6 @@ STARTUP_NOTE_SRC = REPO_ROOT / "instructions" / "superpowers.instructions.md"
 # install.py owns only the part between these markers; text outside is kept.
 JETBRAINS_BEGIN = "<!-- BEGIN agent-skills: written by install.py, edits inside are replaced -->"
 JETBRAINS_END = "<!-- END agent-skills -->"
-
-
-def legacy_skill_names():
-    """Every skill an earlier install put in a skills dir: ours, and every
-    skill cali.yaml lists, live or optional (all were in the old inventory
-    or apm.yml). Externals are left to their own CLI."""
-    return custom_skill_names() | manifest_skill_names(active_only=False)
-
-
-# Skills earlier versions of cali.yaml installed, since dropped. `cali sync
-# --prune` removes such a folder only where cali.lock still listed it: a
-# cali.lock pulled from git has already dropped the name, so every other
-# machine keeps the folder unless it is named here.
-RETIRED_SKILLS = (
-    "add-educational-comments", "arch-linux-triage",
-    "architecture-blueprint-generator", "centos-linux-triage",
-    "debian-linux-triage", "fedora-linux-triage", "roj-code-review-pr-fast",
-    "roj-idea-to-project", "roj-tour-codebase",
-    # Superpowers' systematic-debugging replaced this stand-in.
-    "debugging-and-error-recovery",
-    "roj-code-review-pr", "roj-explain-feature-changes",
-)
-# Copilot-only skills no cali.yaml ever installed for Claude: a Claude copy
-# came from somewhere else.
-NEVER_CLAUDE_SKILLS = ("caveman", "debugging-and-error-recovery")
-
-
-def stale_skill_names(target):
-    """Skills an earlier install may have put in target's skills dir that
-    Cali no longer installs there: live cali.yaml skills limited to other
-    targets, and RETIRED_SKILLS. Optional (commented) skills are not stale,
-    nor are NEVER_CLAUDE_SKILLS for Claude."""
-    never = set(NEVER_CLAUDE_SKILLS) if target == "claude" else set()
-    return ((custom_skill_names() | manifest_skill_names()
-             | set(RETIRED_SKILLS)) - managed_skill_names(target) - never)
-
-
-def managed_skill_names(target):
-    """Skills Cali installs for target: every active cali.yaml skill not
-    limited to other targets. Only these are safe to remove — cali sync
-    puts them straight back."""
-    return {d["name"] for d in manifest_deps()
-            if d["active"] and (d["targets"] is None or target in d["targets"])}
-
-
-def read_lockfile():
-    """~/.apm/apm.lock.yaml text, or None on a machine APM never ran on."""
-    try:
-        return (apm_home() / "apm.lock.yaml").read_text(
-            encoding="utf-8", errors="replace")
-    except OSError:
-        return None
-
-
-def apm_deployed_skill(name, lock_text):
-    """True if the APM lockfile records deploying .agents/skills/<name>.
-    The name must end there: code-tour is not code-tour-x."""
-    if lock_text is None:
-        return False
-    pattern = r"\.agents/skills/" + re.escape(name) + r"(?![\w.-])"
-    return re.search(pattern, lock_text.replace("\\", "/")) is not None
-
-
-def _links_into_a_checkout(entry):
-    """True for a link to <root>/skills/<name> in any checkout of this repo
-    (this clone, the main checkout of a worktree, or another clone): a root
-    with install.py and tools/sync_shared.py, which every checkout since the
-    Agent Skills layout has."""
-    # resolve(), not os.readlink(): on Windows readlink returns a \\?\-prefixed
-    # path that never compares equal to SKILLS_SRC.
-    try:
-        target = entry.resolve()
-    except (OSError, RuntimeError):
-        return False
-    if SKILLS_SRC.resolve() in target.parents:
-        return True
-    root = target.parent.parent
-    return (target.parent.name == "skills" and target.name == entry.name
-            and target.is_dir() and (root / "install.py").is_file()
-            and (root / "tools" / "sync_shared.py").is_file())
-
-
-def remove_installer_skills(target, dest_root, dry_run, cali_rows=None,
-                            home=None):
-    """Remove what older installs left in dest_root, for skills Cali now
-    installs for target. cali_rows is cali_status_rows(): a copy is moved to
-    backup_dir() only when Cali says it did not install it (NOT_CALIS), so a
-    Cali-installed folder, local edits included, is never touched. Without
-    cali_rows no copy is moved. For a stale_skill_names() entry, which Cali
-    will not reinstall for target, only a link an older installer made is
-    moved to backup_dir(); a real folder is kept, and its path is printed
-    with a warning to delete it if stale (Cali keeps no record of the hosts
-    a skill was dropped from). The exception is a RETIRED_SKILLS folder whose
-    SKILL.md declares its own name: only our installs ever put it there, so
-    it is moved to backup_dir() too. Any other leftover Cali will not
-    reinstall is kept, with a warning when its SKILL.md declares that name.
-    home is the home dest_root belongs to, when it is not the current one."""
-    results = []
-    if not dest_root.is_dir():
-        return results
-    stale = stale_skill_names(target)
-    names = legacy_skill_names() | stale
-    managed = managed_skill_names(target)
-    for entry in sorted(dest_root.iterdir()):
-        if entry.name not in names:
-            continue
-        if entry.is_symlink():
-            ours = _links_into_a_checkout(entry) or not entry.exists()
-        else:
-            ours = entry.is_dir() and is_ours(entry, entry.name)
-        if entry.name not in managed:
-            retired = (entry.name in RETIRED_SKILLS and ours
-                       and not entry.is_symlink())
-            if entry.name in stale and ours and (entry.is_symlink() or retired):
-                dest = _move_aside(entry, target, dry_run, home)
-                results.append((target, entry.name,
-                                f"moved to {dest} (not installed for {target})"
-                                if not retired else
-                                f"moved to {dest} (retired skill)"))
-            elif entry.name in stale:
-                warn(f"{entry} is left over: Cali no longer installs "
-                     f"{entry.name} for {target} — kept; delete it if it "
-                     "is stale")
-            elif ours:
-                warn(f"{entry} was installed by an old installer; Cali does "
-                     f"not manage {entry.name} for {target} — uncomment it in "
-                     "cali.yaml to keep it updated, or delete it")
-            continue
-        if entry.is_symlink():
-            if ours:
-                _remove(entry, dry_run)
-                results.append((target, entry.name, "removed (pre-APM link)"))
-            else:
-                warn(f"{entry} is a link outside this clone — Cali cannot "
-                     f"install {entry.name} over it; remove it if it is stale")
-        elif ours and cali_rows is not None and NOT_CALIS & set(
-                cali_rows.get((entry.name, target), ())):
-            # base-lost also covers a Cali folder whose data dir was wiped, so
-            # the copy may hold local edits: move it aside, never delete it.
-            dest = _move_aside(entry, target, dry_run, home)
-            results.append((target, entry.name,
-                            f"moved to {dest} (not installed by Cali)"))
-    return results
-
-
-def apm_skills_root():
-    """Where APM deployed Copilot skills."""
-    return Path.home() / ".agents" / "skills"
-
-
-def remove_apm_skills(dry_run, lock_text):
-    """Remove the ~/.agents/skills copies APM deployed for skills Cali now
-    installs for Copilot (in ~/.copilot/skills). Only folders the APM
-    lockfile lists — ~/.agents/skills is shared with other tools."""
-    results = []
-    root = apm_skills_root()
-    for name in sorted(managed_skill_names("copilot")):
-        entry = root / name
-        if (entry.is_dir() and not entry.is_symlink()
-                and apm_deployed_skill(name, lock_text)):
-            _remove(entry, dry_run)
-            results.append(("copilot", name,
-                            "removed (APM copy in ~/.agents/skills)"))
-    return results
 
 
 def instruction_path(target):
@@ -872,30 +527,6 @@ def register_mcp_servers(target, dry_run):
     return results
 
 
-# Custom skills and prompts were renamed with a "roj-" prefix. Installs made
-# before the rename still carry the bare names; every install run removes
-# those leftovers (see remove_legacy) so no agent lists a workflow twice.
-LEGACY_PREFIX = "roj-"
-
-
-# Stems of the prompts/*.prompt.md files earlier versions shipped. Installs
-# made then left generated skills, Claude commands and .prompt.md copies
-# under these names; retire_prompts removes them on every install run.
-RETIRED_PROMPTS = (
-    "roj-code-review-pr", "roj-code-review-pr-fast", "roj-create-implement-sb",
-    "roj-create-sb", "roj-explain-and-review", "roj-explain-code",
-    "roj-explain-feature-changes", "roj-implement-sb", "roj-tour-codebase",
-)
-GENERATED_MARKER = "Generated from prompts/"
-
-
-def legacy_name(name):
-    """'roj-create-sb' -> 'create-sb'; None for names never renamed."""
-    if name.startswith(LEGACY_PREFIX):
-        return name[len(LEGACY_PREFIX):]
-    return None
-
-
 def externals():
     """{external_name: ext}."""
     return {ext["name"]: ext for ext in EXTERNALS}
@@ -926,76 +557,12 @@ def target_root(target):
                           else ".claude") / "skills"
 
 
-def vscode_prompts_dir():
-    """Locate the VS Code user prompts dir, or None if VS Code is absent.
-    Only read to remove .prompt.md copies earlier installs left there."""
-    candidates = []
-    appdata = os.environ.get("APPDATA")
-    if appdata:
-        candidates.append(Path(appdata) / "Code" / "User")          # Windows
-    candidates.append(Path.home() / "Library" / "Application Support"
-                      / "Code" / "User")                            # macOS
-    candidates.append(Path.home() / ".config" / "Code" / "User")    # Linux
-    for c in candidates:
-        if c.is_dir():
-            return c / "prompts"
-    return None
-
-
 def custom_skill_names():
     """Names of the skills in skills/ — also the directory names they take
     in every target root."""
     if not SKILLS_SRC.is_dir():
         return set()
     return {p.name for p in SKILLS_SRC.iterdir() if p.is_dir()}
-
-
-def claude_commands_dir():
-    """Claude's personal slash-command scope, where earlier installs wrote
-    one generated command per prompt."""
-    return Path.home() / ".claude" / "commands"
-
-
-def prompts_dir_for(target):
-    """Where earlier installs put *.prompt.md for a target, or None."""
-    if target == "copilot":
-        return vscode_prompts_dir()
-    return None                      # claude never used prompt files
-
-
-def legacy_names():
-    """Pre-rename names of every custom skill. Leftovers of retired prompts,
-    renamed or not, belong to retire_prompts."""
-    return sorted(filter(None, (legacy_name(n)
-                                for n in custom_skill_names())))
-
-
-def is_ours(entry, old):
-    """True if a skills-dir entry named `old` came from this installer: a
-    symlink (Claude target, now dangling after the rename) or a copy whose
-    SKILL.md declares that name."""
-    if entry.is_symlink():
-        return True
-    skill_md = entry / "SKILL.md"
-    if not skill_md.is_file():
-        return False
-    for line in skill_md.read_text(encoding="utf-8",
-                                   errors="replace").splitlines()[:5]:
-        if line.strip() == f"name: {old}":
-            return True
-    return False
-
-
-def is_generated(path):
-    """True for a file, or a skill dir's SKILL.md, that an earlier install
-    generated from prompts/ — never a real skill or a hand-written file."""
-    path = Path(path)
-    if path.is_dir() and not path.is_symlink():
-        path = path / "SKILL.md"
-    try:
-        return GENERATED_MARKER in path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return False
 
 
 # Taken once, so every copy one run moves lands in the same folder.
@@ -1020,64 +587,6 @@ def _move_aside(path, target, dry_run, home=None):
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(path), str(dest))
     return dest
-
-
-def _remove(path, dry_run):
-    if dry_run:
-        return
-    if path.is_symlink() or path.is_file():
-        path.unlink()
-    else:
-        shutil.rmtree(path)
-
-
-def remove_legacy(target, dest_root, dry_run):
-    """Delete skill dirs left under pre-rename names. Generated prompt
-    leftovers are handled by retire_prompts."""
-    results = []
-    for old in legacy_names():
-        new = LEGACY_PREFIX + old
-        entry = dest_root / old
-        if (entry.is_symlink() or entry.exists()) and is_ours(entry, old):
-            _remove(entry, dry_run)
-            results.append((target, old, f"removed (renamed to {new})"))
-    return results
-
-
-def retire_prompts(target, dest_root, dry_run):
-    """Remove everything earlier installs generated from prompts/, under
-    current and pre-rename names: generated skill dirs in dest_root, Claude
-    slash commands, and .prompt.md copies, plus a <name>.bak copy of a
-    generated skill dir left by an old backup. Only regular files
-    and dirs carrying the generated marker (or, for .prompt.md, one of our
-    names) are touched — never a symlink, which points at something the
-    user owns."""
-    results = []
-    status = "removed (prompts retired — use the skill)"
-    names = sorted(set(RETIRED_PROMPTS)
-                   | {legacy_name(n) for n in RETIRED_PROMPTS})
-    for name in names:
-        for dirname in (name, f"{name}.bak"):
-            entry = dest_root / dirname
-            if (entry.is_dir() and not entry.is_symlink()
-                    and is_generated(entry)):
-                _remove(entry, dry_run)
-                results.append((target, dirname, status))
-        cmd = claude_commands_dir() / f"{name}.md"
-        if (target == "claude" and cmd.is_file() and not cmd.is_symlink()
-                and is_generated(cmd)):
-            _remove(cmd, dry_run)
-            results.append((target, f"command:{name}", status))
-    pdir = prompts_dir_for(target)
-    if pdir is not None and pdir.is_dir():
-        for name in names:
-            old = pdir / f"{name}.prompt.md"
-            if old.is_file() and not old.is_symlink():
-                _remove(old, dry_run)
-                results.append((target, f"prompt:{name}", status))
-        if not dry_run and not any(pdir.iterdir()):
-            pdir.rmdir()
-    return results
 
 
 def user_script_dirs():
@@ -1342,77 +851,36 @@ def install_externals_for_target(target, sel_externals, dry_run):
     return results
 
 
-def windows_skills_root(win_home):
-    """The Copilot skills folder Windows-side VS Code and JetBrains read."""
-    return win_home / ".copilot" / "skills"
-
-
-def clean_windows_home(win_home, dry_run, cali_rows=None):
-    """The WSL Windows leg before `cali sync --windows-home`: what
-    remove_installer_skills does in the Linux home, done in the Windows
-    home's Copilot skills folder. cali_rows is cali_status_rows() for that
-    home, read before any sync stores the locked versions: a copy an older
-    install.py made there, or one older than a pulled cali.lock, then reads
-    base-lost and is moved to <win_home>/.agent-skills-backups, so cali
-    installs the locked version in its place."""
-    return [("windows", n, s) for _, n, s in remove_installer_skills(
-        "copilot", windows_skills_root(win_home), dry_run,
-        cali_rows=cali_rows, home=win_home)]
-
-
-def mark_wsl_owner(win_home):
-    """Write WSL_OWNER_MARKER into the Windows home's Copilot skills folder
-    once cali has installed there, so a Git Bash run leaves it to WSL."""
-    marker = windows_skills_root(win_home) / WSL_OWNER_MARKER
-    if marker.is_file():
-        return
-    try:
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_bytes(WSL_OWNER_TEXT.encode("utf-8"))
-    except OSError as exc:
-        warn(f"could not write {marker}: {exc}")
-
-
-def wsl_owns_copilot_skills():
-    """True on Git Bash (or any non-WSL run) when a WSL run wrote
-    WSL_OWNER_MARKER into ~/.copilot/skills and so delivers those skills."""
-    return (not is_wsl()
-            and (target_root("copilot") / WSL_OWNER_MARKER).is_file())
+WSL_HINT = ("WSL: VS Code and JetBrains on Windows read %USERPROFILE%; this "
+            "run wrote the JetBrains instructions there. Run install.py "
+            "from Git Bash for the other extras on the Windows side. Skills "
+            "come from cali, not this script: `cali setup` once, then "
+            "`cali load <skill>` fills both homes.")
+WINDOWS_HOME_HELP = """\
+WSL: could not find the Windows home ({why}).
+Windows-side JetBrains reads its instructions there, so they were NOT
+written. Either
+  - re-run with the Windows home named:
+      python3 install.py --windows-home /mnt/c/Users/<your Windows user>
+  - or run install.py from Git Bash on Windows."""
+SKILLS_HINT = ("Skills are installed by cali, not this script: "
+               "`cali setup github:rojcarranza/agent-skills` once, then "
+               "`cali load <skill>`. See the README.")
 
 
 def show_status(targets, windows_home=None):
-    exe = find_cli("cali")
-    if exe:
-        run_cali(cali_argv(exe, "list"))
-    else:
-        warn("cali is not installed — nothing Cali manages can be listed")
+    """What this script wrote: instructions, MCP servers and externals."""
+    print(f"  {SKILLS_HINT}\n  Installed skills: cali status -g\n")
     warnings = []
-    cali_rows = cali_status_rows(exe) if exe else None
-    lock_text = read_lockfile()
     for target in targets:
         root = target_root(target)
-        left = ([] if target == "copilot" and wsl_owns_copilot_skills()
-                else remove_installer_skills(target, root, dry_run=True,
-                                             cali_rows=cali_rows))
-        if left:
-            warnings.append(f"{target}: {', '.join(n for _, n, _ in left)} "
-                            f"left by an older install in {root} — re-run "
-                            f"install.py to remove")
-        older = (remove_legacy(target, root, dry_run=True)
-                 + retire_prompts(target, root, dry_run=True))
-        if target == "copilot":
-            older += remove_apm_skills(True, lock_text)
-        else:
-            older += retire_claude_rules(dry_run=True)
         for _, name, status in install_instructions(target, dry_run=True):
             if status == "replaced dotfiles link":
-                older.append((target, name, status))
+                warnings.append(f"{target}: {name} left by an older install "
+                                "— re-run install.py to remove")
             else:
                 warnings.append(f"{target}: {name} is not deployed or out of "
                                 "date — re-run install.py")
-        for _, name, _ in older:
-            warnings.append(f"{target}: {name} left by an older install — "
-                            "re-run install.py to remove")
         for ext in EXTERNALS:
             dest = root / ext["name"]
             if not dest.is_dir():
@@ -1425,23 +893,8 @@ def show_status(targets, windows_home=None):
                                 f"but its {ext['cli']} CLI is missing")
             elif cli_path_hint(ext):
                 warnings.append(f"{target}: {cli_path_hint(ext)}")
-    if "copilot" in targets and wsl_owns_copilot_skills():
-        print(f"  copilot skills in {target_root('copilot')} come from the "
-              f"WSL run ({WSL_OWNER_MARKER})")
     if windows_home is not None:
-        root = windows_skills_root(windows_home)
-        print(f"  windows home: {windows_home}  (Copilot skills in {root})")
-        win_rows = cali_status_rows(exe, windows_home) if exe else None
-        todo = sorted(n for (n, t), states in (win_rows or {}).items()
-                      if t == "copilot" and WOULD_INSTALL & set(states))
-        if todo:
-            warnings.append(f"windows: {len(todo)} skill(s) missing or out "
-                            f"of date ({', '.join(todo)}) - re-run "
-                            "install.py to install them")
-        for _, name, _ in clean_windows_home(windows_home, True, win_rows):
-            if name not in todo:
-                warnings.append(f"windows: {name} left over in {root} - "
-                                "re-run install.py to move it")
+        print(f"  windows home: {windows_home}  (JetBrains instructions)")
     print()
     for w in warnings:
         warn(w)
@@ -1480,31 +933,32 @@ def main():
                     help="print planned actions without writing or running "
                          "anything")
     ap.add_argument("--status", action="store_true",
-                    help="show what Cali installed, graphify, and leftovers")
+                    help="show what this script wrote and leftovers; skills "
+                         "are `cali status -g`")
     ap.add_argument("--update", action="store_true",
-                    help="list skills with newer upstream versions "
-                         "(cali status); changes nothing")
+                    help="skills are updated by cali: prints `cali update -g`")
     ap.add_argument("--upgrade", action="store_true",
                     help="upgrade external CLIs (graphify) before refreshing "
                          "their skill files")
     ap.add_argument("--skills-only", action="store_true",
                     help="skip graphify (e.g. PyPI blocked)")
     ap.add_argument("--windows-home", metavar="PATH",
-                    help="WSL: the Windows home cali installs the Copilot "
-                         "skills into (default: %%USERPROFILE%%, read "
+                    help="WSL: the Windows home that gets the JetBrains "
+                         "instructions (default: %%USERPROFILE%%, read "
                          "through cmd.exe)")
     args = ap.parse_args()
     targets = (["copilot", "claude"] if args.target == "both"
                else [args.target])
 
-    # WSL: Windows-side VS Code and JetBrains read the Windows home, so the
-    # Copilot skills go there as well.
+    if args.update:
+        print("Skills are updated by cali: run `cali update -g` to see newer "
+              "versions, `cali update -g --apply` to take them.")
+        return
+
+    # WSL: Windows-side JetBrains reads the Windows home's instruction file.
     win_home, win_problem = None, None
     if is_wsl() and "copilot" in targets:
         win_home, win_problem = resolve_windows_home(args.windows_home)
-    # Git Bash on a machine whose WSL run owns the Windows Copilot skills:
-    # cali sync would overwrite them, so it does not run.
-    wsl_owned = wsl_owns_copilot_skills()
 
     if args.status:
         show_status(targets, win_home)
@@ -1512,92 +966,17 @@ def main():
             warn(WINDOWS_HOME_HELP.format(why=win_problem))
         return
 
-    exe = find_cli("cali")
-    if not exe and args.dry_run:
-        warn("cali is not installed — a real run would stop here:\n"
-             + CALI_INSTALL_HINT)
-    elif not exe:
-        sys.exit(CALI_INSTALL_HINT)
-    if args.update:
-        if args.dry_run:
-            log("dry-run: would run cali status -g --manifest "
-                f"{MANIFEST_PATH}")
-            return
-        sys.exit(run_cali(cali_argv(exe, "status")))
-    missing = missing_cali_flags(exe) if exe else []
-    hint = None
-    if missing:
-        hint = CALI_UPDATE_HINT.format(exe=exe, missing=", ".join(missing))
-    else:
-        detail = cali_manifest_problem(exe) if exe else None
-        if detail:
-            hint = CALI_STALE_HINT.format(exe=exe, manifest=MANIFEST_PATH,
-                                          detail=detail)
-    if hint:
-        if not args.dry_run:
-            sys.exit(hint)
-        warn("a real run would stop here:\n" + hint)
-
     results = []
-    cali_rows = cali_status_rows(exe) if exe else None
-    # Read before any sync stores the locked versions (clean_windows_home).
-    win_rows = cali_status_rows(exe, win_home) if exe and win_home else None
-    lock_text = read_lockfile()
     for target in targets:
-        if not (wsl_owned and target == "copilot"):
-            results.extend(remove_installer_skills(
-                target, target_root(target), args.dry_run,
-                cali_rows=cali_rows))
-        results.extend(remove_legacy(target, target_root(target),
-                                     args.dry_run))
-        results.extend(retire_prompts(target, target_root(target),
-                                      args.dry_run))
-        if target == "copilot":
-            results.extend(remove_apm_skills(args.dry_run, lock_text))
-        else:
+        if target == "claude":
             results.extend(retire_claude_rules(args.dry_run))
         results.extend(install_instructions(target, args.dry_run))
-    if win_home is not None:
-        results.extend(clean_windows_home(win_home, args.dry_run, win_rows))
-    results.extend(register_default_manifest(args.dry_run))
     if github_token():
         for target in targets:
             results.extend(register_mcp_servers(target, args.dry_run))
     else:
-        log("No GitHub token ($token or 'gh auth login') — skipping MCP "
-            "servers; skills and instructions install as usual")
-    if wsl_owned:
-        log(f"{target_root('copilot')} is owned by the WSL run "
-            f"({WSL_OWNER_MARKER}) - Copilot skills are left to it; run "
-            "install.py inside WSL to update them")
-    # The Windows home syncs first: once --prune has removed a skill dropped
-    # from cali.yaml, cali.lock forgets it and a second sync cannot prune it,
-    # and the Windows IDEs are where a leftover would keep showing.
-    syncs = []
-    if win_home is not None:
-        syncs.append(("windows", sync_argv(exe or "cali", ["copilot"],
-                                           windows_home=True),
-                      windows_env(win_home)))
-    if wsl_owned:
-        results.append(("cali", "sync", "skipped (Copilot skills come from "
-                        "WSL)"))
-    else:
-        syncs.append(("cali", sync_argv(exe or "cali", targets), None))
-    for label, argv, env in syncs:
-        if args.dry_run:
-            prefix = f"CALI_WINDOWS_HOME={win_home} " if env else ""
-            results.append((label, "sync", "dry-run: would run " + prefix
-                            + " ".join(["cali", *argv[1:]])))
-            continue
-        code = run_cali(argv, env)
-        if code:
-            print_summary(results, targets, args.dry_run)
-            warn("cali sync failed — skill folders removed or moved above come back "
-                 "once a re-run of install.py succeeds")
-            sys.exit(code)
-        results.append((label, "sync", "done"))
-        if label == "windows":
-            mark_wsl_owner(win_home)
+        log("No GitHub token ($token or 'gh auth login') - skipping MCP "
+            "servers; instructions install as usual")
     if win_home is not None:
         # Windows-side JetBrains reads the Windows home's global file.
         results.extend(install_jetbrains_instructions(
@@ -1621,6 +1000,7 @@ def main():
             target, sel_externals, args.dry_run))
 
     print_summary(results, targets, args.dry_run)
+    log(SKILLS_HINT)
     if is_wsl():
         log(WSL_HINT)
         if win_problem:

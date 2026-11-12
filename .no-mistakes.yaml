@@ -14,44 +14,26 @@ gates:
   - name: shared-files-in-sync
     after: test
     command: uv run --no-project --python 3.12 python tools/sync_shared.py --check
-  - name: cali-smoke
+  - name: installer-smoke
     after: test
-    # install.py into a scratch HOME with the locally installed cali; the real
-    # home is never written and no token is needed.
+    # install.py into a scratch HOME with no cali on PATH; the real home is
+    # never written and no token is needed. It writes the extras and no skills.
     command: |
       bash -c '
       set -euo pipefail
       base="$(mktemp -d)"; trap "rm -rf \"$base\"" EXIT
-      mkdir -p "$base/home/.local/bin"
-      cp "$HOME/.local/bin/cali" "$base/home/.local/bin/cali"
+      mkdir -p "$base/home"
       export HOME="$base/home" USERPROFILE="$base/home"
-      export CALI_CONFIG_DIR="$base/cali/config" CALI_DATA_DIR="$base/cali/data" CALI_CACHE_DIR="$base/cali/cache"
       export token=placeholder
       uv run --no-project --python 3.12 python install.py --skills-only
-      "$HOME/.local/bin/cali" sync -g --manifest cali.yaml --frozen
-      # Copilot gets every skill; Claude none.
       for d in skills/*/; do
         n=$(basename "$d")
-        test -f "$HOME/.copilot/skills/$n/SKILL.md"
+        test ! -e "$HOME/.copilot/skills/$n"
         test ! -e "$HOME/.claude/skills/$n"
       done
-      test -f "$HOME/.copilot/skills/code-tour/SKILL.md"
-      test ! -e "$HOME/.claude/skills/code-tour"
-      test -f "$HOME/.copilot/skills/caveman/SKILL.md"
-      test ! -e "$HOME/.claude/skills/caveman"
-      test -f "$HOME/.copilot/skills/docx/SKILL.md"
-      test ! -e "$HOME/.claude/skills/docx"
-      test -f "$HOME/.copilot/skills/cali/SKILL.md"
-      test ! -e "$HOME/.claude/skills/cali"
       test -f "$HOME/.copilot/instructions/personal.instructions.md"
       test -f "$HOME/.copilot/instructions/superpowers.instructions.md"
       grep -q "BEGIN agent-skills" "$HOME/.config/github-copilot/intellij/global-copilot-instructions.md"
-      for n in brainstorming systematic-debugging using-superpowers writing-plans; do
-        test -f "$HOME/.copilot/skills/$n/SKILL.md"
-        test ! -e "$HOME/.claude/skills/$n"
-      done
-      test ! -e "$HOME/.copilot/skills/writing-skills"
-      test ! -e "$HOME/.copilot/skills/debugging-and-error-recovery"
       test ! -e "$HOME/.claude/rules/personal.md"
       grep -q github-mcp-server "$HOME/.claude.json"
       grep -q github-mcp-server "$HOME/.copilot/mcp-config.json"

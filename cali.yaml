@@ -1,15 +1,14 @@
-# Every skill install.py installs, through Cali
-# (https://github.com/rojcarranza/cali). Copilot is the work agent, so every
-# skill targets [copilot], except roj-one-slide, which also installs for
-# Claude. install.py runs
-# `cali sync -g --manifest <this file>`; cali.lock next to it pins each skill
-# to a tree (and community skills to a commit). Community refs are full commit SHAs: a version bump
-# is a reviewed diff. Edit here, then re-run install.py.
+# The skills agent-skills offers, as a list cali reads
+# (https://github.com/rojcarranza/cali). install.py does not read or run it:
+# install cali, run `cali setup github:rojcarranza/agent-skills` once, then
+# `cali load <skill>` from any folder. cali records each load in your own
+# cali.yaml and cali.lock. Copilot is the work agent, so every skill targets
+# [copilot], except roj-one-slide, which also targets Claude. Community refs
+# are full commit SHAs: a version bump is a reviewed diff.
 version: 1
 targets: [claude, copilot]
 skills:
-  # Own skills, from this clone at its checked-out HEAD. cali.lock pins the
-  # tree; `cali update -g --manifest cali.yaml --apply` moves it.
+  # Own skills, from this repo.
   roj-review-code:
     source: .//skills/roj-review-code
     targets: [copilot]
@@ -198,12 +197,7 @@ skills:
     ref: aeeb3d8c30b5f95aeeb3e893b0f1a308af8fdb8f
     targets: [copilot]
     load: on-demand
-  # Cali's own skill: Copilot Chat runs cali in agent mode with it.
-  cali:
-    source: github:rojcarranza/cali//skills/cali
-    ref: ba99c1c82c81b5f1f377e2142cfeb289957eb713
-    targets: [copilot]
-  # Optional — uncomment the entry's lines and re-run install.py:
+  # Optional — uncomment the entry's lines:
   # grilling:
   #   source: github:mattpocock/skills//skills/productivity/grilling@49dd158d1076134a641b33efb035946536778336
   # grill-me:  # Claude only: also uncomment the targets line

@@ -26,192 +26,6 @@ class TempDirTest(unittest.TestCase):
         return d
 
 
-class TestVscodePromptsDir(TempDirTest):
-    def test_appdata_windows_layout(self):
-        user = self.tmp / "AppData" / "Code" / "User"
-        user.mkdir(parents=True)
-        with mock.patch.dict(os.environ, {"APPDATA": str(self.tmp / "AppData")}):
-            self.assertEqual(install.vscode_prompts_dir(), user / "prompts")
-
-    def test_none_when_no_vscode(self):
-        with mock.patch.dict(os.environ, {}, clear=True), \
-             mock.patch("install.Path.home", return_value=self.tmp):
-            self.assertIsNone(install.vscode_prompts_dir())
-
-
-class TestPromptsDirFor(TempDirTest):
-    def test_copilot_delegates_to_vscode_dir(self):
-        with mock.patch("install.vscode_prompts_dir",
-                        return_value=self.tmp / "prompts"):
-            self.assertEqual(install.prompts_dir_for("copilot"),
-                             self.tmp / "prompts")
-
-    def test_claude_is_none(self):
-        self.assertIsNone(install.prompts_dir_for("claude"))
-
-
-class TestRemoveLegacy(TempDirTest):
-    def setUp(self):
-        super().setUp()
-        self.skills = self.tmp / "skills"
-        (self.skills / "roj-explain-logic").mkdir(parents=True)
-        self.dest = self.tmp / "dest"
-        self.dest.mkdir()
-
-    def patched(self):
-        return mock.patch.multiple("install", SKILLS_SRC=self.skills,
-                                   RETIRED_PROMPTS=("roj-create-sb",))
-
-    def run_remove(self, target="copilot", dry_run=False):
-        with self.patched():
-            return install.remove_legacy(target, self.dest, dry_run)
-
-    def test_legacy_names(self):
-        with self.patched():
-            self.assertEqual(install.legacy_names(), ["explain-logic"])
-
-    def test_removes_copy_declaring_old_name(self):
-        old = self.dest / "explain-logic"
-        old.mkdir()
-        (old / "SKILL.md").write_text("---\nname: explain-logic\n---\n")
-        results = self.run_remove()
-        self.assertEqual(results, [("copilot", "explain-logic",
-                                    "removed (renamed to roj-explain-logic)")])
-        self.assertFalse(old.exists())
-
-    def test_removes_dangling_symlink(self):
-        link = self.dest / "explain-logic"
-        link.symlink_to(self.tmp / "gone")
-        self.run_remove(target="claude")
-        self.assertFalse(link.is_symlink())
-
-    def test_keeps_foreign_skill_of_same_name(self):
-        other = self.dest / "explain-logic"
-        other.mkdir()
-        (other / "SKILL.md").write_text("---\nname: something-else\n---\n")
-        self.assertEqual(self.run_remove(), [])
-        self.assertTrue(other.exists())
-
-    def test_dry_run_keeps_everything(self):
-        old = self.dest / "explain-logic"
-        old.mkdir()
-        (old / "SKILL.md").write_text("name: explain-logic\n")
-        self.assertEqual(len(self.run_remove(dry_run=True)), 1)
-        self.assertTrue(old.exists())
-
-
-class TestRetirePrompts(TempDirTest):
-    """Everything earlier installs generated from prompts/ goes; real
-    skills and hand-written files of the same name stay."""
-
-    GEN = "x\n<!-- Generated from prompts/roj-create-sb.prompt.md -->\n"
-
-    def setUp(self):
-        super().setUp()
-        self.dest = self.tmp / "skills"
-        self.dest.mkdir()
-        self.cmds = self.tmp / "commands"
-        self.cmds.mkdir()
-        self.pdir = self.tmp / "Code" / "User" / "prompts"
-        self.pdir.mkdir(parents=True)
-
-    def retire(self, target="copilot", dry_run=False):
-        with mock.patch.multiple(
-                "install", RETIRED_PROMPTS=("roj-create-sb",
-                                            "roj-review-code"),
-                claude_commands_dir=mock.Mock(return_value=self.cmds),
-                vscode_prompts_dir=mock.Mock(return_value=self.pdir)):
-            return install.retire_prompts(target, self.dest, dry_run)
-
-    def test_removes_generated_skill_dir(self):
-        gen = self.dest / "roj-create-sb"
-        gen.mkdir()
-        (gen / "SKILL.md").write_text(self.GEN)
-        results = self.retire()
-        self.assertEqual([r[1] for r in results], ["roj-create-sb"])
-        self.assertFalse(gen.exists())
-
-    def test_keeps_real_skill_of_a_retired_name(self):
-        real = self.dest / "roj-review-code"
-        real.mkdir()
-        (real / "SKILL.md").write_text("---\nname: roj-review-code\n---\n")
-        self.assertEqual(self.retire(), [])
-        self.assertTrue(real.exists())
-
-    def test_keeps_symlinked_skill(self):
-        src = self.make_skill("repo", name="roj-create-sb", content=self.GEN)
-        (self.dest / "roj-create-sb").symlink_to(src)
-        self.assertEqual(self.retire(), [])
-
-    def test_removes_generated_backup_dir(self):
-        bak = self.dest / "roj-create-sb.bak"
-        bak.mkdir()
-        (bak / "SKILL.md").write_text(self.GEN)
-        results = self.retire()
-        self.assertEqual([r[1] for r in results], ["roj-create-sb.bak"])
-        self.assertFalse(bak.exists())
-
-    def test_keeps_symlinked_claude_command(self):
-        target = self.tmp / "dotfiles-cmd.md"
-        target.write_text(self.GEN)
-        (self.cmds / "roj-create-sb.md").symlink_to(target)
-        self.assertEqual(self.retire(target="claude"), [])
-        self.assertTrue((self.cmds / "roj-create-sb.md").is_symlink())
-        self.assertTrue(target.is_file())
-
-    def test_keeps_symlinked_prompt_file(self):
-        target = self.tmp / "mine.prompt.md"
-        target.write_text("user's own")
-        (self.pdir / "roj-create-sb.prompt.md").symlink_to(target)
-        self.assertEqual(self.retire(), [])
-        self.assertTrue((self.pdir / "roj-create-sb.prompt.md").is_symlink())
-
-    def test_removes_generated_claude_commands_new_and_legacy(self):
-        (self.cmds / "roj-create-sb.md").write_text(self.GEN)
-        (self.cmds / "create-sb.md").write_text(self.GEN)
-        results = self.retire(target="claude")
-        self.assertEqual(sorted(r[1] for r in results),
-                         ["command:create-sb", "command:roj-create-sb"])
-        self.assertEqual(list(self.cmds.iterdir()), [])
-
-    def test_keeps_hand_written_claude_command(self):
-        (self.cmds / "create-sb.md").write_text("my own command")
-        self.assertEqual(self.retire(target="claude"), [])
-
-    def test_commands_untouched_for_copilot(self):
-        (self.cmds / "roj-create-sb.md").write_text(self.GEN)
-        self.retire(target="copilot")
-        self.assertTrue((self.cmds / "roj-create-sb.md").is_file())
-
-    def test_removes_prompt_files_and_empty_dir(self):
-        (self.pdir / "roj-create-sb.prompt.md").write_text("old")
-        (self.pdir / "create-sb.prompt.md").write_text("older")
-        results = self.retire()
-        self.assertEqual(sorted(r[1] for r in results),
-                         ["prompt:create-sb", "prompt:roj-create-sb"])
-        self.assertFalse(self.pdir.exists())
-
-    def test_leaves_foreign_prompt_files(self):
-        (self.pdir / "roj-create-sb.prompt.md").write_text("old")
-        (self.pdir / "mine.prompt.md").write_text("user's own")
-        self.retire()
-        self.assertTrue((self.pdir / "mine.prompt.md").is_file())
-
-    def test_dry_run_keeps_everything(self):
-        gen = self.dest / "roj-create-sb"
-        gen.mkdir()
-        (gen / "SKILL.md").write_text(self.GEN)
-        (self.pdir / "roj-create-sb.prompt.md").write_text("old")
-        self.assertEqual(len(self.retire(dry_run=True)), 2)
-        self.assertTrue(gen.exists())
-        self.assertTrue((self.pdir / "roj-create-sb.prompt.md").is_file())
-
-    def test_no_vscode_dir(self):
-        with mock.patch("install.vscode_prompts_dir", return_value=None):
-            self.assertEqual(install.retire_prompts("copilot", self.dest,
-                                                    False), [])
-
-
 class ExternalTest(TempDirTest):
     """Externals delegate to a CLI, so every test here fakes both the CLI
     lookup and the subprocess call — nothing may reach a real install.
@@ -570,11 +384,6 @@ class TestCliPathHint(ExternalTest):
         err = io.StringIO()
         with mock.patch("install.EXTERNALS", [self.fake_external()]), \
                 mock.patch("install.find_cli", return_value="/opt/bin/tool-y"), \
-                mock.patch("install.run_cali", return_value=0), \
-                mock.patch("install.cali_status_rows", return_value=None), \
-                mock.patch("install.apm_home", return_value=self.tmp / ".apm"), \
-                mock.patch("install.apm_skills_root",
-                           return_value=self.tmp / "agents"), \
                 mock.patch("install.instruction_path",
                            return_value=self.tmp / "instr.md"), \
                 mock.patch("install.startup_note_path",
@@ -973,20 +782,24 @@ skills:
                          ("github:x/y//skills/tool",
                           "2e08b9177c07bb7249a8a2d1a6758e5db281d002"))
 
-    def test_only_one_slide_installs_for_claude(self):
+    def test_only_one_slide_targets_claude(self):
         # Copilot is the work agent; roj-one-slide is the one skill that also
-        # installs for Claude (AGS-8 piece 2).
-        self.assertEqual(install.managed_skill_names("claude"),
+        # targets Claude.
+        both = ("claude", "copilot")   # the manifest's default targets
+        def targets(d):
+            return d["targets"] or both
+        live = [d for d in install.manifest_deps() if d["active"]]
+        self.assertEqual({d["name"] for d in live if "claude" in targets(d)},
                          {"roj-one-slide"})
-        self.assertLessEqual(install.custom_skill_names(),
-                             install.managed_skill_names("copilot"))
+        copilot = {d["name"] for d in live if "copilot" in targets(d)}
+        self.assertLessEqual(install.custom_skill_names(), copilot)
 
-    def test_only_cali_is_always_installed(self):
-        # Issue #110 (CALI-7 piece 6): /cali stays in every chat, the rest
-        # load on demand.
+    def test_every_skill_loads_on_demand(self):
+        # cali.yaml is the list `cali setup` reads: cali's own entry is gone
+        # (cali installs itself), so no skill is always-on.
         always = {d["name"] for d in install.manifest_deps()
                   if d["active"] and d["load"] == "always"}
-        self.assertEqual(always, {"cali"})
+        self.assertEqual(always, set())
 
     def test_load_field_is_read(self):
         parsed = install.parse_manifest(
@@ -994,181 +807,14 @@ skills:
             "    source: y\n")
         self.assertEqual([d["load"] for d in parsed], ["on-demand", "always"])
 
-    def test_repo_manifest_matches_its_lock(self):
-        # cali sync --frozen would pass: every live skill is locked, nothing else.
-        lock = json.loads((install.REPO_ROOT / "cali.lock").read_text("utf-8"))
-        self.assertEqual(set(lock["skills"]), install.manifest_skill_names())
+    def test_repo_keeps_no_lock(self):
+        # loaders pin in their own cali.lock.
+        self.assertFalse((install.REPO_ROOT / "cali.lock").exists())
 
-    def test_own_skills_are_locked_at_head(self):
-        # The cali sync --frozen tree check, without cali: run
-        # `cali update -g --manifest cali.yaml --apply` when this fails.
-        lock = json.loads((install.REPO_ROOT / "cali.lock").read_text("utf-8"))
-        for name, entry in lock["skills"].items():
-            if entry["source"] != ".":
-                continue
-            with self.subTest(skill=name):
-                tree = subprocess.run(
-                    ["git", "rev-parse", "HEAD:" + entry["path"]],
-                    cwd=install.REPO_ROOT, capture_output=True, text=True,
-                    check=True).stdout.strip()
-                self.assertEqual(entry["tree"], tree)
-
-
-class TestCali(TempDirTest):
-    def test_argv_points_at_the_repo_manifest(self):
-        self.assertEqual(install.cali_argv("/bin/cali", "sync"),
-                         ["/bin/cali", "sync", "-g", "--manifest",
-                          str(install.MANIFEST_PATH)])
-
-    def test_run_cali_returns_exit_code(self):
-        with mock.patch("install.subprocess.run",
-                        return_value=mock.Mock(returncode=3)) as run:
-            self.assertEqual(install.run_cali(["cali", "x"]), 3)
-        run.assert_called_once_with(["cali", "x"], env=None)
-
-    # `cali sync --help` of the cali on GitHub before --target, --prune and
-    # --windows-home (5457977), and of the cali that has them (68c6032).
-    OLD_SYNC_HELP = """\
-Install every skill in cali.lock; lock manifest skills that are not locked yet
-
-Usage:
-  cali sync [flags]
-
-Flags:
-      --frozen   fail instead of changing cali.lock
-  -h, --help     help for sync
-
-Global Flags:
-  -g, --global            use the global scope (your home folder) instead of the project
-      --manifest string   use this manifest file; the lock sits next to it (in project scope its folder is the project root)
-"""
-    NEW_SYNC_HELP = """\
-Install every skill in cali.lock; lock manifest skills that are not locked yet
-
-Usage:
-  cali sync [flags]
-
-Flags:
-      --frozen           fail instead of changing cali.lock
-  -h, --help             help for sync
-      --prune            delete installed skills no longer in cali.yaml (unmodified ones only, after a backup)
-      --target strings   act on this target only: claude or copilot (repeatable)
-
-Global Flags:
-      --agent             agent mode: never prompt, exit 2 on usage errors, print totals and next steps (or set CALI_AGENT=1)
-  -g, --global            use the global scope (your home folder) instead of the project
-      --manifest string   use this manifest file; the lock sits next to it (in project scope its folder is the project root)
-      --windows-home      with -g in WSL, install into your Windows home instead of the WSL one
-"""
-
-    def test_missing_flags_name_what_an_old_cali_lacks(self):
-        # Issue #98: install.py needs cali's --prune, --target and
-        # --windows-home, and must say so when cali predates them.
-        for help_text, expected in ((self.OLD_SYNC_HELP, list(install.CALI_FLAGS)),
-                                    (self.NEW_SYNC_HELP, [])):
-            with self.subTest(expected=expected), mock.patch(
-                    "install.subprocess.run",
-                    return_value=mock.Mock(returncode=0, stdout=help_text)):
-                self.assertEqual(install.missing_cali_flags("/bin/cali"),
-                                 expected)
-        with mock.patch("install.subprocess.run", side_effect=OSError("x")):
-            self.assertEqual(install.missing_cali_flags("/bin/cali"),
-                             list(install.CALI_FLAGS))
-
-    def test_manifest_problem_is_cali_s_parse_error(self):
-        # Issue #114: the work computer's cali printed this for every
-        # `load:` line of cali.yaml and exited 1.
-        err = ("cali: parse manifest /mnt/c/dev/agent-skills/cali.yaml: yaml: "
-               "unmarshal errors:\n  line 15: field load not found in type "
-               "manifest.Skill\n")
-        cases = ((mock.Mock(returncode=1, stdout=err), err.strip()),
-                 (mock.Mock(returncode=0, stdout='{"rows": []}'), None),
-                 # a failure that is not about the manifest is not this check's
-                 (mock.Mock(returncode=1, stdout="cali: network down"), None))
-        for run, expected in cases:
-            with self.subTest(expected=expected), mock.patch(
-                    "install.subprocess.run", return_value=run):
-                self.assertEqual(install.cali_manifest_problem("/bin/cali"),
-                                 expected)
-        with mock.patch("install.subprocess.run", side_effect=OSError("x")):
-            self.assertIsNone(install.cali_manifest_problem("/bin/cali"))
-
-    def test_windows_status_rows_read_that_home(self):
-        out = json.dumps({"rows": [{"skill": "a", "target": "copilot",
-                                    "states": ["base-lost"], "detail": ""}]})
-        win = self.tmp / "Users" / "me"
-        with mock.patch("install.subprocess.run", return_value=mock.Mock(
-                returncode=0, stdout=out)) as run:
-            rows = install.cali_status_rows("/bin/cali", win)
-        self.assertEqual(rows, {("a", "copilot"): ("base-lost",)})
-        self.assertEqual(run.call_args[0][0], install.cali_argv(
-            "/bin/cali", "status", "--offline", "--json", "--windows-home",
-            "--target", "copilot"))
-        self.assertEqual(run.call_args[1]["env"]["CALI_WINDOWS_HOME"], str(win))
-
-    def test_run_cali_reports_missing_binary(self):
-        with mock.patch("install.subprocess.run", side_effect=OSError("nope")):
-            self.assertEqual(install.run_cali(["cali"]), 127)
-
-    def test_status_rows_from_json(self):
-        out = json.dumps({"schema_version": 1, "rows": [
-            {"skill": "a", "target": "claude", "states": ["ok"], "detail": ""},
-            {"skill": "a", "target": "copilot", "states": ["base-lost"],
-             "detail": "run cali sync"}], "warnings": []})
-        with mock.patch("install.subprocess.run", return_value=mock.Mock(
-                returncode=0, stdout=out)) as run:
-            rows = install.cali_status_rows("/bin/cali")
-        self.assertEqual(rows, {("a", "claude"): ("ok",),
-                                ("a", "copilot"): ("base-lost",)})
-        self.assertEqual(run.call_args[0][0],
-                         install.cali_argv("/bin/cali", "status", "--offline",
-                                           "--json"))
-
-    def test_status_rows_none_when_cali_fails(self):
-        for result in (mock.Mock(returncode=1, stdout=""),
-                       mock.Mock(returncode=0, stdout="not json"),
-                       OSError("nope")):
-            with self.subTest(result=result), mock.patch(
-                    "install.subprocess.run",
-                    side_effect=result if isinstance(result, Exception) else None,
-                    return_value=result):
-                self.assertIsNone(install.cali_status_rows("/bin/cali"))
-
-    def test_github_token_prefers_env(self):
-        with mock.patch.dict(install.os.environ, {"token": "from-env"}), \
-                mock.patch("install.subprocess.run") as run:
-            self.assertEqual(install.github_token(), "from-env")
-        run.assert_not_called()
-
-    def test_github_token_from_gh_cli(self):
-        env = {k: v for k, v in install.os.environ.items() if k != "token"}
-        with mock.patch.dict(install.os.environ, env, clear=True), \
-                mock.patch("install.shutil.which", return_value="/bin/gh"), \
-                mock.patch("install.subprocess.run", return_value=mock.Mock(
-                    returncode=0, stdout="gho_abc\n")):
-            self.assertEqual(install.github_token(), "gho_abc")
-
-    def test_github_token_none_without_login(self):
-        env = {k: v for k, v in install.os.environ.items() if k != "token"}
-        for which, run in ((None, None),
-                           ("/bin/gh", mock.Mock(returncode=1, stdout="")),
-                           ("/bin/gh", OSError("boom"))):
-            with self.subTest(which=which, run=run), \
-                    mock.patch.dict(install.os.environ, env, clear=True), \
-                    mock.patch("install.shutil.which", return_value=which), \
-                    mock.patch("install.subprocess.run",
-                               side_effect=run if isinstance(run, Exception)
-                               else None, return_value=run):
-                self.assertIsNone(install.github_token())
-
-    def test_is_wsl(self):
-        for platform, text, expected in (("linux", "Linux 5.15 microsoft-standard-WSL2", True),
-                                         ("linux", "Linux 6.1 generic", False),
-                                         ("darwin", "microsoft", False)):
-            with self.subTest(platform=platform, text=text), \
-                    mock.patch("install.sys.platform", platform), \
-                    mock.patch("install.Path.read_text", return_value=text):
-                self.assertEqual(install.is_wsl(), expected)
+    def test_header_says_cali_reads_the_list(self):
+        head = (install.REPO_ROOT / "cali.yaml").read_text("utf-8").split("version:")[0]
+        self.assertIn("cali setup github:rojcarranza/agent-skills", head)
+        self.assertNotIn("cali sync", head)
 
 
 class TestMcp(TempDirTest):
@@ -1248,385 +894,6 @@ class TestMcpPaths(unittest.TestCase):
 
 
 OWNED = "---\nname: {}\ndescription: x\n---\n"
-
-
-def rows(state, *names, targets=("claude", "copilot")):
-    """cali_status_rows() output: every name in every target in one state."""
-    return {(n, t): (state,) for n in names for t in targets}
-
-
-class TestLegacyCleanup(TempDirTest):
-    def setUp(self):
-        super().setUp()
-        self.clone_skills = self.tmp / "clone" / "skills"
-        self.make_skill("clone/skills", name="roj-a")
-        deps = [
-            {"name": "roj-a", "source": "github:o/r//skills/roj-a",
-             "ref": None, "active": True, "targets": None},
-            {"name": "code-tour", "source": "github:x/y//skills/code-tour",
-             "ref": "a" * 40, "active": True, "targets": None},
-            {"name": "caveman", "source": "https://x/caveman//skills/caveman",
-             "ref": "b" * 40, "active": True, "targets": ("copilot",)},
-            {"name": "roj-b", "source": "github:o/r//skills/roj-b",
-             "ref": None, "active": True, "targets": ("copilot",)},
-            {"name": "pdf", "source": "github:a/s//skills/pdf@" + "c" * 40,
-             "ref": "c" * 40, "active": False, "targets": None}]
-        # Every move lands in the temp dir, never the real ~/.agent-skills-backups.
-        self.backups = self.tmp / "backups"
-        for p in (mock.patch("install.SKILLS_SRC", self.clone_skills),
-                  mock.patch("install.manifest_deps", return_value=deps),
-                  mock.patch("install.backup_dir", return_value=self.backups)):
-            p.start()
-            self.addCleanup(p.stop)
-
-    NOT_INSTALLED = rows("base-lost", "roj-a", "code-tour", "caveman")
-
-    def cleanup(self, target, root, cali_rows=NOT_INSTALLED, dry_run=False):
-        err = io.StringIO()
-        with mock.patch("sys.stderr", err):
-            results = install.remove_installer_skills(
-                target, root, dry_run, cali_rows=cali_rows)
-        return results, err.getvalue()
-
-    def link(self, entry, to):
-        entry.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            entry.symlink_to(to, target_is_directory=True)
-        except OSError:
-            self.skipTest("symlinks unsupported here")
-
-    def test_stale_names_are_other_target_skills_and_retired_ones(self):
-        retired = set(install.RETIRED_SKILLS)
-        # caveman was Copilot only before: no install put it in Claude, and
-        # neither did one put the debugging stand-in Superpowers replaced.
-        self.assertEqual(install.stale_skill_names("claude"),
-                         {"roj-b"} | retired - {"debugging-and-error-recovery"})
-        self.assertEqual(install.stale_skill_names("copilot"), retired)
-
-    def test_legacy_names_are_custom_plus_manifest(self):
-        self.assertEqual(install.legacy_skill_names(),
-                         {"roj-a", "code-tour", "caveman", "roj-b", "pdf"})
-
-    def test_managed_names_follow_active_deps_and_targets(self):
-        self.assertEqual(install.managed_skill_names("claude"),
-                         {"roj-a", "code-tour"})
-        self.assertEqual(install.managed_skill_names("copilot"),
-                         {"roj-a", "code-tour", "caveman", "roj-b"})
-
-    def test_symlink_into_clone_always_removed(self):
-        root = self.tmp / "claude"
-        self.link(root / "roj-a", self.clone_skills / "roj-a")
-        results, _ = self.cleanup("claude", root, cali_rows=None)
-        self.assertFalse((root / "roj-a").is_symlink())
-        self.assertEqual(results, [("claude", "roj-a", "removed (pre-APM link)")])
-
-    def test_link_into_another_checkout_removed(self):
-        other = self.tmp / "main-checkout"
-        self.make_skill("main-checkout/skills", name="roj-a")
-        (other / "install.py").write_text("")
-        (other / "tools").mkdir()
-        (other / "tools" / "sync_shared.py").write_text("")
-        root = self.tmp / "claude"
-        self.link(root / "roj-a", other / "skills" / "roj-a")
-        results, err = self.cleanup("claude", root)
-        self.assertFalse((root / "roj-a").is_symlink())
-        self.assertTrue((other / "skills" / "roj-a").is_dir())
-        self.assertEqual(results, [("claude", "roj-a", "removed (pre-APM link)")])
-        self.assertEqual(err, "")
-
-    def test_link_into_unmarked_skills_dir_kept_with_warning(self):
-        # skills/<name> alone does not make a checkout of this repo.
-        self.make_skill("lookalike/skills", name="roj-a")
-        (self.tmp / "lookalike" / "install.py").write_text("")
-        root = self.tmp / "claude"
-        self.link(root / "roj-a", self.tmp / "lookalike" / "skills" / "roj-a")
-        results, err = self.cleanup("claude", root)
-        self.assertTrue((root / "roj-a").is_symlink())
-        self.assertEqual(results, [])
-        self.assertIn("outside this clone", err)
-
-    def test_copy_cali_did_not_install_is_moved_to_a_backup(self):
-        # base-lost also means a Cali folder whose data dir was wiped, so the
-        # copy may hold local edits: it is moved aside, never deleted.
-        for target in ("claude", "copilot"):
-            with self.subTest(target=target):
-                self.make_skill(target, name="code-tour",
-                                content=OWNED.format("code-tour") + "my edit\n")
-                results, _ = self.cleanup(target, self.tmp / target)
-                self.assertFalse((self.tmp / target / "code-tour").exists())
-                kept = self.backups / target / "code-tour" / "SKILL.md"
-                self.assertEqual(kept.read_text(encoding="utf-8"),
-                                 OWNED.format("code-tour") + "my edit\n")
-                self.assertEqual(results, [(target, "code-tour",
-                                            f"moved to {kept.parent} (not installed by Cali)")])
-
-    def test_dry_run_moves_nothing(self):
-        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
-        self.cleanup("claude", self.tmp / "claude", dry_run=True)
-        self.assertTrue((self.tmp / "claude" / "code-tour").is_dir())
-        self.assertFalse(self.backups.exists())
-
-    def test_unlocked_copy_is_removed(self):
-        # A skill just uncommented in cali.yaml: Cali would refuse to replace
-        # an old copy that differs, so it goes first.
-        self.make_skill("claude", name="code-tour", content=OWNED.format("code-tour"))
-        results, _ = self.cleanup("claude", self.tmp / "claude",
-                                  cali_rows=rows("unlocked", "code-tour"))
-        self.assertFalse((self.tmp / "claude" / "code-tour").exists())
-        self.assertEqual(len(results), 1)
-
-    def test_copy_cali_installed_is_kept(self):
-        for state in ("ok", "modified", "outdated"):
-            with self.subTest(state=state):
-                self.make_skill(f"claude-{state}", name="code-tour",
-                                content=OWNED.format("code-tour"))
-                results, err = self.cleanup(
-                    "claude", self.tmp / f"claude-{state}",
-                    cali_rows=rows(state, "code-tour"))
-                self.assertTrue((self.tmp / f"claude-{state}" / "code-tour").is_dir())
-                self.assertEqual((results, err), ([], ""))
-
-    def test_copies_kept_without_cali_status(self):
-        self.make_skill("copilot", name="code-tour", content=OWNED.format("code-tour"))
-        results, _ = self.cleanup("copilot", self.tmp / "copilot", cali_rows=None)
-        self.assertTrue((self.tmp / "copilot" / "code-tour").is_dir())
-        self.assertEqual(results, [])
-
-    def test_optional_skill_copy_kept_with_warning(self):
-        # pdf is commented out in cali.yaml: Cali would not put it back.
-        self.make_skill("claude", name="pdf", content=OWNED.format("pdf"))
-        results, err = self.cleanup("claude", self.tmp / "claude")
-        self.assertTrue((self.tmp / "claude" / "pdf").is_dir())
-        self.assertEqual(results, [])
-        self.assertIn("Cali does not manage pdf for claude", err)
-        self.assertIn("uncomment it in cali.yaml", err)
-        self.assertEqual(err.count("[ warn ]"), 1)
-
-    def test_stale_copy_kept_and_listed_with_its_path(self):
-        # cali status drops a host's row once cali.yaml drops the host, so
-        # nothing shows who put a real folder there: it is only reported.
-        # (A retired skill that declares its own name is moved: see below.)
-        for target, name, content in (
-                ("claude", "roj-b", OWNED.format("roj-b")),
-                ("claude", "roj-b", OWNED.format("my-roj-b")),
-                ("claude", "debian-linux-triage", OWNED.format("my-debian")),
-                ("copilot", "debian-linux-triage", OWNED.format("my-debian")),
-                ("copilot", "roj-code-review-pr-fast", OWNED.format("mine"))):
-            with self.subTest(target=target, name=name, content=content):
-                root = self.tmp / "roots" / f"{target}-{len(content)}"
-                shutil.rmtree(root, ignore_errors=True)
-                self.make_skill(f"roots/{target}-{len(content)}", name=name,
-                                content=content)
-                results, err = self.cleanup(target, root,
-                                            cali_rows=rows("ok", name))
-                self.assertTrue((root / name / "SKILL.md").is_file())
-                self.assertEqual(results, [])
-                self.assertIn(f"{root / name} is left over", err)
-                self.assertIn("delete it if it is stale", err)
-                self.assertEqual(err.count("[ warn ]"), 1)
-                self.assertFalse(self.backups.exists())
-
-    def test_retired_skill_we_installed_is_moved_to_a_backup(self):
-        for target, name in (("copilot", "roj-tour-codebase"),
-                             ("copilot", "roj-code-review-pr-fast"),
-                             ("claude", "debian-linux-triage")):
-            with self.subTest(target=target, name=name):
-                root = self.tmp / "roots" / f"{target}-{name}"
-                self.make_skill(f"roots/{target}-{name}", name=name,
-                                content=OWNED.format(name) + "body\n")
-                results, err = self.cleanup(target, root,
-                                            cali_rows=rows("ok", name))
-                kept = self.backups / target / name
-                self.assertFalse((root / name).exists())
-                self.assertEqual((kept / "SKILL.md").read_text(encoding="utf-8"),
-                                 OWNED.format(name) + "body\n")
-                self.assertEqual(results, [(target, name,
-                                            f"moved to {kept} (retired skill)")])
-                self.assertEqual(err, "")
-
-    def test_retired_skill_dry_run_lists_the_move_and_moves_nothing(self):
-        root = self.tmp / "copilot"
-        self.make_skill("copilot", name="roj-tour-codebase",
-                        content=OWNED.format("roj-tour-codebase"))
-        results, err = self.cleanup("copilot", root, dry_run=True)
-        self.assertTrue((root / "roj-tour-codebase" / "SKILL.md").is_file())
-        self.assertFalse(self.backups.exists())
-        self.assertEqual(results, [(
-            "copilot", "roj-tour-codebase",
-            f"moved to {self.backups / 'copilot' / 'roj-tour-codebase'} "
-            "(retired skill)")])
-        self.assertEqual(err, "")
-
-    def test_retired_move_leaves_other_folders_untouched(self):
-        root = self.tmp / "copilot"
-        for name in ("roj-tour-codebase", "my-own", "graphify", "roj-a"):
-            self.make_skill("copilot", name=name, content=OWNED.format(name))
-        self.make_skill("copilot", name="roj-tour-codebase-2",
-                        content=OWNED.format("roj-tour-codebase-2"))
-        results, _ = self.cleanup("copilot", root, cali_rows=rows("ok", "roj-a"))
-        self.assertEqual([n for _, n, _ in results], ["roj-tour-codebase"])
-        for name in ("my-own", "graphify", "roj-a", "roj-tour-codebase-2"):
-            self.assertTrue((root / name / "SKILL.md").is_file(), name)
-
-    def test_copilot_only_skill_copy_kept_for_claude(self):
-        self.make_skill("claude", name="caveman", content=OWNED.format("caveman"))
-        results, err = self.cleanup("claude", self.tmp / "claude")
-        self.assertTrue((self.tmp / "claude" / "caveman").is_dir())
-        self.assertEqual(results, [])
-        self.assertIn("Cali does not manage caveman for claude", err)
-        self.assertFalse(self.backups.exists())
-
-    def test_link_of_a_stale_skill_moved_aside(self):
-        root = self.tmp / "claude"
-        self.link(root / "roj-b", self.tmp / "gone" / "roj-b")
-        results, _ = self.cleanup("claude", root, cali_rows=None)
-        self.assertFalse((root / "roj-b").is_symlink())
-        kept = self.backups / "claude" / "roj-b"
-        self.assertTrue(kept.is_symlink())
-        self.assertEqual(results, [("claude", "roj-b",
-                                    f"moved to {kept} (not installed for claude)")])
-
-    def test_unknown_folders_never_touched_for_claude(self):
-        for name in ("no-mistakes", "synced"):
-            self.make_skill("claude", name=name, content=OWNED.format(name))
-        results, err = self.cleanup("claude", self.tmp / "claude",
-                                    cali_rows=rows("ok", "no-mistakes", "synced"))
-        self.assertEqual((results, err), ([], ""))
-        for name in ("no-mistakes", "synced"):
-            self.assertTrue((self.tmp / "claude" / name / "SKILL.md").is_file())
-        self.assertFalse(self.backups.exists())
-
-    def test_dry_run_moves_no_stale_link(self):
-        root = self.tmp / "claude"
-        self.link(root / "roj-b", self.tmp / "gone" / "roj-b")
-        results, _ = self.cleanup("claude", root, dry_run=True)
-        self.assertTrue((root / "roj-b").is_symlink())
-        self.assertFalse(self.backups.exists())
-        self.assertTrue(results[0][2].startswith("moved to "))
-
-    def test_copilot_only_skill_copy_removed_for_copilot(self):
-        self.make_skill("copilot", name="caveman", content=OWNED.format("caveman"))
-        results, _ = self.cleanup("copilot", self.tmp / "copilot")
-        self.assertFalse((self.tmp / "copilot" / "caveman").exists())
-        self.assertEqual(len(results), 1)
-        self.assertTrue(results[0][2].startswith("moved to "))
-
-    def test_unmanaged_foreign_copy_kept_silently(self):
-        self.make_skill("claude", name="pdf", content=OWNED.format("my-pdf"))
-        results, err = self.cleanup("claude", self.tmp / "claude")
-        self.assertTrue((self.tmp / "claude" / "pdf").is_dir())
-        self.assertEqual((results, err), ([], ""))
-
-    def test_copy_without_matching_name_kept(self):
-        self.make_skill("copilot", name="code-tour", content=OWNED.format("my-tour"))
-        results, _ = self.cleanup("copilot", self.tmp / "copilot")
-        self.assertTrue((self.tmp / "copilot" / "code-tour").is_dir())
-        self.assertEqual(results, [])
-
-    def test_copy_with_undecodable_skill_md_is_not_a_crash(self):
-        d = self.tmp / "copilot" / "code-tour"
-        d.mkdir(parents=True)
-        (d / "SKILL.md").write_bytes(b"---\nname: code-tour\n\xff\xfe\n---\n")
-        results, _ = self.cleanup("copilot", self.tmp / "copilot")
-        self.assertEqual(len(results), 1)
-
-    def test_foreign_link_kept_with_warning(self):
-        outside = self.tmp / "elsewhere" / "code-tour"
-        outside.mkdir(parents=True)
-        root = self.tmp / "copilot"
-        self.link(root / "code-tour", outside)
-        results, err = self.cleanup("copilot", root)
-        self.assertTrue((root / "code-tour").is_symlink())
-        self.assertEqual(results, [])
-        self.assertIn("outside this clone", err)
-
-    def test_dangling_link_removed(self):
-        root = self.tmp / "claude"
-        self.link(root / "roj-a", self.tmp / "gone" / "roj-a")
-        results, _ = self.cleanup("claude", root, cali_rows=None)
-        self.assertFalse((root / "roj-a").is_symlink())
-        self.assertEqual(results, [("claude", "roj-a", "removed (pre-APM link)")])
-
-    def test_unknown_and_graphify_untouched(self):
-        self.make_skill("copilot", name="graphify")
-        self.make_skill("copilot", name="my-own")
-        results, _ = self.cleanup("copilot", self.tmp / "copilot")
-        self.assertEqual(results, [])
-        self.assertTrue((self.tmp / "copilot" / "graphify").is_dir())
-
-    def test_dry_run_removes_nothing(self):
-        self.make_skill("copilot", name="code-tour", content=OWNED.format("code-tour"))
-        results, _ = self.cleanup("copilot", self.tmp / "copilot", dry_run=True)
-        self.assertTrue((self.tmp / "copilot" / "code-tour").is_dir())
-        self.assertEqual(len(results), 1)
-
-    def test_missing_root_is_fine(self):
-        self.assertEqual(self.cleanup("claude", self.tmp / "nope")[0], [])
-
-
-class TestApmLeftovers(TempDirTest):
-    """APM deployed Copilot skills to ~/.agents/skills; Cali deploys them to
-    ~/.copilot/skills, so APM's copies would load twice."""
-
-    LOCK = "deployed_files:\n  - .agents/skills/{}/SKILL.md\n"
-
-    def setUp(self):
-        super().setUp()
-        self.root = self.tmp / "agents"
-        for p in (mock.patch("install.apm_skills_root", return_value=self.root),
-                  mock.patch("install.managed_skill_names",
-                             return_value={"code-tour", "caveman"})):
-            p.start()
-            self.addCleanup(p.stop)
-
-    def test_copy_the_lockfile_lists_is_removed(self):
-        self.make_skill("agents", name="code-tour")
-        results = install.remove_apm_skills(False, self.LOCK.format("code-tour"))
-        self.assertFalse((self.root / "code-tour").exists())
-        self.assertEqual(results, [("copilot", "code-tour",
-                                    "removed (APM copy in ~/.agents/skills)")])
-
-    def test_copy_the_lockfile_does_not_list_is_kept(self):
-        self.make_skill("agents", name="code-tour")
-        for lock in (None, self.LOCK.format("caveman"),
-                     self.LOCK.format("code-tour-x"),
-                     "  - .claude/skills/code-tour/SKILL.md\n"):
-            with self.subTest(lock=lock):
-                self.assertEqual(install.remove_apm_skills(False, lock), [])
-                self.assertTrue((self.root / "code-tour").is_dir())
-
-    def test_windows_separators_count(self):
-        self.make_skill("agents", name="code-tour")
-        install.remove_apm_skills(
-            False, "  - C:\\Users\\me\\.agents\\skills\\code-tour\\SKILL.md\n")
-        self.assertFalse((self.root / "code-tour").exists())
-
-    def test_unmanaged_name_is_kept(self):
-        self.make_skill("agents", name="orca-cli")
-        self.assertEqual(install.remove_apm_skills(
-            False, self.LOCK.format("orca-cli")), [])
-        self.assertTrue((self.root / "orca-cli").is_dir())
-
-    def test_symlink_is_kept(self):
-        target = self.make_skill("elsewhere", name="code-tour")
-        self.root.mkdir()
-        try:
-            (self.root / "code-tour").symlink_to(target, target_is_directory=True)
-        except OSError:
-            self.skipTest("symlinks unsupported here")
-        self.assertEqual(install.remove_apm_skills(
-            False, self.LOCK.format("code-tour")), [])
-        self.assertTrue((self.root / "code-tour").is_symlink())
-
-    def test_dry_run_removes_nothing(self):
-        self.make_skill("agents", name="code-tour")
-        results = install.remove_apm_skills(True, self.LOCK.format("code-tour"))
-        self.assertTrue((self.root / "code-tour").is_dir())
-        self.assertEqual(len(results), 1)
-
-    def test_missing_root_is_fine(self):
-        self.assertEqual(install.remove_apm_skills(
-            False, self.LOCK.format("code-tour")), [])
 
 
 class TestInstructions(TempDirTest):
@@ -1876,36 +1143,27 @@ class TestInstructionSources(unittest.TestCase):
 
 
 class TestMain(TempDirTest):
-    """main() end to end with cali, externals and homes faked."""
+    """main() end to end with externals and homes faked. install.py installs
+    no skills and never runs cali."""
 
-    def run_main(self, argv, cali="/bin/cali", cali_code=0, lock=False,
-                 wsl=False, externals=(), bootstrap=None, token="tok",
-                 cali_rows=None, userprofile=None, win_rows=None,
-                 missing_flags=(), manifest_problem=None):
-        """cali_rows is what `cali status` says of the home, win_rows of the
-        Windows home; self.envs gets the environment of each cali call."""
-        home = self.tmp / "home"
-        (home / ".apm").mkdir(parents=True, exist_ok=True)
-        if lock:
-            (home / ".apm" / "apm.lock.yaml").write_text(
-                lock if isinstance(lock, str) else "x")
-        calls, self.envs = [], []
+    def run_main(self, argv, wsl=False, externals=(), bootstrap=None,
+                 token="tok", userprofile=None):
+        """Returns (exit code, subprocess commands, stdout, stderr)."""
+        home = tmp_home = self.tmp / "home"
+        home.mkdir(exist_ok=True)
+        calls = []
 
-        def fake_run(cmd, env=None):
+        def fake_run(cmd, *args, **kwargs):
             calls.append(list(cmd))
-            self.envs.append(env)
-            return cali_code
+            return mock.Mock(returncode=0, stdout="")
 
-        def fake_rows(exe, windows_home=None):
-            rows = cali_rows if windows_home is None else win_rows
-            return {} if rows is None else rows
+        def jetbrains(home=None, windows=None):
+            return (home or tmp_home) / "jetbrains.md"
 
         out, err = io.StringIO(), io.StringIO()
         code = 0
         with contextlib.ExitStack() as stack:
             for p in (
-                mock.patch("install.apm_home", return_value=home / ".apm"),
-                mock.patch("install.apm_skills_root", return_value=home / "agents"),
                 mock.patch("install.target_root",
                            side_effect=lambda t: home / t),
                 mock.patch("install.instruction_path",
@@ -1915,33 +1173,21 @@ class TestMain(TempDirTest):
                            side_effect=lambda t: None if t == "claude"
                            else home / "instr" / "note.md"),
                 mock.patch("install.jetbrains_instruction_path",
-                           return_value=home / "jetbrains.md"),
+                           side_effect=jetbrains),
                 mock.patch("install.mcp_config_path",
                            side_effect=lambda t: home / f"mcp-{t}.json"),
-                mock.patch("install.claude_commands_dir",
-                           return_value=home / "commands"),
                 mock.patch("install.claude_rules_path",
                            return_value=home / "rules" / "personal.md"),
                 mock.patch("install.backup_dir",
                            side_effect=lambda h=None: (h or home) / "backups"),
                 mock.patch("install.windows_userprofile",
                            return_value=userprofile),
-                mock.patch("install.find_cli",
-                           side_effect=lambda n: cali if n == "cali" else None),
-                mock.patch("install.run_cali", side_effect=fake_run),
-                mock.patch("install.cali_status_rows", side_effect=fake_rows),
-                mock.patch("install.missing_cali_flags",
-                           return_value=list(missing_flags)),
-                mock.patch("install.cali_manifest_problem",
-                           return_value=manifest_problem),
-                mock.patch("install.default_manifest_link",
-                           return_value=home / "cali-config" / "cali.yaml"),
+                mock.patch("install.subprocess.run", side_effect=fake_run),
                 mock.patch("install.github_token", return_value=token),
                 mock.patch("install.EXTERNALS", list(externals)),
                 mock.patch("install.bootstrap_cli",
                            side_effect=bootstrap or (lambda ext, dry: None)),
                 mock.patch("install.is_wsl", return_value=wsl),
-                mock.patch("install.vscode_prompts_dir", return_value=None),
                 mock.patch("sys.argv", ["install.py", *argv]),
                 mock.patch("sys.stdout", out),
                 mock.patch("sys.stderr", err),
@@ -1954,169 +1200,74 @@ class TestMain(TempDirTest):
                 err.write(str(exc.code))
         return code, calls, out.getvalue(), err.getvalue()
 
-    STALE_ERROR = ("cali: parse manifest cali.yaml: yaml: unmarshal errors:\n"
-                   "  line 15: field load not found in type manifest.Skill")
-
-    def cali(self, *args):
-        return install.cali_argv("/bin/cali", *args)
-
-    def test_default_installs_both(self):
-        code, calls, _, _ = self.run_main([])
+    def test_default_writes_the_extras_and_runs_no_cali(self):
+        # no cali on PATH is fine, nothing runs cali, and
+        # no skills folder is created.
+        code, calls, out, _ = self.run_main([])
         home = self.tmp / "home"
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [self.cali("sync", "--prune")])
+        self.assertEqual(calls, [])
         self.assertTrue((home / "instr" / "copilot.md").is_file())
         self.assertFalse((home / "instr" / "claude.md").exists())
         for t in ("claude", "copilot"):
             with self.subTest(target=t):
                 servers = json.loads((home / f"mcp-{t}.json").read_text())
                 self.assertIn("github-mcp-server", servers["mcpServers"])
+                self.assertFalse((home / t).exists())
+        self.assertIn("cali setup github:rojcarranza/agent-skills", out)
 
     def test_no_token_skips_mcp(self):
         code, calls, out, _ = self.run_main([], token=None)
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [self.cali("sync", "--prune")])
+        self.assertEqual(calls, [])
         self.assertIn("skipping MCP servers", out)
         self.assertFalse((self.tmp / "home" / "mcp-claude.json").exists())
 
-    def test_single_target_limits_everything_cali_included(self):
-        # Issue #98: --target reaches cali sync, which before installed
-        # roj-idea-to-project for Claude on a --target copilot run.
-        _, calls, _, _ = self.run_main(["--target", "copilot"])
+    def test_single_target_limits_everything(self):
+        self.run_main(["--target", "copilot"])
         home = self.tmp / "home"
-        self.assertEqual(calls, [self.cali("sync", "--prune",
-                                           "--target", "copilot")])
         self.assertTrue((home / "mcp-copilot.json").exists())
         self.assertFalse((home / "mcp-claude.json").exists())
         self.assertFalse((home / "instr" / "claude.md").exists())
-        _, calls, _, _ = self.run_main(["--target", "claude"])
-        self.assertEqual(calls, [self.cali("sync", "--prune",
-                                           "--target", "claude")])
 
-    def test_old_cali_stops_with_update_hint_before_cleanup(self):
-        # Issue #98: a cali without --prune/--target changes nothing.
-        self.make_skill("home/copilot", name="code-tour",
-                        content=OWNED.format("code-tour"))
-        code, calls, _, err = self.run_main(
-            [], cali_rows=rows("base-lost", "code-tour"),
-            missing_flags=install.CALI_FLAGS)
-        self.assertEqual(code, 1)
+    def test_leaves_skill_folders_of_older_installs_alone(self):
+        # install.py drops the clean-up: a link, a renamed skill, a retired one
+        # and a current one stay, in both agents.
+        home = self.tmp / "home"
+        for t in ("claude", "copilot"):
+            self.make_skill(f"home/{t}", name="roj-explain-logic",
+                            content=OWNED.format("roj-explain-logic"))
+            self.make_skill(f"home/{t}", name="explain-logic",
+                            content=OWNED.format("explain-logic"))
+            self.make_skill(f"home/{t}", name="roj-tour-codebase",
+                            content=OWNED.format("roj-tour-codebase"))
+        code, _, _, err = self.run_main([])
+        self.assertEqual(code, 0)
+        for t in ("claude", "copilot"):
+            for n in ("roj-explain-logic", "explain-logic", "roj-tour-codebase"):
+                with self.subTest(target=t, skill=n):
+                    self.assertTrue((home / t / n / "SKILL.md").is_file())
+        self.assertFalse((home / "backups").exists())
+        self.assertNotIn("left over", err)
+
+    def test_update_points_to_cali_and_runs_nothing(self):
+        code, calls, out, _ = self.run_main(["--update"])
+        self.assertEqual(code, 0)
         self.assertEqual(calls, [])
-        self.assertIn("too old for install.py", err)
-        self.assertIn("--prune, --target, --windows-home", err)
-        self.assertIn("git pull, then make install", err)
-        self.assertTrue((self.tmp / "home" / "copilot" / "code-tour").exists())
+        self.assertIn("cali update -g", out)
+
+    def test_status_points_to_cali_and_succeeds(self):
+        code, calls, out, _ = self.run_main(["--status"])
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [])
+        self.assertIn("cali status -g", out)
+
+    def test_dry_run_writes_nothing(self):
+        code, calls, _, _ = self.run_main(["--dry-run"])
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [])
         self.assertFalse((self.tmp / "home" / "instr").exists())
-
-    def test_cali_that_cannot_read_cali_yaml_stops_before_cleanup(self):
-        # Issue #114: a cali that predates a cali.yaml field passes the
-        # flag check, then failed three times mid-run; it stops up front.
-        self.make_skill("home/copilot", name="code-tour",
-                        content=OWNED.format("code-tour"))
-        code, calls, _, err = self.run_main(
-            [], cali_rows=rows("base-lost", "code-tour"),
-            manifest_problem=self.STALE_ERROR)
-        self.assertEqual(code, 1)
-        self.assertEqual(calls, [])
-        self.assertIn("older than this cali.yaml", err)
-        self.assertIn("field load not found in type manifest.Skill", err)
-        self.assertIn("make install", err)
-        self.assertTrue((self.tmp / "home" / "copilot" / "code-tour").exists())
-        self.assertFalse((self.tmp / "home" / "instr").exists())
-
-    def test_dry_run_with_unreadable_cali_yaml_warns_and_plans(self):
-        code, calls, _, err = self.run_main(
-            ["--dry-run"], manifest_problem=self.STALE_ERROR)
-        self.assertEqual(code, 0)
-        self.assertIn("a real run would stop here", err)
-
-    def test_run_links_cali_default_manifest(self):
-        # Issue #114: `cali load <skill> -g` found no manifest outside this
-        # clone; the run links one into cali's config folder.
-        code, _, out, _ = self.run_main([])
-        link = self.tmp / "home" / "cali-config" / "cali.yaml"
-        self.assertEqual(code, 0)
-        self.assertEqual(link.resolve(), install.MANIFEST_PATH.resolve())
-        self.assertIn("default manifest", out)
-
-    def test_run_keeps_a_manifest_the_user_already_has(self):
-        link = self.tmp / "home" / "cali-config" / "cali.yaml"
-        link.parent.mkdir(parents=True)
-        link.write_text("version: 1\nskills: {}\n")
-        code, _, _, _ = self.run_main([])
-        self.assertEqual(code, 0)
-        self.assertFalse(link.is_symlink())
-        self.assertEqual(link.read_text(), "version: 1\nskills: {}\n")
-
-    def test_dry_run_links_nothing(self):
-        self.run_main(["--dry-run"])
-        self.assertFalse((self.tmp / "home" / "cali-config").exists())
-
-    def test_dry_run_with_old_cali_warns_and_plans(self):
-        code, calls, out, err = self.run_main(
-            ["--dry-run"], missing_flags=("--windows-home",))
-        self.assertEqual(code, 0)
-        self.assertEqual(calls, [])
-        self.assertIn("a real run would stop here", err)
-        self.assertIn("lists no", err)
-        self.assertIn("--windows-home", err)
-        self.assertIn("would run cali sync --prune -g --manifest", out)
-
-    def test_missing_cali_stops_with_hint_before_cleanup(self):
-        self.make_skill("home/copilot", name="code-tour",
-                        content=OWNED.format("code-tour"))
-        code, calls, _, err = self.run_main(
-            ["--target", "copilot"], cali=None,
-            cali_rows=rows("base-lost", "code-tour"))
-        self.assertEqual(code, 1)
-        self.assertEqual(calls, [])
-        self.assertIn("https://github.com/rojcarranza/cali", err)
-        self.assertTrue((self.tmp / "home" / "copilot" / "code-tour").exists())
-
-    def test_dry_run_without_cali_prints_plan(self):
-        code, calls, out, err = self.run_main(["--dry-run"], cali=None)
-        self.assertEqual(code, 0)
-        self.assertEqual(calls, [])
-        self.assertIn("cali is not installed", err)
-        self.assertIn("would run cali sync --prune -g --manifest", out)
-        self.assertFalse((self.tmp / "home" / "instr").exists())
-        self.assertFalse((self.tmp / "home" / "mcp-claude.json").exists())
-
-    def test_cali_failure_is_the_exit_code(self):
-        code, _, _, err = self.run_main([], cali_code=2)
-        self.assertEqual(code, 2)
-        self.assertIn("cali sync failed", err)
-        self.assertIn("once a re-run of install.py succeeds", err)
-
-    def test_update_reports_through_cali_status(self):
-        for cali_code in (0, 1):
-            with self.subTest(cali_code=cali_code):
-                code, calls, _, _ = self.run_main(["--update"],
-                                                  cali_code=cali_code)
-                self.assertEqual(calls, [self.cali("status")])
-                self.assertEqual(code, cali_code)
-
-    def test_update_without_cali_stops_with_hint(self):
-        code, calls, _, err = self.run_main(["--update"], cali=None)
-        self.assertEqual(code, 1)
-        self.assertEqual(calls, [])
-        self.assertIn("https://github.com/rojcarranza/cali", err)
-
-    def test_update_dry_run_runs_nothing(self):
-        code, calls, out, _ = self.run_main(["--update", "--dry-run"])
-        self.assertEqual(code, 0)
-        self.assertEqual(calls, [])
-        self.assertIn("would run cali status -g --manifest", out)
-
-    def test_status_lists_cali_skills(self):
-        _, calls, _, _ = self.run_main(["--status"])
-        self.assertEqual(calls, [self.cali("list")])
-
-    def test_status_without_cali_warns_and_succeeds(self):
-        code, calls, _, err = self.run_main(["--status"], cali=None)
-        self.assertEqual(code, 0)
-        self.assertEqual(calls, [])
-        self.assertIn("cali is not installed", err)
+        self.assertFalse((self.tmp / "home" / "mcp-copilot.json").exists())
 
     def test_skills_only_never_bootstraps_externals(self):
         ext = ExternalTest.fake_external(None)
@@ -2127,72 +1278,6 @@ class TestMain(TempDirTest):
         self.assertEqual(code, 0)
         self.assertEqual(boots, [])
         self.assertIn("--skills-only", out)
-
-    def test_copy_cali_installed_survives_install(self):
-        self.make_skill("home/copilot", name="roj-grill-plan",
-                        content=OWNED.format("roj-grill-plan"))
-        self.run_main(["--target", "copilot"],
-                      cali_rows=rows("ok", "roj-grill-plan"))
-        self.assertTrue((self.tmp / "home" / "copilot" / "roj-grill-plan").is_dir())
-
-    def test_archived_roj_idea_to_project_is_moved_aside(self):
-        # Issue #92 archived it; Cali had installed it for both agents and
-        # cali sync never deletes a folder, so install.py moves each copy.
-        for t in ("claude", "copilot"):
-            self.make_skill(f"home/{t}", name="roj-idea-to-project",
-                            content=OWNED.format("roj-idea-to-project") + "body\n")
-        code, _, out, _ = self.run_main(
-            [], cali_rows=rows("ok", "roj-idea-to-project"))
-        self.assertEqual(code, 0)
-        for t in ("claude", "copilot"):
-            with self.subTest(target=t):
-                kept = self.tmp / "home" / "backups" / t / "roj-idea-to-project"
-                self.assertFalse((self.tmp / "home" / t
-                                  / "roj-idea-to-project").exists())
-                self.assertEqual((kept / "SKILL.md").read_text(),
-                                 OWNED.format("roj-idea-to-project") + "body\n")
-                self.assertIn(f"moved to {kept} (retired skill)", out)
-
-    def test_copy_cali_did_not_install_is_cleared_before_sync(self):
-        self.make_skill("home/copilot", name="code-tour",
-                        content=OWNED.format("code-tour"))
-        self.run_main(["--target", "copilot"],
-                      cali_rows=rows("base-lost", "code-tour"))
-        self.assertFalse((self.tmp / "home" / "copilot" / "code-tour").exists())
-        self.assertTrue((self.tmp / "home" / "backups" / "copilot" / "code-tour"
-                         / "SKILL.md").is_file())
-
-    def test_apm_copilot_copies_removed_for_copilot_only(self):
-        lock = "  - .agents/skills/code-tour/SKILL.md\n"
-        self.make_skill("home/agents", name="code-tour")
-        self.run_main(["--target", "claude"], lock=lock)
-        self.assertTrue((self.tmp / "home" / "agents" / "code-tour").is_dir())
-        self.run_main(["--target", "copilot"], lock=lock)
-        self.assertFalse((self.tmp / "home" / "agents" / "code-tour").exists())
-
-    def test_status_warns_about_apm_copies(self):
-        self.make_skill("home/agents", name="code-tour")
-        _, _, _, err = self.run_main(
-            ["--status", "--target", "copilot"],
-            lock="  - .agents/skills/code-tour/SKILL.md\n")
-        self.assertIn("code-tour left by an older install", err)
-        self.assertTrue((self.tmp / "home" / "agents" / "code-tour").is_dir())
-
-    def test_status_warns_about_older_leftovers(self):
-        home = self.tmp / "home"
-        gen = home / "claude" / "roj-create-sb"
-        gen.mkdir(parents=True)
-        (gen / "SKILL.md").write_text("<!-- Generated from prompts/x -->\n")
-        old = home / "claude" / "explain-logic"
-        old.mkdir()
-        (old / "SKILL.md").write_text("---\nname: explain-logic\n---\n")
-        _, _, _, err = self.run_main(["--status", "--target", "claude"])
-        for name in ("roj-create-sb", "explain-logic"):
-            with self.subTest(name=name):
-                self.assertIn(f"{name} left by an older install — re-run "
-                              "install.py to remove", err)
-        self.assertTrue(gen.is_dir())
-        self.assertTrue(old.is_dir())
 
     def test_status_warns_about_dotfiles_instruction_link(self):
         dotfiles = self.tmp / "dotfiles"
@@ -2227,60 +1312,18 @@ class TestMain(TempDirTest):
 
     def test_wsl_hint_printed(self):
         _, _, out, _ = self.run_main([], wsl=True)
-        self.assertIn("run install.py from Git Bash for those", out)
+        self.assertIn("Run install.py from Git Bash for the other extras", out)
 
-    def write_shipped_rules(self):
-        rules = self.tmp / "home" / "rules" / "personal.md"
+    def test_shipped_claude_rules_are_still_moved_aside(self):
+        home = self.tmp / "home"
+        rules = home / "rules" / "personal.md"
         rules.parent.mkdir(parents=True)
         rules.write_text(install.INSTRUCTIONS_SRC.read_text(encoding="utf-8"))
-        return rules
-
-    def test_claude_leftovers_listed_rules_moved_and_unknown_kept(self):
-        home = self.tmp / "home"
-        self.make_skill("home/claude", name="roj-explain-logic",
-                        content=OWNED.format("roj-explain-logic"))
-        self.make_skill("home/claude", name="no-mistakes",
-                        content=OWNED.format("no-mistakes"))
-        rules = self.write_shipped_rules()
-        code, _, _, err = self.run_main(["--target", "claude"])
+        code, _, _, _ = self.run_main(["--target", "claude"])
         self.assertEqual(code, 0)
-        left = home / "claude" / "roj-explain-logic"
-        self.assertTrue((left / "SKILL.md").is_file())
-        self.assertIn(f"{left} is left over", err)
-        self.assertFalse((home / "backups" / "claude" / "roj-explain-logic").exists())
         self.assertFalse(rules.exists())
         self.assertTrue((home / "backups" / "claude" / "personal.md").is_file())
-        self.assertTrue((home / "claude" / "no-mistakes" / "SKILL.md").is_file())
-        self.assertNotIn("no-mistakes", err)
 
-    def test_status_and_dry_run_report_claude_leftovers_without_moving(self):
-        home = self.tmp / "home"
-        self.make_skill("home/claude", name="code-tour",
-                        content=OWNED.format("code-tour"))
-        rules = self.write_shipped_rules()
-        left = home / "claude" / "code-tour"
-        _, _, _, err = self.run_main(["--status", "--target", "claude"])
-        self.assertIn(f"{left} is left over", err)
-        self.assertIn("personal.md left by an older install", err)
-        _, _, out, err = self.run_main(["--dry-run", "--target", "claude"])
-        self.assertIn(f"{left} is left over", err)
-        self.assertIn("personal.md", out)
-        self.assertTrue((left / "SKILL.md").is_file())
-        self.assertTrue(rules.is_file())
-        self.assertFalse((home / "backups").exists())
-
-    def test_status_flags_leftover_links(self):
-        root = self.tmp / "home" / "claude"
-        root.mkdir(parents=True)
-        try:
-            (root / "roj-explain-logic").symlink_to(
-                install.SKILLS_SRC / "roj-explain-logic",
-                target_is_directory=True)
-        except OSError:
-            self.skipTest("symlinks unsupported here")
-        _, _, _, err = self.run_main(["--status", "--target", "claude"])
-        self.assertIn("roj-explain-logic", err)
-        self.assertIn("re-run install.py", err)
 
 class TestWindowsHomeResolution(TempDirTest):
     def fake_run(self, stdout=b"", code=0):
@@ -2352,179 +1395,63 @@ class TestWindowsHomeResolution(TempDirTest):
 
 
 class TestWindowsLeg(TempDirTest):
-    """A WSL run has cali install the Copilot skills into the Windows home."""
+    """A WSL run writes the JetBrains block into the Windows home; skills
+    there come from cali, never from this script."""
 
     run_main = TestMain.run_main
-    cali = TestMain.cali
 
     def setUp(self):
         super().setUp()
         self.win = self.tmp / "mnt-c" / "Users" / "rcarranz"
         self.win.mkdir(parents=True)
-        self.skills = self.win / ".copilot" / "skills"
-        self.linux = self.tmp / "home" / "copilot"
-        self.managed = sorted(install.managed_skill_names("copilot"))
 
     def wsl_main(self, *argv, **kw):
         kw.setdefault("userprofile", str(self.win))
         return self.run_main(list(argv), wsl=True, **kw)
 
-    def windows_sync(self):
-        return self.cali("sync", "--prune", "--windows-home", "--target",
-                         "copilot")
-
-    def test_wsl_run_syncs_the_windows_home_first_through_cali(self):
-        # Issue #98: cali installs into the Windows home itself, told which
-        # home through CALI_WINDOWS_HOME; install.py copies nothing.
-        code, calls, out, err = self.wsl_main()
+    def test_wsl_run_writes_jetbrains_block_and_no_skills_in_windows_home(self):
+        code, calls, _, _ = self.wsl_main()
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [self.windows_sync(), self.cali("sync", "--prune")])
-        self.assertEqual(self.envs[0]["CALI_WINDOWS_HOME"], str(self.win))
-        self.assertIsNone(self.envs[1])
-        self.assertIn("windows  sync", out)
-        self.assertEqual(err, "")
-        self.assertTrue((self.skills / install.WSL_OWNER_MARKER).is_file())
-        self.assertEqual([p.name for p in self.skills.iterdir()],
-                         [install.WSL_OWNER_MARKER])
-        self.assertFalse((self.win / ".claude").exists())
-
-    def test_regression_windows_home_loses_tour_codebase(self):
-        # The captain's report (#82): the Windows home still had the retired
-        # roj-tour-codebase, so JetBrains showed old skills.
-        self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
-                        name="roj-tour-codebase",
-                        content=OWNED.format("roj-tour-codebase"))
-        self.make_skill("mnt-c/Users/rcarranz/.copilot/skills", name="my-own",
-                        content=OWNED.format("my-own"))
-        code, _, out, _ = self.wsl_main()
-        self.assertEqual(code, 0)
-        self.assertFalse((self.skills / "roj-tour-codebase").exists())
-        self.assertTrue((self.win / "backups" / "copilot" / "roj-tour-codebase"
-                         / "SKILL.md").is_file())
-        self.assertTrue((self.skills / "my-own" / "SKILL.md").is_file())
-        self.assertIn("windows  roj-tour-codebase", out)
-
-    def test_copy_cali_did_not_install_is_moved_before_the_sync(self):
-        # A copy an older install.py made, or one older than a pulled
-        # cali.lock: cali reads it base-lost before any sync and would
-        # otherwise keep it as modified.
-        old = self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
-                              name="roj-onboard-repo",
-                              content=OWNED.format("roj-onboard-repo"))
-        code, _, out, _ = self.wsl_main(
-            win_rows=rows("base-lost", "roj-onboard-repo",
-                          targets=("copilot",)))
-        self.assertEqual(code, 0)
-        self.assertFalse(old.exists())
-        self.assertTrue((self.win / "backups" / "copilot" / "roj-onboard-repo"
-                         / "SKILL.md").is_file())
-        self.assertIn("not installed by Cali", out)
-        # The Linux home's own reading does not move a Windows copy.
-        shutil.rmtree(self.win / "backups")
-        self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
-                        name="roj-onboard-repo",
-                        content=OWNED.format("roj-onboard-repo"))
-        self.wsl_main(cali_rows=rows("base-lost", "roj-onboard-repo"),
-                      win_rows=rows("ok", "roj-onboard-repo"))
-        self.assertTrue((old / "SKILL.md").is_file())
-        self.assertFalse((self.win / "backups").exists())
-
-    def test_git_bash_run_skips_sync_when_wsl_owns_copilot(self):
-        # No cali.yaml skill targets Claude since roj-idea-to-project was
-        # archived (issue #92), so a Git Bash run whose Copilot skills a WSL
-        # run owns has nothing to sync, whatever --target it gets; it still
-        # does its extras. Issue #98: nothing writes .cali-claude any more.
-        self.make_skill("home/copilot", name="roj-onboard-repo",
-                        content="wsl copy")
-        (self.linux / install.WSL_OWNER_MARKER).write_text("x")
-        for argv in ([], ["--target", "claude"], ["--target", "copilot"]):
-            with self.subTest(argv=argv):
-                code, calls, out, _ = self.run_main(
-                    argv, wsl=False, cali_rows=rows("unlocked", *self.managed))
-                self.assertEqual(code, 0)
-                self.assertEqual(calls, [])
-                self.assertIn("skipped (Copilot skills come from WSL)", out)
-                self.assertEqual((self.linux / "roj-onboard-repo" / "SKILL.md")
-                                 .read_text(), "wsl copy")
-                self.assertFalse((self.tmp / "home" / "backups").exists())
-                self.assertFalse((install.REPO_ROOT / ".cali-claude").exists())
-        home = self.tmp / "home"
-        self.assertTrue((home / "instr" / "copilot.md").is_file())
-        self.assertTrue((home / "mcp-copilot.json").is_file())
-        self.assertTrue((home / "mcp-claude.json").is_file())
+        self.assertEqual(calls, [])
+        self.assertIn("BEGIN agent-skills",
+                      (self.win / "jetbrains.md").read_text(encoding="utf-8"))
+        self.assertFalse((self.win / ".copilot").exists())
 
     def test_windows_home_flag_names_the_home(self):
         other = self.tmp / "d-drive" / "me"
         other.mkdir(parents=True)
         self.wsl_main("--windows-home", str(other), userprofile=None)
-        self.assertEqual(self.envs[0]["CALI_WINDOWS_HOME"], str(other))
-        self.assertTrue((other / ".copilot" / "skills"
-                         / install.WSL_OWNER_MARKER).is_file())
+        self.assertTrue((other / "jetbrains.md").is_file())
+        self.assertFalse((self.win / "jetbrains.md").exists())
 
     def test_unresolvable_home_is_loud_and_specific_but_linux_still_installs(self):
-        code, calls, out, err = self.wsl_main(userprofile=None)
+        code, _, _, err = self.wsl_main(userprofile=None)
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [self.cali("sync", "--prune")])
+        self.assertTrue((self.tmp / "home" / "instr" / "copilot.md").is_file())
         self.assertIn("could not find the Windows home", err)
         self.assertIn("cmd.exe interop", err)
         self.assertIn("--windows-home /mnt/c/Users/", err)
         self.assertIn("Git Bash", err)
-        self.assertFalse((self.win / ".copilot").exists())
 
     def test_claude_only_run_skips_the_windows_leg(self):
-        code, calls, _, err = self.wsl_main("--target", "claude")
+        code, _, _, err = self.wsl_main("--target", "claude")
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [self.cali("sync", "--prune", "--target",
-                                           "claude")])
-        self.assertFalse((self.win / ".copilot").exists())
+        self.assertFalse((self.win / "jetbrains.md").exists())
         self.assertNotIn("Windows home", err)
 
     def test_not_wsl_never_touches_a_windows_home(self):
-        _, calls, _, _ = self.run_main([], wsl=False, userprofile=str(self.win))
-        self.assertEqual(calls, [self.cali("sync", "--prune")])
-        self.assertFalse((self.win / ".copilot").exists())
+        self.run_main([], wsl=False, userprofile=str(self.win))
+        self.assertEqual(list(self.win.iterdir()), [])
 
-    def test_failed_windows_sync_stops_the_run_unclaimed(self):
-        code, calls, _, err = self.wsl_main(cali_code=2)
-        self.assertEqual(code, 2)
-        self.assertEqual(calls, [self.windows_sync()])
-        self.assertIn("cali sync failed", err)
-        self.assertFalse((self.skills / install.WSL_OWNER_MARKER).exists())
-
-    def test_dry_run_lists_the_moves_and_both_syncs_and_writes_nothing(self):
-        self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
-                        name="roj-tour-codebase",
-                        content=OWNED.format("roj-tour-codebase"))
-        before = sorted(p.relative_to(self.win) for p in self.win.rglob("*"))
-        code, calls, out, _ = self.wsl_main("--dry-run")
+    def test_dry_run_writes_nothing_in_the_windows_home(self):
+        code, _, _, _ = self.wsl_main("--dry-run")
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [])
-        self.assertEqual(sorted(p.relative_to(self.win) for p in self.win.rglob("*")),
-                         before)
-        self.assertIn("windows  roj-tour-codebase", out)
-        self.assertIn("retired skill", out)
-        self.assertIn(f"would run CALI_WINDOWS_HOME={self.win} cali sync "
-                      "--prune --windows-home --target copilot -g --manifest "
-                      f"{install.MANIFEST_PATH}", out)
+        self.assertEqual(list(self.win.iterdir()), [])
 
-    def test_status_shows_both_homes(self):
-        self.make_skill("mnt-c/Users/rcarranz/.copilot/skills",
-                        name="roj-tour-codebase",
-                        content=OWNED.format("roj-tour-codebase"))
-        win_rows = rows("ok", *self.managed, targets=("copilot",))
-        win_rows[("roj-onboard-repo", "copilot")] = ("missing",)
-        code, _, out, err = self.wsl_main("--status", win_rows=win_rows)
+    def test_status_shows_the_windows_home(self):
+        code, _, out, _ = self.wsl_main("--status")
         self.assertEqual(code, 0)
         self.assertIn(f"windows home: {self.win}", out)
-        self.assertIn("windows: 1 skill(s) missing or out of date "
-                      "(roj-onboard-repo) - re-run install.py", err)
-        self.assertIn(f"windows: roj-tour-codebase left over in {self.skills}"
-                      " - re-run install.py to move it", err)
-        self.assertTrue((self.skills / "roj-tour-codebase").is_dir())
-        ok_rows = rows("ok", *self.managed, targets=("copilot",))
-        self.wsl_main(win_rows=ok_rows)
-        _, _, out, err = self.wsl_main("--status", win_rows=ok_rows)
-        self.assertIn("no conflicts detected", out)
 
     def test_status_reports_an_unresolvable_windows_home(self):
         _, _, _, err = self.wsl_main("--status", userprofile=None)
