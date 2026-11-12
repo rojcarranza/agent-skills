@@ -973,10 +973,11 @@ skills:
                          ("github:x/y//skills/tool",
                           "2e08b9177c07bb7249a8a2d1a6758e5db281d002"))
 
-    def test_no_skill_installs_for_claude(self):
-        # Copilot is the work agent; Claude's one skill, roj-idea-to-project,
-        # was archived (issue #92), so nothing in cali.yaml targets Claude.
-        self.assertEqual(install.managed_skill_names("claude"), set())
+    def test_only_one_slide_installs_for_claude(self):
+        # Copilot is the work agent; roj-one-slide is the one skill that also
+        # installs for Claude (AGS-8 piece 2).
+        self.assertEqual(install.managed_skill_names("claude"),
+                         {"roj-one-slide"})
         self.assertLessEqual(install.custom_skill_names(),
                              install.managed_skill_names("copilot"))
 
