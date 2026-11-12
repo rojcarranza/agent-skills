@@ -18,8 +18,6 @@
   linked and the issue closes on merge. Mention the PR number in the issue.
 - A change that grows beyond its acceptance criteria gets the issue updated
   first, then the code.
-- Skip the issue only for a typo or a one-line fix with no behavior change,
-  and say so in the pull request.
 
 ## Commits and pull requests
 

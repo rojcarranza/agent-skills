@@ -18,8 +18,6 @@
   linked and the issue closes on merge. Mention the PR number in the issue.
 - A change that grows beyond its acceptance criteria gets the issue updated
   first, then the code.
-- Skip the issue only for a typo or a one-line fix with no behavior change,
-  and say so in the pull request.
 
 ## Commits and pull requests
 
@@ -43,7 +41,7 @@
 - Every `skills/<name>/SKILL.md` follows the Agent Skills spec; the rules
   are in README.md ("Writing or changing a skill") and enforced by
   `test_skills.py`.
-- Shared files have one owner: edit `skills/roj-review-code/references/`,
+- Shared files have one owner: edit the owner file listed in `tools/sync_shared.py`,
   then run `python3 tools/sync_shared.py` — never edit the copies in
   `roj-review-pr-comment`, `roj-explain-logic` or `roj-explain-my-branch`.
 - No personal paths, real ticket IDs or employer details in `skills/`.
