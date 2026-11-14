@@ -36,6 +36,7 @@ import sysconfig
 import tempfile
 import time
 from pathlib import Path
+from typing import NamedTuple
 
 REPO_ROOT = Path(__file__).resolve().parent
 SKILLS_SRC = REPO_ROOT / "skills"
@@ -286,27 +287,34 @@ def _instruction_body(text):
     return text
 
 
-def retire_claude_rules(dry_run):
-    """Move the personal.md rule earlier versions deployed for Claude to
-    backup_dir(), when its body is one this repo shipped (Claude got it with
-    `applyTo:` turned into `paths:`). An edited copy or a link is kept with
-    a warning."""
+def inspect_claude_rules():
+    """The personal.md rule earlier versions deployed for Claude. A copy
+    whose body this repo shipped is a leftover to move to backup_dir()
+    (Claude got it with `applyTo:` turned into `paths:`); an edited copy or a
+    link is kept with a warning; no file is nothing to do."""
     path = claude_rules_path()
     if path.is_symlink():
-        warn(f"{path} is a link - left in place; Claude now gets no "
-             "personal instructions from install.py")
-        return []
+        return Item("claude", path.name, "foreign-link", note=(
+            f"{path} is a link - left in place; Claude now gets no "
+            "personal instructions from install.py"))
     if not path.is_file():
-        return []
+        return Item("claude", path.name, "current")
     current = path.read_text(encoding="utf-8", errors="replace")
     if _instruction_body(current) not in {
             _instruction_body(t) for t in shipped_instructions()}:
-        warn(f"{path} differs from every version install.py shipped - left "
-             "in place; Claude now gets no personal instructions from "
-             "install.py")
-        return []
-    dest = _move_aside(path, "claude", dry_run)
-    return [("claude", path.name, f"moved to {dest} (Claude gets none)")]
+        return Item("claude", path.name, "edited", note=(
+            f"{path} differs from every version install.py shipped - left "
+            "in place; Claude now gets no personal instructions from "
+            "install.py"))
+
+    def apply(dry_run):
+        dest = _move_aside(path, "claude", dry_run)
+        return f"moved to {dest} (Claude gets none)"
+    return Item("claude", path.name, "leftover", apply)
+
+
+def retire_claude_rules(dry_run):
+    return run_items([inspect_claude_rules()], dry_run)
 
 
 def shipped_instructions(src=None):
@@ -383,20 +391,20 @@ def jetbrains_block():
     return "\n".join([JETBRAINS_BEGIN, "\n\n".join(parts), JETBRAINS_END]) + "\n"
 
 
-def install_jetbrains_instructions(dry_run, path=None, label="copilot"):
-    """Write jetbrains_block() into JetBrains' global file between the
+def inspect_jetbrains_instructions(path=None, label="copilot"):
+    """The JetBrains global file: install.py owns only the block between the
     markers. A file without them gets the block appended; text outside the
-    markers is never touched. A link is left alone with a warning."""
+    markers is never touched. A link is left alone."""
     dest = path or jetbrains_instruction_path()
     block = jetbrains_block()
     if dest.is_symlink():
-        warn(f"{dest} is a link - left in place; JetBrains gets no "
-             "start-up note from install.py")
-        return []
+        return Item(label, dest.name, "foreign-link", note=(
+            f"{dest} is a link - left in place; JetBrains gets no "
+            "start-up note from install.py"))
     current = (dest.read_text(encoding="utf-8", errors="replace")
                if dest.is_file() else None)
     if current is None:
-        new, status = block, "installed"
+        new, state, text = block, "missing", None
     else:
         current = current.replace("\r\n", "\n")
         begin = current.find(JETBRAINS_BEGIN)
@@ -406,59 +414,76 @@ def install_jetbrains_instructions(dry_run, path=None, label="copilot"):
             if current[end:end + 1] == "\n":
                 end += 1
             new = current[:begin] + block + current[end:]
-            status = "updated"
+            text = None
         else:
             sep = "" if not current.strip() else (
                 "\n" if current.endswith("\n") else "\n\n")
             new = current + sep + ("\n" if sep else "") + block
-            status = "added block"
-        if new == current:
-            return []
-    if not dry_run:
-        _write_text(dest, new)
-    return [(label, dest.name, status)]
+            text = "added block"
+        state = "current" if new == current else "older"
+
+    def apply(dry_run):
+        if not dry_run:
+            _write_text(dest, new)
+        return text
+    return Item(label, dest.name, state, apply)
+
+
+def install_jetbrains_instructions(dry_run, path=None, label="copilot"):
+    return run_items([inspect_jetbrains_instructions(path, label)], dry_run)
+
+
+def inspect_instructions(target):
+    """Items for the personal instructions, the start-up note and the
+    JetBrains block (Copilot only; Claude reads ~/.claude/CLAUDE.md)."""
+    if instruction_path(target) is None:
+        return []
+    return [inspect_instruction(target, INSTRUCTIONS_SRC,
+                                instruction_path(target)),
+            inspect_instruction(target, STARTUP_NOTE_SRC,
+                                startup_note_path(target)),
+            inspect_jetbrains_instructions()]
 
 
 def install_instructions(target, dry_run):
-    """Deploy INSTRUCTIONS_SRC and STARTUP_NOTE_SRC for target (Copilot
-    only), and the JetBrains block. Each file is replaced when missing, a
-    version this repo shipped, or the dotfiles repo's link; an edited copy or
-    a link to anything else is kept with a warning. Nothing is returned for
-    a file that is already current."""
-    if instruction_path(target) is None:
-        return []
-    results = _deploy_instruction(target, dry_run, INSTRUCTIONS_SRC,
-                                  instruction_path(target))
-    results += _deploy_instruction(target, dry_run, STARTUP_NOTE_SRC,
-                                   startup_note_path(target))
-    results += install_jetbrains_instructions(dry_run)
-    return results
+    """Deploy the instruction files for target, as inspect_instructions
+    names their states: each is replaced when missing, a version this repo
+    shipped, or the dotfiles repo's link; an edited copy or a link to
+    anything else is kept with a warning."""
+    return run_items(inspect_instructions(target), dry_run)
 
 
-def _deploy_instruction(target, dry_run, src, dest):
+def inspect_instruction(target, src, dest):
     new = src.read_text(encoding="utf-8")
+    note = None
     if dest.is_symlink():
-        if not _links_into_dotfiles(dest):
-            warn(f"{dest} links somewhere other than the dotfiles repo — left "
-                 f"in place; remove it so install.py can deploy {dest.name}")
-            return []
-        status = "replaced dotfiles link"
+        if _links_into_dotfiles(dest):
+            state = "dotfiles-link"
+        else:
+            state = "foreign-link"
+            note = (f"{dest} links somewhere other than the dotfiles repo — "
+                    f"left in place; remove it so install.py can deploy "
+                    f"{dest.name}")
     elif dest.is_file():
         current = dest.read_text(encoding="utf-8", errors="replace")
         if current == new:
-            return []
-        if current not in shipped_instructions(src):
-            warn(f"{dest} differs from {src} — left in place; "
-                 "merge your edits into the repo copy, delete it, and re-run")
-            return []
-        status = "updated"
+            state = "current"
+        elif current in shipped_instructions(src):
+            state = "older"
+        else:
+            state = "edited"
+            note = (f"{dest} differs from {src} — left in place; "
+                    "merge your edits into the repo copy, delete it, and "
+                    "re-run")
     else:
-        status = "installed"
-    if not dry_run:
-        if dest.is_symlink():
-            dest.unlink()
-        _write_text(dest, new)
-    return [(target, dest.name, status)]
+        state = "missing"
+
+    def apply(dry_run):
+        if not dry_run:
+            if dest.is_symlink():
+                dest.unlink()
+            _write_text(dest, new)
+    return Item(target, dest.name, state, apply, note)
 
 
 # MCP servers install.py registers, per target, in the shape each agent's
@@ -483,33 +508,41 @@ def mcp_config_path(target):
     return Path.home() / ".copilot" / "mcp-config.json"
 
 
-def register_mcp_servers(target, dry_run):
-    """Add each MCP_SERVERS entry missing from target's config, keeping
-    every other key. A file that is not a JSON object is never rewritten."""
+def inspect_mcp_servers(target):
+    """One item per MCP_SERVERS entry for target. A file that is not a JSON
+    object is never rewritten."""
     path = mcp_config_path(target)
     try:
         data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     except (OSError, ValueError) as exc:
-        warn(f"{path} is not valid JSON ({exc}) — left alone; add the MCP "
-             "servers by hand")
-        return []
+        return [Item(target, "mcp", "unreadable", note=(
+            f"{path} is not valid JSON ({exc}) — left alone; add the MCP "
+            "servers by hand"))]
     servers = data.get("mcpServers", {}) if isinstance(data, dict) else None
     if not isinstance(servers, dict):
-        warn(f"{path} has no mcpServers object — left alone; add the MCP "
-             "servers by hand")
-        return []
-    results = []
+        return [Item(target, "mcp", "unreadable", note=(
+            f"{path} has no mcpServers object — left alone; add the MCP "
+            "servers by hand"))]
+    items = []
     for name, configs in MCP_SERVERS.items():
         if target not in configs:
             continue
         if name in servers:
-            results.append((target, f"mcp:{name}", "already configured"))
+            items.append(Item(target, f"mcp:{name}", "current",
+                              current="already configured"))
             continue
-        servers[name] = configs[target]
-        results.append((target, f"mcp:{name}", "added"))
-    if dry_run or not any(s == "added" for _, _, s in results):
-        return results
-    data["mcpServers"] = servers
+
+        def apply(dry_run, name=name, configs=configs):
+            if not dry_run:
+                _add_mcp_server(path, name, configs[target])
+        items.append(Item(target, f"mcp:{name}", "missing", apply,
+                          done="added"))
+    return items
+
+
+def _add_mcp_server(path, name, config):
+    data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    data.setdefault("mcpServers", {})[name] = config
     # Same directory, then rename: a crash never leaves a half-written file.
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".")
@@ -524,7 +557,12 @@ def register_mcp_servers(target, dry_run):
         with contextlib.suppress(OSError):
             os.unlink(tmp)
         raise
-    return results
+
+
+def register_mcp_servers(target, dry_run):
+    """Add each MCP_SERVERS entry missing from target's config, keeping
+    every other key."""
+    return run_items(inspect_mcp_servers(target), dry_run)
 
 
 def externals():
@@ -550,6 +588,127 @@ def ok(msg):
 
 def warn(msg):
     print(f"[ warn ] {msg}", file=sys.stderr)
+
+
+# ---- item states -------------------------------------------------------
+# Every file or setting install.py manages is an Item. One inspect step per
+# kind reads the disk and names the Item's state; ACTIONS says what each state
+# means. The real run, --dry-run and --status all read the same states and the
+# same table, so they cannot disagree about the disk, and no code compares
+# status text.
+OK, ATTENTION, FAILED = 0, 1, 3     # the exit code is the worst level
+
+
+class Action(NamedTuple):
+    do: str          # "write": the run changes the item; "keep": it is left
+    #                  alone; "none": nothing to do
+    done: str        # the row text after the run (items may override it)
+    run_level: int   # level once the run has applied this state
+    status_level: int  # level of the state as --status finds it
+    status_msg: str  # --status line; None: the item's own note
+
+
+ACTIONS = {
+    # nothing to do
+    "current": Action("none", None, OK, OK, None),
+    "not-for-target": Action("none", "skipped", OK, OK, None),
+    # the run writes it
+    "missing": Action("write", "installed", OK, ATTENTION,
+                      "{name} is not deployed or out of date — re-run "
+                      "install.py"),
+    "older": Action("write", "updated", OK, ATTENTION,
+                    "{name} is not deployed or out of date — re-run "
+                    "install.py"),
+    "half": Action("write", "installed", OK, ATTENTION,
+                   "{name} is half installed — re-run install.py"),
+    "dotfiles-link": Action("write", "replaced dotfiles link", OK, ATTENTION,
+                            "{name} left by an older install — re-run "
+                            "install.py to remove"),
+    "leftover": Action("write", "moved aside", OK, ATTENTION,
+                       "{name} left by an older install — re-run install.py "
+                       "to move it aside"),
+    # the run leaves it, and the user has to look
+    "edited": Action("keep", "kept (edited by you)", ATTENTION, ATTENTION,
+                     None),
+    "foreign-link": Action("keep", "kept (a link)", ATTENTION, ATTENTION,
+                           None),
+    "unreadable": Action("keep", "kept (unreadable)", ATTENTION, ATTENTION,
+                         None),
+    "unavailable": Action("keep", "skipped (CLI unavailable)", ATTENTION,
+                          ATTENTION, None),
+    # the run tried and it did not work
+    "failed": Action("none", "failed", FAILED, FAILED, None),
+}
+
+
+class Row(tuple):
+    """One line of the summary: (target, name, status text) that also
+    remembers the state it ended in, which decides the exit code."""
+
+    def __new__(cls, target, name, status, state="current"):
+        row = super().__new__(cls, (target, name, status))
+        row.state = state
+        return row
+
+    @property
+    def level(self):
+        return ACTIONS[self.state].run_level
+
+
+class Item:
+    """One thing install.py manages. apply(dry_run) changes it and returns
+    None, a status text, or (state, text) when it ended in another state;
+    it must write nothing on a dry run."""
+
+    def __init__(self, target, name, state, apply=None, note=None,
+                 done=None, current=None):
+        self.target, self.name, self.state = target, name, state
+        self.apply, self.note = apply, note
+        self.done, self.current = done, current
+
+
+def run_items(items, dry_run):
+    """Act on each item as its state says; return the summary rows."""
+    rows = []
+    for item in items:
+        action = ACTIONS[item.state]
+        state, text = item.state, None
+        if action.do == "write":
+            out = item.apply(dry_run)
+            if isinstance(out, tuple):
+                state, text = out
+            else:
+                text = out
+            text = text or item.done or action.done
+        elif action.do == "keep":
+            if item.note:
+                warn(item.note)
+            text = action.done
+        elif item.state == "current":
+            text = item.current
+        else:
+            text = item.done or action.done
+        if text:
+            rows.append(Row(item.target, item.name, text, state))
+    return rows
+
+
+def worst_level(rows):
+    """The exit code: 0 clean, 1 something kept or left for you, 3 failed."""
+    return max((r.level for r in rows), default=OK)
+
+
+def status_warnings(items):
+    """(level, line) for every item --status cannot call clean."""
+    out = []
+    for item in items:
+        action = ACTIONS[item.state]
+        if action.status_level == OK:
+            continue
+        msg = (action.status_msg.format(name=item.name)
+               if action.status_msg else item.note)
+        out.append((action.status_level, f"{item.target}: {msg}"))
+    return out
 
 
 def target_root(target):
@@ -798,57 +957,84 @@ def run_cli_install(argv, cwd, skill_dir):
 _SKILL_REF_RE = re.compile(r"references/[\w./-]+\.md")
 
 
-def external_current(ext, exe, dest):
-    """True when dest holds a complete skill stamped with the CLI's own
-    version — re-running the CLI's installer would change nothing. An
-    interrupted install (a leftover references.tmp, or a references/ file
-    SKILL.md names but that is missing) is never current."""
-    version = cli_version(exe)
+def external_state(ext, exe, dest):
+    """State of an installed external skill dir: missing (no dir), current
+    (a complete skill stamped with the CLI's own version, so re-running its
+    installer would change nothing), half (an interrupted install: a leftover
+    references.tmp, no SKILL.md, or a references/ file SKILL.md names but
+    that is missing) or older (complete, but not stamped with the CLI's
+    version, or the version is unknown)."""
+    if not dest.exists():
+        return "missing"
     skill_md = dest / "SKILL.md"
-    if (version is None or not skill_md.is_file()
-            or external_version(dest, ext) != version
-            or (dest / "references.tmp").exists()):
-        return False
-    try:
-        body = skill_md.read_text(encoding="utf-8")
-    except OSError:
-        return False
-    return all((dest / ref).is_file()
-               for ref in set(_SKILL_REF_RE.findall(body)))
+    body = None
+    if skill_md.is_file():
+        try:
+            body = skill_md.read_text(encoding="utf-8")
+        except OSError:
+            pass
+    if (body is None or (dest / "references.tmp").exists()
+            or not all((dest / ref).is_file()
+                       for ref in set(_SKILL_REF_RE.findall(body)))):
+        return "half"
+    version = cli_version(exe)
+    if version is None or external_version(dest, ext) != version:
+        return "older"
+    return "current"
+
+
+def external_current(ext, exe, dest):
+    return external_state(ext, exe, dest) == "current"
+
+
+def inspect_external(target, ext, exe, mode="run"):
+    """Item for one external on one target. mode: "run" (exe is the CLI, or
+    None when it could not be installed), "dry-run" (exe None means the run
+    would install the CLI first) or "status" (exe is whatever is on disk)."""
+    name = ext["name"]
+    if target not in ext["targets"]:
+        return Item(target, name, "not-for-target",
+                    done=f"skipped (not for {target})")
+    dest = target_root(target) / name
+    note = None
+    if exe is None and mode != "dry-run":
+        state = "unavailable"
+        if mode == "status":
+            note = (f"{name} skill is installed but its {ext['cli']} CLI "
+                    "is missing")
+    else:
+        state = external_state(ext, exe, dest)
+    shown = " ".join([ext["cli"], *ext["install"][target]])
+
+    def apply(dry_run):
+        if dry_run:
+            return f"dry-run: would run {shown}"
+        # The CLI runs in a scratch directory, so the repo-scoped files some
+        # installers write next to the cwd land nowhere.
+        with tempfile.TemporaryDirectory() as scratch:
+            if not run_cli_install([exe, *ext["install"][target]], scratch,
+                                   dest):
+                return ("failed", "failed")
+    return Item(target, name, state, apply, note, done="installed (by CLI)",
+                current="up to date")
 
 
 def install_external_for_target(target, ext, exe, dry_run):
-    """Delegate one external's install for one target. The CLI runs in a
-    scratch directory so the repo-scoped files some installers write next to
-    the cwd land nowhere."""
-    name = ext["name"]
-    if target not in ext["targets"]:
-        return [(target, name, f"skipped (not for {target})")]
-    argv = [exe or ext["cli"], *ext["install"][target]]
-    shown = " ".join([ext["cli"], *ext["install"][target]])
-    if dry_run:
-        return [(target, name, f"dry-run: would run {shown}")]
-    if not exe:
-        return [(target, name, "skipped (CLI unavailable)")]
-    dest = target_root(target) / name
-    if external_current(ext, exe, dest):
-        return [(target, name, "up to date")]
-    with tempfile.TemporaryDirectory() as scratch:
-        if not run_cli_install(argv, scratch, dest):
-            return [(target, name, "failed")]
-    return [(target, name, "installed (by CLI)")]
+    """Delegate one external's install for one target, as its state says."""
+    return run_items([inspect_external(
+        target, ext, exe, "dry-run" if dry_run else "run")], dry_run)
+
+
+def inspect_externals_for_target(target, sel_externals, mode="run"):
+    """Items for the selected externals. Each carries its resolved CLI path
+    under '_exe' (None = missing and not installable)."""
+    return [inspect_external(target, ext, ext.get("_exe"), mode)
+            for ext in EXTERNALS if ext["name"] in sel_externals]
 
 
 def install_externals_for_target(target, sel_externals, dry_run):
-    """Install selected externals for one target. Each carries its resolved
-    CLI path under '_exe' (None = missing and not installable)."""
-    results = []
-    for ext in EXTERNALS:
-        if ext["name"] not in sel_externals:
-            continue
-        results.extend(install_external_for_target(
-            target, ext, ext.get("_exe"), dry_run))
-    return results
+    return run_items(inspect_externals_for_target(
+        target, sel_externals, "dry-run" if dry_run else "run"), dry_run)
 
 
 WSL_HINT = ("WSL: VS Code and JetBrains on Windows read %USERPROFILE%; this "
@@ -868,19 +1054,32 @@ SKILLS_HINT = ("Skills are installed by cali, not this script: "
                "`cali load <skill>`. See the README.")
 
 
+def collect_extras(targets, win_home=None):
+    """Items for the instruction files, MCP servers and the Windows
+    JetBrains block, in the order a run handles them."""
+    items = []
+    for target in targets:
+        if target == "claude":
+            items.append(inspect_claude_rules())
+        items.extend(inspect_instructions(target))
+    if github_token():
+        for target in targets:
+            items.extend(inspect_mcp_servers(target))
+    if win_home is not None:
+        # Windows-side JetBrains reads the Windows home's global file.
+        items.append(inspect_jetbrains_instructions(
+            jetbrains_instruction_path(home=win_home), "windows"))
+    return items
+
+
 def show_status(targets, windows_home=None):
-    """What this script wrote: instructions, MCP servers and externals."""
+    """What this script wrote: instructions, MCP servers and externals, each
+    read the way a run reads it. Returns the exit code, the worst level."""
     print(f"  {SKILLS_HINT}\n  Installed skills: cali status -g\n")
-    warnings = []
+    items = collect_extras(targets, windows_home)
+    extra = []
     for target in targets:
         root = target_root(target)
-        for _, name, status in install_instructions(target, dry_run=True):
-            if status == "replaced dotfiles link":
-                warnings.append(f"{target}: {name} left by an older install "
-                                "— re-run install.py to remove")
-            else:
-                warnings.append(f"{target}: {name} is not deployed or out of "
-                                "date — re-run install.py")
         for ext in EXTERNALS:
             dest = root / ext["name"]
             if not dest.is_dir():
@@ -888,18 +1087,22 @@ def show_status(targets, windows_home=None):
             version = external_version(dest, ext)
             print(f"  {target:8} {ext['name']:30} external "
                   f"({ext['package']}{' ' + version if version else ''})")
-            if not find_cli(ext["cli"]):
-                warnings.append(f"{target}: {ext['name']} skill is installed "
-                                f"but its {ext['cli']} CLI is missing")
-            elif cli_path_hint(ext):
-                warnings.append(f"{target}: {cli_path_hint(ext)}")
+            items.append(inspect_external(target, ext, find_cli(ext["cli"]),
+                                          "status"))
+            if find_cli(ext["cli"]) and cli_path_hint(ext):
+                extra.append(f"{target}: {cli_path_hint(ext)}")
     if windows_home is not None:
         print(f"  windows home: {windows_home}  (JetBrains instructions)")
     print()
-    for w in warnings:
-        warn(w)
-    if not warnings:
+    found = status_warnings(items)
+    for _, line in found:
+        warn(line)
+    for line in extra:
+        warn(line)
+    level = max([lv for lv, _ in found], default=OK)
+    if not found and not extra:
         ok("no conflicts detected")
+    return max(level, ATTENTION if extra else OK)
 
 
 def print_summary(results, targets, dry_run):
@@ -914,8 +1117,10 @@ def print_summary(results, targets, dry_run):
     if "claude" in targets:
         log("Verify Claude:   ask 'what skills are available?' in a new "
             "claude session")
-    for name in sorted({n for _, n, s in results
-                        if n in externals() and not s.startswith("skipped")}):
+    done = {"current", "missing", "older", "half"}
+    for name in sorted({r[1] for r in results
+                        if r[1] in externals()
+                        and getattr(r, "state", "current") in done}):
         ext = externals()[name]
         log(f"Verify {name}:  run '{ext['cli']} --version', then "
             f"'/{name} .' in the agent — {ext['doc']}")
@@ -961,27 +1166,19 @@ def main():
         win_home, win_problem = resolve_windows_home(args.windows_home)
 
     if args.status:
-        show_status(targets, win_home)
+        code = show_status(targets, win_home)
         if win_problem:
             warn(WINDOWS_HOME_HELP.format(why=win_problem))
+            code = max(code, ATTENTION)
+        if code:
+            sys.exit(code)
         return
 
     results = []
-    for target in targets:
-        if target == "claude":
-            results.extend(retire_claude_rules(args.dry_run))
-        results.extend(install_instructions(target, args.dry_run))
-    if github_token():
-        for target in targets:
-            results.extend(register_mcp_servers(target, args.dry_run))
-    else:
+    if not github_token():
         log("No GitHub token ($token or 'gh auth login') - skipping MCP "
             "servers; instructions install as usual")
-    if win_home is not None:
-        # Windows-side JetBrains reads the Windows home's global file.
-        results.extend(install_jetbrains_instructions(
-            args.dry_run, jetbrains_instruction_path(home=win_home),
-            label="windows"))
+    results.extend(run_items(collect_extras(targets, win_home), args.dry_run))
 
     sel_externals = set() if args.skills_only else default_external_names()
     if args.skills_only:
@@ -994,10 +1191,15 @@ def main():
         ext["_exe"] = bootstrap_cli(ext, args.dry_run)
         if args.upgrade and (ext["_exe"] or args.dry_run):
             ext["_upgrade"] = upgrade_cli(ext, ext["_exe"], args.dry_run)
-            results.append(("external", ext["name"], ext["_upgrade"]))
-    for target in targets:
-        results.extend(install_externals_for_target(
-            target, sel_externals, args.dry_run))
+            results.append(Row("external", ext["name"], ext["_upgrade"],
+                               "unavailable"
+                               if ext["_upgrade"] == "upgrade unavailable"
+                               else "current"))
+    mode = "dry-run" if args.dry_run else "run"
+    items = [i for target in targets
+             for i in inspect_externals_for_target(target, sel_externals,
+                                                   mode)]
+    results.extend(run_items(items, args.dry_run))
 
     print_summary(results, targets, args.dry_run)
     log(SKILLS_HINT)
@@ -1005,6 +1207,9 @@ def main():
         log(WSL_HINT)
         if win_problem:
             warn(WINDOWS_HOME_HELP.format(why=win_problem))
+    code = worst_level(results)
+    if code:
+        sys.exit(code)
 
 
 if __name__ == "__main__":
