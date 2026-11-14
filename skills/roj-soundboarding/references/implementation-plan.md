@@ -81,7 +81,8 @@ rule 2): put `### Task flow` at the end of Core tasks, and `### Approach` and
 
 ## How the implement flow uses it
 
-The checkboxes stay the only progress mark: never mark progress inside a
+The checkboxes and the `(state: ...)` marks on their lines (SKILL.md, **Task
+state marks**) are the only progress record: never mark progress inside a
 diagram. An SB with no plan and no task flow runs in Core tasks order.
 
 - **Order.** Task-flow order: a task comes after every task with a solid
