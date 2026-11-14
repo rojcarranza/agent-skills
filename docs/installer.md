@@ -48,8 +48,8 @@ python3 install.py --windows-home /mnt/c/Users/me   # WSL: name the Windows home
 | Flag | Meaning |
 | --- | --- |
 | `--target` | `claude`, `copilot` or `both` (default `both`) |
-| `--dry-run` | print the planned actions; write and run nothing |
-| `--status` | show what this script wrote, graphify and leftovers; for skills it points to `cali status -g` |
+| `--dry-run` | print the planned actions, read from the same item states as a real run; write and run nothing |
+| `--status` | show what this script wrote, graphify and leftovers, read from the same item states as a real run; for skills it points to `cali status -g` |
 | `--update` | prints `cali update -g`; changes nothing |
 | `--upgrade` | upgrade external CLIs (`graphify`) before refreshing their skill files |
 | `--skills-only` | skip `graphify` (e.g. PyPI blocked) |
@@ -59,6 +59,29 @@ Run order: deploy the personal instructions, register the GitHub MCP server,
 write the JetBrains block into the Windows home (WSL only), then install
 `graphify`. `--target` limits the instructions, the MCP server and graphify
 to that agent.
+
+### Item states and exit codes
+
+The real run, `--dry-run` and `--status` read the disk the same way: one
+inspect step names a state for each thing `install.py` manages (an
+instruction file, the JetBrains block, an MCP entry, the old Claude rule, a
+graphify skill per agent), and one table (`ACTIONS` in `install.py`) says what
+each state means. A dry run therefore prints what the real run would report,
+and `--status` warns about exactly what a run would change or leave.
+
+| State | The run | `--status` |
+| --- | --- | --- |
+| `current` | nothing; an external prints "up to date" | clean |
+| `missing`, `older`, `half` (an interrupted graphify install) | writes or reinstalls it | warns: re-run |
+| `dotfiles-link`, `leftover` (the old `~/.claude/rules/personal.md`) | replaces the link, moves the rule to a backup | warns: re-run |
+| `edited`, `foreign-link`, `unreadable` | keeps it and warns, row says `kept` | warns |
+| `unavailable` (its CLI could not be installed) | skips it | warns |
+| `failed` | the CLI install failed; row says `failed` | not reached |
+
+The exit code is the worst state: `0` nothing needs you, `1` something was
+kept or left for you to look at (an edited file, a link, a missing CLI; for
+`--status`, anything a run would still change), `3` an install failed. A
+failed install prints no "Verify" line for that skill.
 
 The GitHub MCP server is registered only when a GitHub login exists:
 `$token`, else `gh auth token`; with neither, `install.py` skips MCP servers

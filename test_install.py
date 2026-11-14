@@ -370,7 +370,8 @@ class TestCliPathHint(ExternalTest):
             self.assertIsNone(install.cli_path_hint(self.fake_external()))
 
     def test_summary_repeats_the_hint_so_it_cannot_scroll_away(self):
-        results = [("claude", "graphify", "installed (by CLI)")]
+        results = [install.Row("claude", "graphify", "installed (by CLI)",
+                               "missing")]
         with mock.patch("install.cli_path_hint",
                         return_value="tool-y is installed at X"), \
                 mock.patch("install.warn") as warned:
@@ -867,14 +868,14 @@ class TestMcp(TempDirTest):
         self.paths["claude"].write_text("{not json")
         results, err = self.register("claude")
         self.assertEqual(self.paths["claude"].read_text(), "{not json")
-        self.assertEqual(results, [])
+        self.assertEqual([r[2] for r in results], ["kept (unreadable)"])
         self.assertIn("not valid JSON", err)
 
     def test_non_object_servers_are_never_overwritten(self):
         self.paths["claude"].write_text('{"mcpServers": []}')
         results, err = self.register("claude")
         self.assertEqual(self.paths["claude"].read_text(), '{"mcpServers": []}')
-        self.assertEqual(results, [])
+        self.assertEqual([r[2] for r in results], ["kept (unreadable)"])
         self.assertIn("mcpServers", err)
 
     def test_dry_run_writes_nothing(self):
@@ -958,7 +959,7 @@ class TestInstructions(TempDirTest):
         results, err = self.deploy("copilot")
         self.assertEqual(self.dest["copilot"].read_text(), "my local edits\n")
         self.assertIn("differs", err)
-        self.assertEqual(results, [])
+        self.assertEqual([r[2] for r in results], ["kept (edited by you)"])
 
     def test_dotfiles_link_replaced(self):
         other = self.tmp / "dotfiles" / "copilot" / "personal.instructions.md"
@@ -987,7 +988,7 @@ class TestInstructions(TempDirTest):
             self.skipTest("symlinks unsupported here")
         results, err = self.deploy("copilot")
         self.assertTrue(self.dest["copilot"].is_symlink())
-        self.assertEqual(results, [])
+        self.assertEqual([r[2] for r in results], ["kept (a link)"])
         self.assertIn("other than the dotfiles repo", err)
 
     def test_dry_run_writes_nothing(self):
@@ -1084,7 +1085,7 @@ class TestRetireClaudeRules(TempDirTest):
         self.rules.write_text(self.DEPLOYED + "my rule\n")
         results, err = self.retire()
         self.assertEqual(self.rules.read_text(), self.DEPLOYED + "my rule\n")
-        self.assertEqual(results, [])
+        self.assertEqual([r[2] for r in results], ["kept (edited by you)"])
         self.assertIn("differs from every version", err)
         self.assertFalse(self.backups.exists())
 
@@ -1097,7 +1098,7 @@ class TestRetireClaudeRules(TempDirTest):
             self.skipTest("symlinks unsupported here")
         results, err = self.retire()
         self.assertTrue(self.rules.is_symlink())
-        self.assertEqual(results, [])
+        self.assertEqual([r[2] for r in results], ["kept (a link)"])
         self.assertIn("is a link", err)
 
     def test_dry_run_moves_nothing(self):
@@ -1257,6 +1258,7 @@ class TestMain(TempDirTest):
         self.assertIn("cali update -g", out)
 
     def test_status_points_to_cali_and_succeeds(self):
+        self.run_main([])
         code, calls, out, _ = self.run_main(["--status"])
         self.assertEqual(code, 0)
         self.assertEqual(calls, [])
@@ -1323,6 +1325,119 @@ class TestMain(TempDirTest):
         self.assertEqual(code, 0)
         self.assertFalse(rules.exists())
         self.assertTrue((home / "backups" / "claude" / "personal.md").is_file())
+
+
+class TestItemStates(TempDirTest):
+    """AGS-11 machine 1: the real run, --dry-run and --status read one state
+    per item, so none of them disagrees with the disk or with the others.
+    Every case runs in a throwaway home, with the CLI faked."""
+
+    run_main = TestMain.run_main
+
+    def setUp(self):
+        super().setUp()
+        self.home = self.tmp / "home"
+        self.ext = ExternalTest.fake_external(None)
+        for p in (mock.patch("install.cli_version", return_value="1.2.3"),
+                  mock.patch("install.find_cli", return_value="/bin/tool-y"),
+                  mock.patch("install.cli_path_hint", return_value=None)):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def main(self, *argv, **kw):
+        return self.run_main(list(argv), externals=[self.ext],
+                             bootstrap=lambda e, dry: "/bin/tool-y", **kw)
+
+    def stamp(self, target, version="1.2.3"):
+        skill = self.home / target / "tool-y"
+        skill.mkdir(parents=True, exist_ok=True)
+        (skill / "SKILL.md").write_text("body")
+        (skill / ".tool_y_version").write_text(version + "\n")
+        return skill
+
+    def clean_home(self):
+        for t in ("claude", "copilot"):
+            self.stamp(t)
+        code, _, out, err = self.main()
+        self.assertEqual(code, 0, err)
+        code, _, out, _ = self.main("--status")
+        self.assertEqual(code, 0)
+        self.assertIn("no conflicts detected", out)
+
+    def test_dry_run_says_up_to_date_when_the_real_run_would(self):
+        self.clean_home()
+        _, _, out, _ = self.main("--dry-run")
+        self.assertIn("up to date", out)
+        self.assertNotIn("would run", out)
+
+    def test_status_flags_a_half_installed_external(self):
+        self.clean_home()
+        (self.home / "claude" / "tool-y" / "SKILL.md").write_text(
+            "See references/a.md")
+        code, calls, out, err = self.main("--status")
+        self.assertEqual(code, 1)
+        self.assertNotIn("no conflicts detected", out)
+        self.assertIn("tool-y", err)
+
+    def test_status_flags_a_leftover_claude_rules_file(self):
+        self.clean_home()
+        rules = self.home / "rules" / "personal.md"
+        rules.parent.mkdir(parents=True)
+        rules.write_text(install.INSTRUCTIONS_SRC.read_text(encoding="utf-8"))
+        code, _, out, err = self.main("--status")
+        self.assertEqual(code, 1)
+        self.assertNotIn("no conflicts detected", out)
+        self.assertIn("personal.md", err)
+        self.assertTrue(rules.exists())
+
+    def test_status_does_not_call_an_edited_instruction_file_clean(self):
+        self.clean_home()
+        edited = self.home / "instr" / "copilot.md"
+        edited.write_text("my own words\n")
+        code, _, out, err = self.main("--status")
+        self.assertEqual(code, 1)
+        self.assertNotIn("no conflicts detected", out)
+        self.assertIn("differs", err)
+        self.assertEqual(edited.read_text(), "my own words\n")
+
+    def test_failed_external_install_exits_nonzero_without_a_verify_line(self):
+        with mock.patch("install.run_cli", return_value=False):
+            code, _, out, _ = self.main("--target", "claude")
+        self.assertEqual(code, 3)
+        self.assertIn("failed", out)
+        self.assertNotIn("Verify tool-y", out)
+
+    def test_run_and_dry_run_agree_on_every_state(self):
+        # One table: the dry run names the same outcome the real run reports.
+        cases = {
+            "older": lambda: self.stamp("claude", "1.0.0"),
+            "half": lambda: (self.stamp("claude") / "references.tmp").mkdir(),
+            "missing": lambda: None,
+        }
+        for name, setup in cases.items():
+            with self.subTest(state=name):
+                shutil.rmtree(self.home, ignore_errors=True)
+                setup()
+                _, _, dry, _ = self.main("--dry-run", "--target", "claude")
+                self.assertIn("would run tool-y install", dry)
+                _, _, real, _ = self.main("--target", "claude")
+                self.assertIn("installed (by CLI)", real)
+
+    def test_edited_instruction_file_makes_the_run_exit_1(self):
+        edited = self.home / "instr" / "copilot.md"
+        edited.parent.mkdir(parents=True)
+        edited.write_text("my own words\n")
+        code, _, out, _ = self.main("--target", "copilot")
+        self.assertEqual(code, 1)
+        self.assertIn("kept", out)
+
+    def test_exit_code_is_the_worst_state(self):
+        self.assertEqual(install.worst_level([]), 0)
+        rows = [install.Row("claude", "a", "installed", "missing"),
+                install.Row("claude", "b", "kept", "edited")]
+        self.assertEqual(install.worst_level(rows), 1)
+        rows.append(install.Row("claude", "c", "failed", "failed"))
+        self.assertEqual(install.worst_level(rows), 3)
 
 
 class TestWindowsHomeResolution(TempDirTest):
@@ -1449,6 +1564,7 @@ class TestWindowsLeg(TempDirTest):
         self.assertEqual(list(self.win.iterdir()), [])
 
     def test_status_shows_the_windows_home(self):
+        self.wsl_main()
         code, _, out, _ = self.wsl_main("--status")
         self.assertEqual(code, 0)
         self.assertIn(f"windows home: {self.win}", out)
