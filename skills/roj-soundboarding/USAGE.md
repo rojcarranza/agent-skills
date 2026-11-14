@@ -96,7 +96,7 @@ approach is still a draft, takes the tasks in task-flow order and stops
 before a task whose prerequisite is unticked or whose blocking question is
 still open. When an edit would depart from the plan, it stops and asks, then
 writes the agreed change into the section, so the plan stays true. The
-checkboxes stay the only progress mark.
+checkboxes, with the state marks below, stay the only progress record.
 
 A team template without the section keeps its shape: the task flow goes
 under Core tasks, and the approach and change flow under Notes. An SB with no
@@ -142,5 +142,10 @@ the Bamboo API to v12.1.6 and verify agents and plans still work.
    departure from the plan, verifies each diff against the SB's
    before/after table, stops
    after each for approve/revise/skip, ticks checkboxes in the SB file, and
-   fills the Testing table Log column with real command results.
+   fills the Testing table Log column with real command results. A task's
+   state is written on its checkbox line as it changes: `(state: in review)`
+   while its edits wait for your answer, `(state: skipped — <reason>)` when
+   you skip it, `(state: manual)` for a task only people can do. A new session
+   reads those marks first: it does not redo a skipped task or re-edit one in
+   review, and it never offers the slide while a code task is unticked.
 4. You review the working tree and commit manually.

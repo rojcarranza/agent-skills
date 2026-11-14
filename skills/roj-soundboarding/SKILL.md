@@ -182,7 +182,9 @@ inside SOUNDBOARD_DIR; `.md` is optional and matching is case-insensitive.
 Multiple matches: list them and ask which. No match: STOP and ask.
 
 1. **Read the SB document.** Parse the Core tasks checkboxes. Tasks already
-   ticked `- [x]` are done — skip them (resumable mid-sprint). Read the
+   ticked `- [x]` are done — skip them (resumable mid-sprint). An unticked
+   task may carry a state mark (see **Task state marks** below): read the
+   marks first, before choosing where to resume. Read the
    Implementation plan (`references/implementation-plan.md`, which also
    says where a team template keeps it) before the first task: it sets the
    task order, the prerequisites and what counts as a departure. When the
@@ -213,8 +215,23 @@ Multiple matches: list them and ask which. No match: STOP and ask.
    one Notes line - `Baseline (<repo>): <command> - <passed | N failing: names>`
    - so failures that predate the work stay separate from the task's. A
    failing baseline is recorded, not fixed; continue.
-4. **Per-task loop.** For each unticked core task, in task-flow order (Core
-   tasks order when the SB has no task flow):
+   **Task state marks.** A task's state lives on its checkbox line as a
+   trailing `(state: ...)` mark, written the moment the state changes (edit
+   the SB file, not just the chat). Done keeps the tick and no mark.
+
+   | Mark | Meaning | On resume |
+   |---|---|---|
+   | none, `- [ ]` | not started | do it |
+   | `(state: in review)` | edits are in the tree, waiting for approval | do not edit again: run the verify, check and show steps, then the review stop |
+   | `(state: skipped — <reason>)` | the user skipped it | leave it; never redo it unasked; report it |
+   | `(state: manual)` | non-code task, someone else does it | never execute; tick only on the user's word |
+
+   A mark an agent cannot parse is treated as in review, and asked about.
+   When the user later approves a skipped task, replace the mark by the tick.
+4. **Per-task loop.** For each unticked core task without a `skipped` or
+   `manual` mark, in task-flow order (Core tasks order when the SB has no
+   task flow). A task marked `in review` resumes at sub-step 4 below, not at
+   sub-step 3:
    1. Announce the task. Check its prerequisites in the task flow: a task
       with an arrow into it is unticked, or a question with a dotted edge
       into it is open → STOP before editing, name what blocks it and ask how
@@ -223,7 +240,7 @@ Multiple matches: list them and ask which. No match: STOP and ask.
       approval given in advance covers review stops, not this stop.
    2. Non-code task (no repo tag — typically inform, email, request
       permissions, present to team): do not execute, do not tick; say it is
-      manual and go to the review stop.
+      manual, write `(state: manual)` on its line and go to the review stop.
    3. Code task: make the edits in the target repository. When an edit
       would depart from the Implementation plan (contradict the Approach,
       need an order or prerequisite the task flow does not show, or change
@@ -245,12 +262,18 @@ Multiple matches: list them and ask which. No match: STOP and ask.
       one follows the root-cause rule of the Testing phase. No narrower
       check exists: say so - never invent a command or a result.
    6. Show what changed: files touched, a brief summary of each change, and
-      the check run with its one-line result.
+      the check run with its one-line result. Before asking, write
+      `(state: in review)` on the task's line, so a session that ends here
+      resumes at the review stop.
    7. STOP and ask: approve, request changes, or skip?
       - Approve → tick a code task's checkbox to `- [x]` in the SB file
-        (manual tasks stay unticked); continue.
-      - Request changes → revise, show the result, stop again.
-      - Skip → leave unticked, note the skip, continue.
+        (manual tasks stay unticked, marked `manual`); drop the mark; continue.
+      - Request changes → revise, show the result, stop again (the mark
+        stays `in review`).
+      - Skip → leave unticked, replace the mark by
+        `(state: skipped — <reason>)` with the user's reason (ask for one in
+        a few words when none was given; `no reason given` is allowed),
+        continue. The edits the task made stay in the tree: say so.
 5. **Testing phase.** For each Testing table row, run whatever is locally
    runnable (unit tests, linters, builds) and write a one-line result into
    the Log column — only results of commands actually run. A failing test,
@@ -262,13 +285,15 @@ Multiple matches: list them and ask which. No match: STOP and ask.
    workspace and editing tools refuse, update it from the terminal.
 6. **Wrap-up.** Update the SB file (checkboxes, Testing table, add learnings
    to Notes). Report a per-repository list of changed files for manual
-   review and commit, plus the manual tasks still open.
+   review and commit, plus the tasks still open, each with its mark: manual, skipped with its
+   reason, in review.
    When any code task was approved, offer in one line: "Review the working
    tree with roj-review-code?" On a yes, chain to `roj-review-code` on
    the working tree, and put the SB's Acceptance Criteria in the review
    request as what to check the change against; if the skill is not
    installed, say so and stop. Never start the review unasked.
-   When every code task is ticked, also offer: "Make a demo slide with
+   When every code task is ticked (a skipped one is not ticked, so it blocks the
+   offer), also offer: "Make a demo slide with
    roj-one-slide?" On a yes, chain to `roj-one-slide` with the SB file; if
    it is not installed, say so. Never build the slide unasked.
 7. **Tour (ask first).** Offer to refresh the tour (see Tour output) so it

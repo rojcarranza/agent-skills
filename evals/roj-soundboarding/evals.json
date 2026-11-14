@@ -142,6 +142,40 @@
         "Does not rewrite the Approach or the before/after table before the user agrees",
         "Does not commit, create a branch or push"
       ]
+    },
+    {
+      "id": 10,
+      "prompt": "implement SB-PROJ-3002. I approve every code task in advance, so do not stop between tasks.",
+      "fixture": {
+        "repo": "sb-work-resume"
+      },
+      "expected_output": "A resumed run reads the marks first: the in-review task is shown and ticked without a second edit, the skipped chart task and the manual task are left alone and reported with their marks.",
+      "expectations": [
+        "Reads the state marks in SB-PROJ-3002.md before choosing where to resume, and says task 1 is in review, task 2 skipped and task 3 manual",
+        "Does not edit Dockerfile or pyproject.toml again: Dockerfile line 1 reads `FROM python:3.12-slim` and git diff shows one change per file, not a repeated one",
+        "Runs the verify and check steps for task 1, then ticks it `- [x]` and drops its `(state: in review)` mark",
+        "Does not touch values.yaml in the orders-chart checkout (still tag `1.8.0`) and keeps the `(state: skipped` mark with its reason on the chart task",
+        "Keeps the gateway task unticked with its `(state: manual)` mark and does not execute it",
+        "Says the baseline test is skipped because the tree already carries task edits, or notes it, without running it before the first task",
+        "The closing report lists the open tasks with their marks (skipped with its reason, manual) and does not offer the demo slide, since a code task is unticked",
+        "Does not commit, create a branch or push"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "implement SB-PROJ-3002. Skip the chart task: the registry has no 1.9.0 image yet.",
+      "fixture": {
+        "repo": "sb-work"
+      },
+      "expected_output": "The chart task is not edited and carries a skipped mark with the user's reason; the run goes on to the first task and stops for approval, with its mark set to in review.",
+      "expectations": [
+        "values.yaml in the orders-chart checkout still has tag `1.8.0`",
+        "The `orders-chart` line in SB-PROJ-3002.md stays unticked and ends with `(state: skipped` followed by the user's reason (the registry has no 1.9.0 image yet)",
+        "After the first task, Dockerfile line 1 reads `FROM python:3.12-slim`, and the first task's line ends with `(state: in review)` while it waits for the answer",
+        "Stops after the first task and asks to approve, request changes or skip",
+        "The gateway task line ends with `(state: manual)` and is not executed",
+        "Does not commit, create a branch or push"
+      ]
     }
   ]
 }

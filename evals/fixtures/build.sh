@@ -1144,6 +1144,17 @@ sequenceDiagram
 | TC-1 | Run the orders unit tests | Only the known legacy failure remains | | |
 EOF
   G add -A; G commit -qm "SB-PROJ-3005 with an implementation plan"; push_all ;;
+sb-work-resume) # a session ended mid-run: task 1 edited and waiting for approval, task 2 skipped, task 3 manual
+  init_repo main; sb_work
+  sed -i.bak -e 's/^FROM python:3.10-slim$/FROM python:3.12-slim/' Dockerfile
+  sed -i.bak -e 's/>=3.10/>=3.12/' pyproject.toml
+  rm -f Dockerfile.bak pyproject.toml.bak
+  sed -i.bak \
+    -e 's/^\(- \[ \] `repo`: .*\)$/\1 (state: in review)/' \
+    -e 's/^\(- \[ \] `orders-chart`: .*\)$/\1 (state: skipped \xe2\x80\x94 the registry has no 1.9.0 image yet)/' \
+    -e 's/^\(- \[ \] Tell the gateway team .*\)$/\1 (state: manual)/' SB-PROJ-3002.md
+  rm SB-PROJ-3002.md.bak
+  G add SB-PROJ-3002.md; G commit -qm "SB-PROJ-3002 half done" ;;
 sb-work-template) init_repo main; sb_work
   cat > SB-template.md <<'EOF'
 # <Project name> / <TICKET-ID>
