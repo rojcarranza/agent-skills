@@ -1910,7 +1910,7 @@ class TestBitbucketPrScript(unittest.TestCase):
             f = Path(tmp) / "f.json"
             Path(f).write_text(json.dumps({
                 "head": self.HEAD, "summary": "s", "comments": [
-                    {"path": "app/uploader.py", "line": 25,
+                    {"path": "app/uploader.py", "line": 20,
                      "lineType": "ADDED", "text": text}]}), encoding="utf-8")
             code, data, _ = self.run_cmd(["post", *self.PR, "--findings",
                                           str(f)], env)
@@ -1921,6 +1921,23 @@ class TestBitbucketPrScript(unittest.TestCase):
         self.assertIn("Nothing new", summary["text"])
         self.assertTrue(summary["text"].endswith(
             f"Reviewed commit `{self.HEAD[:12]}`"))
+
+    def test_a_reworded_finding_on_a_covered_line_is_skipped_a_moved_one_posts(self):
+        env, state = self.serve("prior")
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "f.json"
+            f.write_text(json.dumps({
+                "head": self.HEAD, "summary": "s", "comments": [
+                    {"path": "app/uploader.py", "line": 20,
+                     "lineType": "ADDED", "text": "Reworded finding."},
+                    {"path": "app/uploader.py", "line": 21,
+                     "lineType": "ADDED", "text": "Moved finding."}]}),
+                encoding="utf-8")
+            code, data, _ = self.run_cmd(["post", *self.PR, "--findings",
+                                          str(f)], env)
+        self.assertEqual(code, 0)
+        self.assertEqual([s["line"] for s in data["skipped"]], [20])
+        self.assertEqual([p["line"] for p in data["posted"]], [21])
 
     def test_a_rerun_after_a_failed_summary_completes_the_review(self):
         env, state = self.serve()

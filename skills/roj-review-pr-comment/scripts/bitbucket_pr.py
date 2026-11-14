@@ -304,10 +304,10 @@ def cmd_post(args, env, out, stdin):
                    "skipped": [], "failed": []}, out)
         out.write("\n")
         return
-    seen = {(c["path"], c["text"].strip()) for c in existing if c["path"]}
+    seen = {(c["path"], c["line"]) for c in existing if c["path"]}
     posted, skipped, failed, fatal = [], [], [], None
     for c in comments:
-        if (c["path"], c["text"].strip()) in seen:
+        if (c["path"], c["line"]) in seen:
             skipped.append({"path": c["path"], "line": c["line"]})
             continue
         try:
