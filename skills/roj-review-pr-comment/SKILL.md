@@ -303,7 +303,7 @@ Drop `--dry-run` for the real post. cmd has no heredoc or here-string: run
 the same command from PowerShell or Git Bash when one is installed, else
 stay with the pasteable draft.
 
-The script skips a comment already on the PR with the same text, posts each
+The script skips a finding when a comment already sits on the same file and line, posts each
 inline comment, then one PR-level summary comment ending in
 ``Reviewed commit `<head12>` ``. A line Bitbucket rejects moves into that
 summary. When every finding was skipped it still posts the summary, saying nothing is

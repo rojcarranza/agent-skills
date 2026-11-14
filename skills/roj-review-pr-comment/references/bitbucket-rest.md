@@ -97,9 +97,10 @@ endpoint.
 - The `Reviewed commit` line makes a head idempotent: `comments --head` and
   `post` both stop when it is already on the PR.
 - A new head is reviewed again. Before posting, the agent drops each finding
-  that restates a comment already on the same file (lines move between
-  heads, so the line number is not the key), and `post` additionally skips a
-  comment whose path and text are identical to an existing one.
+  that restates a comment already on the same file, and `post` additionally
+  skips a finding whose path and line already carry a comment, whatever its
+  text, so a reworded rerun does not post a second copy. A finding on a line
+  that moved posts again.
 - When every finding is skipped, the summary is still posted (it says nothing
   is new), so the head gets its `Reviewed commit` line; a rerun after a
   partial post posts the missing summary.
