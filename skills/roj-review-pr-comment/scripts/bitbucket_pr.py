@@ -292,7 +292,13 @@ def cmd_post(args, env, out, stdin):
         out.write("\n")
         return
     client = Client(env, args.project, args.repo, args.pr)
-    existing = guard(lambda: fetch_comments(client))
+    try:
+        existing = guard(lambda: fetch_comments(client))
+    except Fail as err:
+        json.dump({"status": "failed", "posted": [], "skipped": [],
+                   "failed": [], "summaryId": None, "error": str(err)}, out)
+        out.write("\n")
+        raise
     if any(marker(findings["head"]) in c["text"] for c in existing):
         json.dump({"status": "already-reviewed", "posted": [],
                    "skipped": [], "failed": []}, out)
@@ -338,6 +344,10 @@ def cmd_post(args, env, out, stdin):
                "error": str(fatal) if fatal else None}, out)
     out.write("\n")
     if fatal:
+        # One outcome table: exit 4 only when nothing was posted and the token
+        # was rejected; any stop after a comment landed is partial, exit 5.
+        if posted:
+            fatal = Fail(str(fatal), EXIT_SERVER)
         raise fatal
 
 
