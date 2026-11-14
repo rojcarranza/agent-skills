@@ -310,12 +310,19 @@ summary. When every finding was skipped it still posts the summary, saying nothi
 new, so the head gets its `Reviewed commit` line and a rerun after a partial
 post completes.
 
-Failures, and what to do (details in `references/bitbucket-rest.md`):
+Outcomes, one table (details in `references/bitbucket-rest.md`):
 
-- **Exit 4** (token rejected): nothing more is tried; the draft stands.
-- **Exit 3 or 2**: configuration, say what is missing; the draft stands.
-- **Exit 5** or status `partial`: report what was posted and what was not,
-  and do not repost the posted ones.
+| Status | Exit | Meaning | Do |
+|---|---|---|---|
+| `ok` | 0 | everything posted | report the count |
+| `already-reviewed` | 0 | this head already has its `Reviewed commit` line | post nothing |
+| `partial` | 5 | at least one comment landed, then something stopped the run (a 403 included) | report what was posted and what was not; do not repost the posted ones |
+| `failed` | 4 | nothing posted, token rejected (401 or 403) | the draft stands; no other credential |
+| `failed` | 5 | nothing posted, server or network error | the draft stands |
+
+Exit 3 or 2 print no status: configuration, say what is missing; the draft
+stands.
+
 - Never retry through `curl`, a browser or another credential.
 
 ## 9. Report

@@ -41,6 +41,7 @@ class State:
     def __init__(self, head, mode, reject=()):
         self.head, self.mode = head, mode
         self.fail_summary = False
+        self.forbid_after = None        # 403 once this many comments posted
         self.reject = set(reject)       # "path:line" the server refuses
         self.calls, self.posted, self.next_id = [], [], 100
         self.activities = [
@@ -122,6 +123,9 @@ def handler(state):
             text, anchor = body.get("text"), body.get("anchor")
             if not isinstance(text, str) or not text.strip():
                 return self.error(400, "Comment text is required")
+            if (state.forbid_after is not None
+                    and len(state.posted) >= state.forbid_after):
+                return self.error(403, "Permission denied")
             if anchor is None and state.fail_summary:
                 return self.error(500, "Internal error")
             if anchor is not None:

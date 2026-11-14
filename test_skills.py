@@ -1942,6 +1942,48 @@ class TestBitbucketPrScript(unittest.TestCase):
             self.assertEqual(data["status"], "already-reviewed")
             self.assertEqual(len(state.posted), 2)
 
+    def two_findings(self, path):
+        extra = {"path": "app/uploader.py", "line": 30, "lineType": "ADDED",
+                 "text": "Second finding."}
+        data = json.loads(Path(self.findings(path)).read_text("utf-8"))
+        data["comments"].append(extra)
+        Path(path).write_text(json.dumps(data), encoding="utf-8")
+        return str(path)
+
+    def test_a_403_after_a_posted_comment_is_partial_and_exits_5(self):
+        # Outcome table: exit 4 means the token was rejected and nothing was
+        # posted; a stop after a comment landed is partial, always exit 5.
+        env, state = self.serve()
+        state.forbid_after = 1
+        with tempfile.TemporaryDirectory() as tmp:
+            f = self.two_findings(Path(tmp) / "f.json")
+            code, data, err = self.run_cmd(
+                ["post", *self.PR, "--findings", f], env)
+        self.assertEqual((code, data["status"]), (5, "partial"))
+        self.assertEqual(len(data["posted"]), 1)
+        self.assertIn("403", data["error"])
+
+    def test_a_rejected_token_before_any_post_is_failed_and_exits_4(self):
+        env, state = self.serve()
+        env["BITBUCKET_TOKEN"] = "wrong"
+        with tempfile.TemporaryDirectory() as tmp:
+            f = self.findings(Path(tmp) / "f.json")
+            code, data, _ = self.run_cmd(
+                ["post", *self.PR, "--findings", f], env)
+        self.assertEqual((code, data["status"], data["posted"]),
+                         (4, "failed", []))
+        self.assertEqual(state.posted, [])
+
+    def test_a_403_on_the_first_comment_is_failed_and_exits_4(self):
+        env, state = self.serve()
+        state.forbid_after = 0
+        with tempfile.TemporaryDirectory() as tmp:
+            f = self.findings(Path(tmp) / "f.json")
+            code, data, _ = self.run_cmd(
+                ["post", *self.PR, "--findings", f], env)
+        self.assertEqual((code, data["status"]), (4, "failed"))
+        self.assertEqual(state.posted, [])
+
     def test_a_rejected_line_moves_into_the_summary(self):
         env, state = self.serve(reject=("app/uploader.py:22",))
         with tempfile.TemporaryDirectory() as tmp:

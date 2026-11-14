@@ -111,8 +111,12 @@ endpoint.
 | 0 | done, or nothing to post | read `status` |
 | 2 | bad input or configuration (`BITBUCKET_URL` missing, `http` URL, malformed findings) | fix the input; the draft stands |
 | 3 | `BITBUCKET_TOKEN` not set | stay with the pasteable draft |
-| 4 | HTTP 401 or 403: token rejected or without permission | stop; do not retry with other credentials |
-| 5 | server or network error, or a failure after some comments were posted | report `posted`; never repost those |
+| 4 | status `failed`: HTTP 401 or 403 and nothing posted (token rejected or without permission) | stop; do not retry with other credentials |
+| 5 | status `failed` on a server or network error with nothing posted, or status `partial` (any stop after a comment landed, a 403 included) | report `posted`; never repost those |
+
+Status to exit: `ok` and `already-reviewed` exit 0; `partial` always exits 5;
+`failed` exits 4 or 5 by cause. A `failed` or `partial` post always prints its
+status JSON before exiting.
 
 An HTTP 400, 404 or 409 on one inline comment (a line that is not in the PR
 diff, or an anchor the server does not accept) does not stop the run: the
