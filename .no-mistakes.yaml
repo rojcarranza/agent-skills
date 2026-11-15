@@ -34,10 +34,18 @@ gates:
       test -f "$HOME/.copilot/instructions/superpowers.instructions.md"
       grep -q "BEGIN agent-skills" "$HOME/.config/github-copilot/intellij/global-copilot-instructions.md"
       test ! -e "$HOME/.claude/rules/personal.md"
-      printf '{"mcpServers":{"github-mcp-server":{"type":"http","url":"https://api.githubcopilot.com/mcp/"},"neon":{"command":"x"}}}' > "$HOME/.claude.json"
+      cat > "$HOME/.claude.json" <<EOF
+      {"mcpServers": {"github-mcp-server": {"type": "http", "url": "https://api.githubcopilot.com/mcp/"}, "neon": {"command": "x"}}}
+      EOF
+      mkdir -p "$HOME/.copilot"
+      cat > "$HOME/.copilot/mcp-config.json" <<EOF
+      {"mcpServers": {"github-mcp-server": {"type": "http", "url": "https://api.githubcopilot.com/mcp/", "tools": ["*"]}, "obsidian": {"command": "y"}}}
+      EOF
       uv run --no-project --python 3.12 python install.py --skills-only
       ! grep -q github-mcp-server "$HOME/.claude.json"
       grep -q neon "$HOME/.claude.json"
+      ! grep -q github-mcp-server "$HOME/.copilot/mcp-config.json"
+      grep -q obsidian "$HOME/.copilot/mcp-config.json"
       '
   - name: skills-listing
     after: test
