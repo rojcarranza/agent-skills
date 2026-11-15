@@ -49,6 +49,8 @@ description: Personal Copilot instructions - output style, working approach, git
 
 # Git and safety
 
+- Prefer an installed axi tool (`gh-axi` for GitHub) to the plain program or
+  an MCP server; fall back only where the axi tool has no command.
 - Read-only by default. Read files and run read-only `git` commands freely.
 - Never run `commit`, `push`, `reset`, `rebase`, `checkout`, `switch`,
   `stash`, `fetch`, `merge` or anything with `--force` unless explicitly

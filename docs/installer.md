@@ -26,7 +26,7 @@ details.
 
 `install.py` installs my Claude Code and GitHub Copilot extras: the personal
 instructions, the Superpowers start-up note, a JetBrains instruction block,
-the GitHub MCP server and `graphify`, a CLI Cali does not install. It
+the removal of the retired GitHub MCP entry and `graphify`, a CLI Cali does not install. It
 touches no skills folder except the one `graphify` writes for itself. It
 runs with no `cali` on the machine. Python >= 3.8, standard library only. For
 a single skill in any agent, `npx skills add` is enough, see the
@@ -55,9 +55,9 @@ python3 install.py --windows-home /mnt/c/Users/me   # WSL: name the Windows home
 | `--skills-only` | skip `graphify` (e.g. PyPI blocked) |
 | `--windows-home PATH` | WSL only: the Windows home that gets the JetBrains instructions (default: `%USERPROFILE%`, read through `cmd.exe`) |
 
-Run order: deploy the personal instructions, register the GitHub MCP server,
+Run order: deploy the personal instructions, remove the retired GitHub MCP entry,
 write the JetBrains block into the Windows home (WSL only), then install
-`graphify`. `--target` limits the instructions, the MCP server and graphify
+`graphify`. `--target` limits the instructions, the MCP clean-up and graphify
 to that agent.
 
 ### Item states and exit codes
@@ -83,12 +83,10 @@ kept or left for you to look at (an edited file, a link, a missing CLI; for
 `--status`, anything a run would still change), `3` an install failed. A
 failed install prints no "Verify" line for that skill.
 
-The GitHub MCP server is registered only when a GitHub login exists:
-`$token`, else `gh auth token`; with neither, `install.py` skips MCP servers
-and says so. A machine without a GitHub login, e.g. one whose repos live on
-Bitbucket, therefore installs cleanly; an MCP server configured on an
-earlier run is left in place. The token itself is never written: the server
-is remote and signs in on first use.
+`install.py` no longer registers the GitHub MCP server; `gh-axi` replaces it.
+A run removes the `github-mcp-server` entry earlier runs wrote, when it still
+matches what they wrote; an edited entry is kept with a warning. No GitHub
+login is read.
 
 In [dotfiles](https://github.com/rojcarranza/.dotfiles),
 `./install.py install agent-skills` clones this repo next to the dotfiles
@@ -132,7 +130,7 @@ Where things land:
 | --- | --- | --- |
 | Skills (`cali load`, not `install.py`) | `~/.claude/skills/<name>/` | `~/.copilot/skills/<name>/` |
 | Instructions | none (`~/.claude/CLAUDE.md` is yours) | `~/.copilot/instructions/personal.instructions.md` |
-| MCP servers | `~/.claude.json` (`mcpServers`) | `~/.copilot/mcp-config.json` (`mcpServers`) |
+| MCP servers (retired entry removed) | `~/.claude.json` (`mcpServers`) | `~/.copilot/mcp-config.json` (`mcpServers`) |
 
 The instruction files are `instructions/personal.instructions.md` and
 `instructions/superpowers.instructions.md` (the Superpowers start-up
@@ -152,12 +150,11 @@ missing, a version this repo shipped (any commit of that file), or the
 dotfiles repo's link; one you edited, or a link to anything else, is kept
 with a warning — move the edits into the repo copy and delete it.
 
-MCP servers are listed in `MCP_SERVERS` in `install.py`, in the shape each
-config takes ([Claude Code](https://code.claude.com/docs/en/mcp),
+Retired MCP servers are listed in `RETIRED_MCP_SERVERS` in `install.py`, in
+the shape each config took ([Claude Code](https://code.claude.com/docs/en/mcp),
 [Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)).
-A server already present under that name is left as it is, and a config
-file that is not valid JSON is never rewritten. Playwright is an optional
-entry to add there.
+Only an entry equal to that shape is removed, and a config file that is not
+valid JSON is never rewritten.
 
 Skills added with `npx skills add` are not tracked here; `npx skills update`
 refreshes those.
@@ -227,7 +224,7 @@ block there:
 Skills reach the Windows home through Cali: `cali setup` finds it once and
 `cali load` then fills both homes. Not written into Windows by `install.py`:
 Claude Code, `graphify` (its CLI has to be on the Windows PATH too), the
-personal instructions and the GitHub MCP server. Run `install.py` from Git
+personal instructions. Run `install.py` from Git
 Bash for those.
 
 Which Copilot surface reads which folder (checked against the GitHub and VS
@@ -367,7 +364,7 @@ Run everything with `python` (Git Bash has no `python3` unless you alias it).
 1. Copy this folder over (or clone the repo).
 2. `python install.py --target both --dry-run` — sanity-check paths.
 3. `python install.py --status` — check what's currently installed.
-4. `python install.py --target both` — the instructions, the MCP server,
+4. `python install.py --target both` — the instructions, the MCP clean-up,
    then `graphify`.
 5. Install `cali`, then load skills (see the top of this page). On a VDI
    whose WSL cannot find the Windows home, `cali setup` says so and names
