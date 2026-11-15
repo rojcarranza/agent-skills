@@ -42,9 +42,9 @@ gates:
       {"mcpServers": {"github-mcp-server": {"type": "http", "url": "https://api.githubcopilot.com/mcp/", "tools": ["*"]}, "obsidian": {"command": "y"}}}
       EOF
       uv run --no-project --python 3.12 python install.py --skills-only
-      ! grep -q github-mcp-server "$HOME/.claude.json"
+      if grep -q github-mcp-server "$HOME/.claude.json"; then echo "github-mcp-server left in .claude.json"; exit 1; fi
       grep -q neon "$HOME/.claude.json"
-      ! grep -q github-mcp-server "$HOME/.copilot/mcp-config.json"
+      if grep -q github-mcp-server "$HOME/.copilot/mcp-config.json"; then echo "github-mcp-server left in mcp-config.json"; exit 1; fi
       grep -q obsidian "$HOME/.copilot/mcp-config.json"
       '
   - name: skills-listing

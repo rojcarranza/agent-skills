@@ -1244,9 +1244,22 @@ class TestMain(TempDirTest):
         self.assertEqual(data, {"mcpServers": {"obsidian": {"command": "y"}}})
 
     def test_single_target_limits_everything(self):
-        self.run_main(["--target", "copilot"])
         home = self.tmp / "home"
+        home.mkdir(exist_ok=True)
+        url = "https://api.githubcopilot.com/mcp/"
+        claude_cfg = json.dumps({"mcpServers": {
+            "github-mcp-server": {"type": "http", "url": url}}})
+        (home / "mcp-claude.json").write_text(claude_cfg)
+        (home / "mcp-copilot.json").write_text(json.dumps({"mcpServers": {
+            "github-mcp-server": {"type": "http", "url": url,
+                                  "tools": ["*"]},
+            "neon": {"command": "x"}}}))
+        code, _, _, _ = self.run_main(["--target", "copilot"])
+        self.assertEqual(code, 0)
         self.assertFalse((home / "instr" / "claude.md").exists())
+        self.assertEqual(json.loads((home / "mcp-copilot.json").read_text()),
+                         {"mcpServers": {"neon": {"command": "x"}}})
+        self.assertEqual((home / "mcp-claude.json").read_text(), claude_cfg)
 
     def test_leaves_skill_folders_of_older_installs_alone(self):
         # install.py drops the clean-up: a link, a renamed skill, a retired one
