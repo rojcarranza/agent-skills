@@ -1558,8 +1558,8 @@ class TestManifest(unittest.TestCase):
         names = [d["name"] for d in self.deps]
         self.assertEqual(len(names), len(set(names)))
 
-    def test_github_mcp_is_registered_for_both_agents(self):
-        self.assertEqual(set(install.MCP_SERVERS["github-mcp-server"]),
+    def test_github_mcp_is_retired_for_both_agents(self):
+        self.assertEqual(set(install.RETIRED_MCP_SERVERS["github-mcp-server"]),
                          {"claude", "copilot"})
 
     def test_instructions_apply_everywhere(self):

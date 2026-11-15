@@ -18,8 +18,8 @@ This script installs no skills and never runs cali. Skills are installed by
 cali (https://github.com/rojcarranza/cali), which reads this repo's cali.yaml
 from GitHub: `cali setup github:rojcarranza/agent-skills` once, then
 `cali load <skill>`. Here: personal instructions, the start-up note, the
-JetBrains block, the GitHub MCP server (MCP_SERVERS) and graphify
-(EXTERNALS), whose own CLI installs its skill.
+JetBrains block, removal of the retired GitHub MCP entry (RETIRED_MCP_SERVERS)
+and graphify (EXTERNALS), whose own CLI installs its skill.
 
 Any single skill also installs without this script, in any agent the
 `skills` CLI supports: npx skills add rojcarranza/agent-skills -s <name>.
@@ -160,25 +160,6 @@ def manifest_skill_names(active_only=True):
     """Skill folder names cali.yaml installs (or lists, with active_only off)."""
     return {d["name"] for d in manifest_deps()
             if d["active"] or not active_only}
-
-
-def github_token():
-    """$token, else the logged-in GitHub CLI's, else None (a machine with no
-    GitHub login, e.g. one whose repos live on Bitbucket). The GitHub MCP
-    server is registered only when there is one, as under APM; the token
-    itself is never written to any config."""
-    if os.environ.get("token"):
-        return os.environ["token"]
-    gh = shutil.which("gh")
-    if not gh:
-        return None
-    try:
-        run = subprocess.run([gh, "auth", "token"], capture_output=True,
-                             text=True, timeout=30)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    token = (run.stdout or "").strip()
-    return token if run.returncode == 0 and token else None
 
 
 def is_wsl():
@@ -486,19 +467,18 @@ def inspect_instruction(target, src, dest):
     return Item(target, dest.name, state, apply, note)
 
 
-# MCP servers install.py registers, per target, in the shape each agent's
-# user config takes: Claude Code ~/.claude.json and Copilot CLI
-# ~/.copilot/mcp-config.json, both under "mcpServers". The GitHub server is
-# remote and signs in with OAuth, so no token goes in the file. An entry of
-# the same name is never replaced, so a hand-tuned one survives.
+# MCP servers install.py once registered and now removes, per target, from
+# Claude Code ~/.claude.json and Copilot CLI ~/.copilot/mcp-config.json, both
+# under "mcpServers". gh-axi replaces the GitHub server, so install.py no
+# longer adds it. An entry is removed only while it still equals what this
+# script wrote; a hand-tuned one stays. Other servers (Neon, Obsidian) are
+# never touched.
 GITHUB_MCP_URL = "https://api.githubcopilot.com/mcp/"
-MCP_SERVERS = {
+RETIRED_MCP_SERVERS = {
     "github-mcp-server": {
         "claude": {"type": "http", "url": GITHUB_MCP_URL},
         "copilot": {"type": "http", "url": GITHUB_MCP_URL, "tools": ["*"]},
     },
-    # Optional, for projects with a UI to drive: microsoft/playwright-mcp —
-    # add its entry here from https://github.com/microsoft/playwright-mcp.
 }
 
 
@@ -509,49 +489,50 @@ def mcp_config_path(target):
 
 
 def inspect_mcp_servers(target):
-    """One item per MCP_SERVERS entry for target. A file that is not a JSON
+    """One item per RETIRED_MCP_SERVERS entry still present for target. A
+    missing file or entry has nothing to do; a file that is not a JSON
     object is never rewritten."""
     path = mcp_config_path(target)
+    if not path.exists():
+        return []
     try:
-        data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         return [Item(target, "mcp", "unreadable", note=(
-            f"{path} is not valid JSON ({exc}) — left alone; add the MCP "
-            "servers by hand"))]
+            f"{path} is not valid JSON ({exc}) — left alone; remove the "
+            "retired MCP servers by hand"))]
     servers = data.get("mcpServers", {}) if isinstance(data, dict) else None
     if not isinstance(servers, dict):
         return [Item(target, "mcp", "unreadable", note=(
-            f"{path} has no mcpServers object — left alone; add the MCP "
-            "servers by hand"))]
+            f"{path} has no mcpServers object — left alone; remove the "
+            "retired MCP servers by hand"))]
     items = []
-    for name, configs in MCP_SERVERS.items():
-        if target not in configs:
+    for name, configs in RETIRED_MCP_SERVERS.items():
+        if name not in servers or target not in configs:
             continue
-        if name in servers:
-            items.append(Item(target, f"mcp:{name}", "current",
-                              current="already configured"))
+        if servers[name] != configs[target]:
+            items.append(Item(target, f"mcp:{name}", "edited", note=(
+                f"{path}: {name} differs from what install.py wrote — kept; "
+                "remove it by hand if you no longer want it")))
             continue
 
-        def apply(dry_run, name=name, configs=configs):
+        def apply(dry_run, name=name):
             if not dry_run:
-                _add_mcp_server(path, name, configs[target])
-        items.append(Item(target, f"mcp:{name}", "missing", apply,
-                          done="added"))
+                _remove_mcp_server(path, name)
+        items.append(Item(target, f"mcp:{name}", "stale", apply))
     return items
 
 
-def _add_mcp_server(path, name, config):
-    data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    data.setdefault("mcpServers", {})[name] = config
+def _remove_mcp_server(path, name):
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["mcpServers"].pop(name, None)
     # Same directory, then rename: a crash never leaves a half-written file.
-    path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
             json.dump(data, fh, indent=2)
             fh.write("\n")
-        if path.exists():
-            shutil.copymode(str(path), tmp)
+        shutil.copymode(str(path), tmp)
         os.replace(tmp, str(path))
     except OSError:
         with contextlib.suppress(OSError):
@@ -559,9 +540,9 @@ def _add_mcp_server(path, name, config):
         raise
 
 
-def register_mcp_servers(target, dry_run):
-    """Add each MCP_SERVERS entry missing from target's config, keeping
-    every other key."""
+def retire_mcp_servers(target, dry_run):
+    """Remove each RETIRED_MCP_SERVERS entry install.py wrote to target's
+    config, keeping every other key."""
     return run_items(inspect_mcp_servers(target), dry_run)
 
 
@@ -616,6 +597,8 @@ ACTIONS = {
     "missing": Action("write", "installed", OK, ATTENTION,
                       "{name} is not deployed or out of date — re-run "
                       "install.py"),
+    "stale": Action("write", "removed", OK, ATTENTION,
+                    "{name} is retired — re-run install.py to remove"),
     "older": Action("write", "updated", OK, ATTENTION,
                     "{name} is not deployed or out of date — re-run "
                     "install.py"),
@@ -1062,9 +1045,8 @@ def collect_extras(targets, win_home=None):
         if target == "claude":
             items.append(inspect_claude_rules())
         items.extend(inspect_instructions(target))
-    if github_token():
-        for target in targets:
-            items.extend(inspect_mcp_servers(target))
+    for target in targets:
+        items.extend(inspect_mcp_servers(target))
     if win_home is not None:
         # Windows-side JetBrains reads the Windows home's global file.
         items.append(inspect_jetbrains_instructions(
@@ -1175,9 +1157,6 @@ def main():
         return
 
     results = []
-    if not github_token():
-        log("No GitHub token ($token or 'gh auth login') - skipping MCP "
-            "servers; instructions install as usual")
     results.extend(run_items(collect_extras(targets, win_home), args.dry_run))
 
     sel_externals = set() if args.skills_only else default_external_names()

@@ -819,6 +819,15 @@ skills:
 
 
 class TestMcp(TempDirTest):
+    """Intent: gh-axi replaces the GitHub MCP server, so install.py removes
+    the entry it wrote and adds nothing."""
+
+    MINE = {"claude": {"type": "http",
+                       "url": "https://api.githubcopilot.com/mcp/"},
+            "copilot": {"type": "http",
+                        "url": "https://api.githubcopilot.com/mcp/",
+                        "tools": ["*"]}}
+
     def setUp(self):
         super().setUp()
         self.paths = {"claude": self.tmp / ".claude.json",
@@ -828,61 +837,68 @@ class TestMcp(TempDirTest):
         p.start()
         self.addCleanup(p.stop)
 
-    def register(self, target, dry_run=False):
+    def retire(self, target, dry_run=False):
         err = io.StringIO()
         with mock.patch("sys.stderr", err):
-            results = install.register_mcp_servers(target, dry_run)
+            results = install.retire_mcp_servers(target, dry_run)
         return results, err.getvalue()
 
-    def test_claude_entry_added_and_other_keys_kept(self):
-        self.paths["claude"].write_text(json.dumps(
-            {"numStartups": 3, "mcpServers": {"other": {"command": "x"}}}))
-        results, _ = self.register("claude")
-        data = json.loads(self.paths["claude"].read_text())
-        self.assertEqual(data["numStartups"], 3)
-        self.assertEqual(data["mcpServers"]["other"], {"command": "x"})
-        self.assertEqual(data["mcpServers"]["github-mcp-server"],
-                         {"type": "http",
-                          "url": "https://api.githubcopilot.com/mcp/"})
-        self.assertEqual(results, [("claude", "mcp:github-mcp-server", "added")])
+    def test_entry_removed_and_other_servers_and_keys_kept(self):
+        for target in ("claude", "copilot"):
+            with self.subTest(target=target):
+                path = self.paths[target]
+                path.parent.mkdir(exist_ok=True)
+                path.write_text(json.dumps({"numStartups": 3, "mcpServers": {
+                    "github-mcp-server": self.MINE[target],
+                    "neon": {"command": "x"}}}))
+                results, _ = self.retire(target)
+                data = json.loads(path.read_text())
+                self.assertEqual(data, {"numStartups": 3, "mcpServers": {
+                    "neon": {"command": "x"}}})
+                self.assertEqual(results, [(target, "mcp:github-mcp-server",
+                                            "removed")])
 
-    def test_copilot_file_created_with_tools(self):
-        results, _ = self.register("copilot")
-        data = json.loads(self.paths["copilot"].read_text())
-        self.assertEqual(data, {"mcpServers": {"github-mcp-server": {
-            "type": "http", "url": "https://api.githubcopilot.com/mcp/",
-            "tools": ["*"]}}})
-        self.assertEqual(results, [("copilot", "mcp:github-mcp-server", "added")])
+    def test_nothing_is_added(self):
+        for target in ("claude", "copilot"):
+            results, _ = self.retire(target)
+            self.assertEqual(results, [])
+            self.assertFalse(self.paths[target].exists())
+        self.paths["claude"].write_text('{"mcpServers": {}}')
+        self.assertEqual(self.retire("claude")[0], [])
+        self.assertEqual(self.paths["claude"].read_text(), '{"mcpServers": {}}')
 
-    def test_existing_entry_left_alone(self):
-        mine = {"mcpServers": {"github-mcp-server": {"type": "http", "url": "u",
-                                                     "headers": {"A": "b"}}}}
+    def test_edited_entry_kept(self):
+        mine = {"mcpServers": {"github-mcp-server": {
+            "type": "http", "url": "u", "headers": {"A": "b"}}}}
         self.paths["claude"].write_text(json.dumps(mine))
         before = self.paths["claude"].read_text()
-        results, _ = self.register("claude")
+        results, err = self.retire("claude")
         self.assertEqual(self.paths["claude"].read_text(), before)
-        self.assertEqual(results, [("claude", "mcp:github-mcp-server",
-                                    "already configured")])
+        self.assertEqual([r[2] for r in results], ["kept (edited by you)"])
+        self.assertIn("github-mcp-server", err)
 
     def test_invalid_json_is_never_overwritten(self):
         self.paths["claude"].write_text("{not json")
-        results, err = self.register("claude")
+        results, err = self.retire("claude")
         self.assertEqual(self.paths["claude"].read_text(), "{not json")
         self.assertEqual([r[2] for r in results], ["kept (unreadable)"])
         self.assertIn("not valid JSON", err)
 
     def test_non_object_servers_are_never_overwritten(self):
         self.paths["claude"].write_text('{"mcpServers": []}')
-        results, err = self.register("claude")
+        results, err = self.retire("claude")
         self.assertEqual(self.paths["claude"].read_text(), '{"mcpServers": []}')
         self.assertEqual([r[2] for r in results], ["kept (unreadable)"])
         self.assertIn("mcpServers", err)
 
     def test_dry_run_writes_nothing(self):
-        results, _ = self.register("copilot", dry_run=True)
-        self.assertFalse(self.paths["copilot"].exists())
-        self.assertEqual(results, [("copilot", "mcp:github-mcp-server", "added")])
-
+        self.paths["claude"].write_text(json.dumps(
+            {"mcpServers": {"github-mcp-server": self.MINE["claude"]}}))
+        before = self.paths["claude"].read_text()
+        results, _ = self.retire("claude", dry_run=True)
+        self.assertEqual(self.paths["claude"].read_text(), before)
+        self.assertEqual(results, [("claude", "mcp:github-mcp-server",
+                                    "removed")])
 
 
 class TestMcpPaths(unittest.TestCase):
@@ -1148,7 +1164,7 @@ class TestMain(TempDirTest):
     no skills and never runs cali."""
 
     def run_main(self, argv, wsl=False, externals=(), bootstrap=None,
-                 token="tok", userprofile=None):
+                 userprofile=None):
         """Returns (exit code, subprocess commands, stdout, stderr)."""
         home = tmp_home = self.tmp / "home"
         home.mkdir(exist_ok=True)
@@ -1184,7 +1200,6 @@ class TestMain(TempDirTest):
                 mock.patch("install.windows_userprofile",
                            return_value=userprofile),
                 mock.patch("install.subprocess.run", side_effect=fake_run),
-                mock.patch("install.github_token", return_value=token),
                 mock.patch("install.EXTERNALS", list(externals)),
                 mock.patch("install.bootstrap_cli",
                            side_effect=bootstrap or (lambda ext, dry: None)),
@@ -1212,23 +1227,25 @@ class TestMain(TempDirTest):
         self.assertFalse((home / "instr" / "claude.md").exists())
         for t in ("claude", "copilot"):
             with self.subTest(target=t):
-                servers = json.loads((home / f"mcp-{t}.json").read_text())
-                self.assertIn("github-mcp-server", servers["mcpServers"])
+                self.assertFalse((home / f"mcp-{t}.json").exists())
                 self.assertFalse((home / t).exists())
         self.assertIn("cali setup github:rojcarranza/agent-skills", out)
 
-    def test_no_token_skips_mcp(self):
-        code, calls, out, _ = self.run_main([], token=None)
+    def test_run_removes_the_github_entry_it_wrote(self):
+        home = self.tmp / "home"
+        home.mkdir(exist_ok=True)
+        url = "https://api.githubcopilot.com/mcp/"
+        (home / "mcp-claude.json").write_text(json.dumps({"mcpServers": {
+            "github-mcp-server": {"type": "http", "url": url},
+            "obsidian": {"command": "y"}}}))
+        code, _, _, _ = self.run_main([])
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [])
-        self.assertIn("skipping MCP servers", out)
-        self.assertFalse((self.tmp / "home" / "mcp-claude.json").exists())
+        data = json.loads((home / "mcp-claude.json").read_text())
+        self.assertEqual(data, {"mcpServers": {"obsidian": {"command": "y"}}})
 
     def test_single_target_limits_everything(self):
         self.run_main(["--target", "copilot"])
         home = self.tmp / "home"
-        self.assertTrue((home / "mcp-copilot.json").exists())
-        self.assertFalse((home / "mcp-claude.json").exists())
         self.assertFalse((home / "instr" / "claude.md").exists())
 
     def test_leaves_skill_folders_of_older_installs_alone(self):

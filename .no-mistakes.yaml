@@ -17,14 +17,13 @@ gates:
   - name: installer-smoke
     after: test
     # install.py into a scratch HOME with no cali on PATH; the real home is
-    # never written and no token is needed. It writes the extras and no skills.
+    # never written. It writes the extras and no skills.
     command: |
       bash -c '
       set -euo pipefail
       base="$(mktemp -d)"; trap "rm -rf \"$base\"" EXIT
       mkdir -p "$base/home"
       export HOME="$base/home" USERPROFILE="$base/home"
-      export token=placeholder
       uv run --no-project --python 3.12 python install.py --skills-only
       for d in skills/*/; do
         n=$(basename "$d")
@@ -35,8 +34,10 @@ gates:
       test -f "$HOME/.copilot/instructions/superpowers.instructions.md"
       grep -q "BEGIN agent-skills" "$HOME/.config/github-copilot/intellij/global-copilot-instructions.md"
       test ! -e "$HOME/.claude/rules/personal.md"
-      grep -q github-mcp-server "$HOME/.claude.json"
-      grep -q github-mcp-server "$HOME/.copilot/mcp-config.json"
+      printf '{"mcpServers":{"github-mcp-server":{"type":"http","url":"https://api.githubcopilot.com/mcp/"},"neon":{"command":"x"}}}' > "$HOME/.claude.json"
+      uv run --no-project --python 3.12 python install.py --skills-only
+      ! grep -q github-mcp-server "$HOME/.claude.json"
+      grep -q neon "$HOME/.claude.json"
       '
   - name: skills-listing
     after: test

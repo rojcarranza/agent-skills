@@ -32,7 +32,7 @@ installs, pins and records what you load in your own `cali.yaml` and
    JetBrains read).
 
 **The extras, with `install.py`** — personal instructions, the Superpowers
-start-up note, the JetBrains instruction block, the GitHub MCP server and
+start-up note, the JetBrains instruction block, the removal of the retired GitHub MCP server entry and
 `graphify`. It installs no skills and never runs `cali`:
 
 ```bash
@@ -45,10 +45,10 @@ On Windows use Git Bash and `python`. On WSL run it inside WSL: it also
 writes the JetBrains block into your Windows home (`--windows-home PATH` names
 it if it cannot be found). `--update` only points to `cali update -g`.
 
-The GitHub MCP server is added only when a GitHub login exists: `$token`,
-else `gh auth token` when the GitHub CLI is logged in. With neither (a work
-machine on Bitbucket, say) it writes the instructions only and skips MCP
-servers.
+`install.py` no longer registers the GitHub MCP server: use
+[`gh-axi`](https://github.com/kunchenguid/axi) instead. A run removes the
+`github-mcp-server` entry it wrote earlier from `~/.claude.json` and
+`~/.copilot/mcp-config.json`, and leaves every other server alone.
 
 Folders earlier versions of `install.py` left in your skills folders are no
 longer touched; `cali doctor` lists them. Earlier versions of `install.py`
@@ -240,7 +240,7 @@ skills/<name>/
 cali.yaml         every skill and community skill, as a list Cali reads (`cali setup`)
 instructions/      personal instructions install.py deploys to Copilot
 tools/            sync_shared.py — copies shared files into every skill using them
-install.py        deploys instructions and MCP servers, installs graphify; installs no skills (docs/installer.md)
+install.py        deploys instructions, removes the retired GitHub MCP entry, installs graphify; installs no skills (docs/installer.md)
 test_install.py   installer tests
 test_skills.py    spec, publishing, evals and description-routing checks
 ```
