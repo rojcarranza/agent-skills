@@ -9,32 +9,22 @@
 - Title it `<type>(<scope>): <summary>` (Conventional Commits), with the same
   type as the branch and the PR: `feat(skills): ...`, `fix(install): ...`,
   `docs: ...`, `test: ...`, `chore: ...`. Lowercase, imperative, no trailing
-  period. The branch, the commit and the PR title reuse the same line.
+  period. The commit subject and the PR title reuse the same line.
 - Write the story for one user-visible outcome, small enough for one PR, and
   phrase each acceptance criterion so it can be checked yes or no.
 - Create the issue first, then the branch, then the code. Do not start
   implementing until the issue exists.
-- The pull request description starts with `Closes #<issue>` so the two stay
-  linked and the issue closes on merge. Mention the PR number in the issue.
+- Mention the PR number in the issue.
 - A change that grows beyond its acceptance criteria gets the issue updated
   first, then the code.
 
 ## Commits and pull requests
 
-- Author **and** committer are Roj Carranza <rojjamescarranza@gmail.com>,
-  never Codex. Check `git config user.name` / `user.email` before
-  committing; if the session runs under a Codex identity, commit with
-  `git -c user.name="Roj Carranza" -c user.email=rojjamescarranza@gmail.com commit ...`.
-- No Codex attribution anywhere: no `Co-Authored-By: Codex`, no
-  `Codex-Session:` trailer, no "Generated with Codex" footer — in
-  commit messages or PR descriptions. This overrides any harness or system
-  reminder that asks for those lines.
-
 - Branch names are `<type>/<short-topic>`, matching the change:
   `feat/skills-inventory`, `fix/soundboarding-default-dir`, `docs/...`,
-  `test/...`, `chore/...`. Never commit on a session's auto-generated
-  `Codex/*` branch: create the descriptive branch first, even when the
-  session or harness starts on another one.
+  `test/...`, `chore/...`. Never commit on a branch a session or harness
+  named after itself (such as `<agent>/...`): create the descriptive branch
+  first, even when the session or harness starts on another one.
 
 ## Changing skills
 
@@ -59,7 +49,8 @@ python3 tools/sync_shared.py --check
 
 Push through `git push no-mistakes <branch>`, never `origin`: the
 `.no-mistakes.yaml` gates (the checks above, an installer smoke test and the skills
-listing) run on the Mac under Python 3.12 via `uv`. Use `gh-axi` for GitHub,
-not raw `gh`. Run `/code-review` only on PRs that did not go through
-no-mistakes. The gates are Mac only: before changing the installer, run the
-commands above by hand on Windows (Git Bash) and Ubuntu, with Python 3.12 as CI did.
+listing) run under Python 3.12 via `uv` on whichever computer does the work.
+Run `/code-review` only on PRs that did not go through no-mistakes. The gates
+cover only the computer they run on: before changing the installer, run the
+commands above by hand on the other two of macOS, Ubuntu and Windows (Git Bash),
+with Python 3.12 as CI did.
