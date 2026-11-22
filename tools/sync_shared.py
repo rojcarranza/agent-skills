@@ -71,6 +71,7 @@ SHARED = {
         "roj-grill-plan/references",
     ),
     "roj-onboard-repo/references/mermaid.md": (
+        "roj-review-code/references",
         "roj-explain-logic/references",
         "roj-explain-my-branch/references",
         "roj-soundboarding/references",

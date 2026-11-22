@@ -1,18 +1,22 @@
 # roj-review-code - usage
 
-Reviews a Git change for defects: your own branch (uncommitted work
-included), a teammate's branch, or a Bitbucket Data Center pull request,
-without checking anything out. One skill, two depths:
+Explains a Git change, reviews it for defects and recommends how to improve
+it: your own branch (uncommitted work included), a teammate's branch, or a
+Bitbucket Data Center pull request, without checking anything out. Every
+review starts with a **walkthrough** (what and why, the files, what to read
+first, review effort) and ends its findings with non-blocking **Major or Minor
+recommendations** on logic, code comments and design. One skill, two depths:
 
 - **quick** - chat only, Blocker and Major findings only, diff-local, `git`
   commands only, at most five findings.
-- **full** - change summary, severity-and-confidence-tagged findings, the
+- **full** - walkthrough with one flow diagram, severity-and-confidence-tagged findings, the
   system pass (callers, config-to-code coupling, idempotency, rolling
   deploys), a Markdown report and an optional CodeTour.
 - **auto** - quick unless the change is large or risky. It applies to your own
   branch. A **PR** (a Bitbucket Data Center URL or id) skips auto: it gets
-  **full** with improvement suggestions, so `review.md` and paste-ready PR
-  comments are always written. Say `quick` or `no suggestions` to opt out.
+  **full**, so `review.md` and paste-ready PR comments are always written.
+  Say `quick` for a short one. Recommendations are on for every target; say
+  `no suggestions` to drop them.
 
 It never calls a Bitbucket or GitHub API, never posts comments, and never
 asks for or pins a model: it runs on whatever the agent already selected
@@ -42,10 +46,10 @@ Plain English works everywhere - the skill triggers from its description:
     review origin/feature/PROJ-123-retry      # a branch, no checkout
     review PR 214, it merges into develop     # Bitbucket Data Center PR
     review my branch, the story says: <text>  # with an intent source
-    review PR 214                             # full, with suggestions and comments to paste
-    review PR 214, quick                      # chat only; still up to 3 suggestions
-    review PR 214, no suggestions             # full, defects only
-    review my branch and suggest improvements # own branch: suggestions are opt-in
+    review PR 214                             # full, with recommendations and comments to paste
+    review PR 214, quick                      # chat only; still up to 3 recommendations
+    review PR 214, no suggestions             # full, walkthrough and defects only
+    review my branch, no suggestions          # own branch without recommendations
 
 Explicit invocation differs per agent:
 
@@ -206,10 +210,10 @@ A PR target, or a request that says the PR is already open, is post-PR.
 Everything else is pre-PR: without a PR host there is no way to tell whether a
 PR exists, so a pushed branch is not assumed to have one.
 
-- **Pre-PR** - drafts a PR description from the change summary, and may offer
+- **Pre-PR** - drafts a PR description from the walkthrough, and may offer
   to apply fixes after asking.
 - **Post-PR** - ends with the **Comments to paste** section: pasteable review
-  comments, defects first, then non-blocking suggestions, and never suggests
+  comments, defects first, then non-blocking recommendations, and never suggests
   rewriting history.
 
 ## Customising
@@ -225,13 +229,17 @@ checklists, not code.
 - `platform-bamboo.md`, `platform-k8s.md`, `platform-helm.md`,
   `platform-docker.md`.
 - `full-review.md` - the full-mode procedure, checks and report rules.
-- `improvement-pass.md` - the `improve` lenses, evidence rules and caps.
+- `walkthrough.md` - the walkthrough shape, quick and full, and review effort.
+- `improvement-pass.md` - the recommendation areas (Logic, Comments, Design),
+  the Major and Minor meaning, the design smells and moves, evidence rules and
+  caps.
+- `mermaid.md` - the diagram rules, shared from `roj-onboard-repo`.
 - `pr-comments.md` - the comment text and layout shared with
   `roj-review-pr-comment`.
 - `base-resolution.md`, `forge-bitbucket-dc.md`.
 
 `review-method.md`, `cross-cutting.md`, the lens files, `base-resolution.md`,
-`forge-bitbucket-dc.md`, `repo-map.md`, `improvement-pass.md` and `pr-comments.md` are copied into the skills that use them by
+`forge-bitbucket-dc.md`, `repo-map.md`, `improvement-pass.md`, `mermaid.md` and `pr-comments.md` are copied into the skills that use them by
 `tools/sync_shared.py`: edit them here, then run the sync.
 
 Each lens ends with a "not a finding here" list. That list is what keeps the
@@ -254,3 +262,19 @@ matches nothing there.
 The quick pass used to be a separate skill; it is now this skill's quick
 mode. Remove a leftover copy of the old one from `~/.copilot/skills` or
 `~/.claude/skills`.
+
+## Credits
+
+The walkthrough and the recommendations adapt ideas from public work, written
+again in this skill's own words; nothing is pasted beyond label words and the
+names of well-known code smells.
+
+| Source | Licence | What this skill takes |
+| --- | --- | --- |
+| [The-PR-Agent/pr-agent](https://github.com/The-PR-Agent/pr-agent) | MIT | ordered change bullets, a short title per file, a file label, a flow diagram, an effort score from 1 to 5 |
+| [google/eng-practices](https://github.com/google/eng-practices) | CC BY 3.0 | read the main part first and tests first when they state the intent; what plus why; design matters most; comments explain why; Nit, Optional and FYI labels |
+| [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) (code-review-and-quality) | MIT | readability and architecture axes, the structural remedies, propose the move, one structural problem outranks ten nits |
+| [mattpocock/skills](https://github.com/mattpocock/skills) (code-review) | MIT | Fowler's smells as a design baseline, each labelled "possible X", repository rules overriding them |
+| [anthropics/claude-plugins-official](https://github.com/anthropics/claude-plugins-official) (pr-review-toolkit) | Apache-2.0 | check each comment's claim against the code, comment rot, restating comments, make illegal states unrepresentable |
+| [obra/superpowers](https://github.com/obra/superpowers) (requesting-code-review) | MIT | severity tiers kept apart from recommendations, strengths first |
+| [Conventional Comments](https://conventionalcomments.org/) | CC BY 3.0 | the non-blocking "suggestion" label used in pasted PR comments |

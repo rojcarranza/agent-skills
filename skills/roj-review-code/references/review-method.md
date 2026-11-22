@@ -11,7 +11,7 @@ rules, the system pass, the output skeleton, and calibration.
 - Intent (optional source)
 - System pass (uses `graph-first.md` when the repo has a graph)
 - Tests
-- Improvements (only with `improve` on)
+- Recommendations (on unless `no suggestions`)
 - Output skeleton
 - Calibration
 
@@ -51,7 +51,7 @@ never load a lens no changed file justifies.
 |---|---|---|
 | 🔴 Blocker | breaks at runtime or deploy, loses data, exposes a secret, or breaks a consumer contract | must fix before merge |
 | 🟠 Major | a real defect on a plausible input or failure path; bounded wrong behavior, or missing error handling on an operation that fails in production | fix before merge |
-| 🟡 Minor | correctness-neutral but costly later: a misleading name, duplicated logic, a missing test for new branch logic (with `improve`, a name, duplication or magic value with no failure scenario is a suggestion instead) | author's call |
+| 🟡 Minor | correctness-neutral but costly later: a misleading name, duplicated logic, a missing test for new branch logic (with `improve`, a name, duplication or magic value with no failure scenario is a recommendation instead) | author's call |
 | 🔵 Nit | style or preference, and only when no linter covers it | never blocks; **max 3 per review** |
 
 Severity measures impact, never certainty. "I am not sure" is confidence, and
@@ -82,7 +82,8 @@ Gates:
 
 - Anything a configured linter or formatter already enforces.
 - Renames and moves whose content did not change.
-- "You could use a library / a framework / a different pattern."
+- "You could use a library / a framework / a different pattern" that names no
+  smell, rule or concrete move.
 - Idiom swaps with no behavioral difference.
 - Performance claims without a measurement.
 - Inputs the type system or the language prevents.
@@ -92,9 +93,9 @@ Gates:
   max 3, outside the verdict).
 
 When `improve` is on and the skill ships `improvement-pass.md`, that pass
-admits four lenses under its own evidence rules, and these entries still bar
-everything else. With `improve` off, or in a skill that does not ship the
-pass, no suggestion is made.
+admits three areas (Logic, Comments, Design) under its own evidence rules, and
+these entries still bar everything else. With `improve` off, or in a skill that
+does not ship the pass, no recommendation is made.
 
 ## Two gates before printing
 
@@ -166,13 +167,13 @@ Not coverage percentage. Ask:
 - Bugfix with no regression test → **Major**.
 - New branch logic with no test → **Minor**.
 
-## Improvements (only with `improve` on)
+## Recommendations (on unless `no suggestions`)
 
-On for a PR target, on request elsewhere. Non-blocking suggestions, never
-findings. They come after the verification
-pass and the failure-scenario rule, sit in their own section, have their own
-caps, and are not in the verdict count. `improvement-pass.md` has the lenses,
-the seven evidence rules and the caps. Defects keep every slot they have.
+On for every target. Non-blocking, tagged Major or Minor and Logic, Comments
+or Design, never findings. They come after the verification pass and the
+failure-scenario rule, sit in their own section, have their own caps, and are
+not in the verdict count. `improvement-pass.md` has the areas, the seven
+evidence rules and the caps. Defects keep every slot they have.
 
 ## Output skeleton
 
@@ -187,13 +188,15 @@ Intent: <source, n criteria | none>
 Repo map: <.onboarding @ sha7 (fresh | n commits behind | stale | unknown) - areas: a, b | none>
 Excluded: <generated/vendored paths>
 
-### What this branch does
-<3-6 sentences of intent>
-- `path/to/file` — <one line>
-<new behavior walked in execution order>
+### Walkthrough
+<what and why, 3-6 sentences>, then 1-4 bullets in execution order
+| File | Type | What it does |   (up to 20 rows, overflow counted)
+Reading order: <main change first, tests first when they state the intent>
+<one Mermaid flow of the main change, when there is a flow to draw>
+Review effort: <1-5> of 5 - <reason>
 
 ### Verdict
-Changes requested — 1 Blocker, 2 Major, 1 Minor, 0 Nits (+ 3 suggestions)
+Changes requested — 1 Blocker, 2 Major, 1 Minor, 0 Nits (+ 2 Major, 3 Minor recommendations)
 
 ### Findings
 #### 🔴 Blocker
@@ -215,9 +218,10 @@ here, with the `path:line` that shows it>
 ### Runtime / deploy impact
 <only when CI/CD or infrastructure changed>
 
-### Improvements (non-blocking)
-<only with `improve` on: defects first, then these. Each suggestion: `path:line`,
-lens, confidence, what, Cost of leaving it, Instead, Same behaviour because>
+### Recommendations (non-blocking)
+<only with `improve` on: defects first, then these, Major first. Each:
+`path:line`, Major|Minor, Logic|Comments|Design, confidence, what, Cost of
+leaving it, Instead, Same behaviour because>
 
 ### Needs your input
 - <speculative question>
@@ -234,9 +238,9 @@ findings as comments to the PR author, one block per defect and per
 suggestion, in that file's layout>
 ```
 
-The change summary is written **before** the findings, and every finding must
-be consistent with it. The verdict counts defects only; the `(+ n
-suggestions)` part appears only with `improve` on. Apply no fix without asking.
+The walkthrough is written **before** the findings, and every finding must
+be consistent with it. The verdict counts defects only; the `(+ a Major, b
+Minor recommendations)` part appears only with `improve` on. Apply no fix without asking.
 
 ## Calibration
 

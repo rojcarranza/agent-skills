@@ -630,6 +630,47 @@ def test_normalize_name():
     assert normalize_name("Hello, World!") == "hello-world"
 EOF
   G add -A; G commit -qm "Add normalize_name for upload names"; push_all ;;
+pyrepo-recs)  # a branch with no defect: a misleading comment, a size limit
+  # written in two files, and nested ifs (one tagged recommendation per area)
+  init_repo main; py_base
+  G checkout -qb feature/size-limits
+  cat > app/limits.py <<'EOF'
+MAX_BYTES = 5_000_000
+
+
+def check_size(payload):
+    # allow up to 3 attempts per upload
+    attempts = 5
+    if payload is not None:
+        if len(payload) > 0:
+            if len(payload) <= MAX_BYTES:
+                return attempts
+            else:
+                return 0
+        else:
+            return 0
+    else:
+        return 0
+EOF
+  cat > app/api.py <<'EOF'
+from app.limits import check_size
+
+
+def accept(payload):
+    if payload is None or len(payload) > 5_000_000:
+        return False
+    return check_size(payload) > 0
+EOF
+  cat > tests/test_limits.py <<'EOF'
+from app.limits import check_size
+
+
+def test_check_size():
+    assert check_size(b"x") == 5
+    assert check_size(b"") == 0
+    assert check_size(None) == 0
+EOF
+  G add -A; G commit -qm "Add upload size limits"; push_all ;;
 pyrepo-dirty-dup)  # the dirty checkout (token = Blocker) plus the duplicate helper
   init_repo main; py_base; slug_helper; py_retry_feature; dup_slug_in_cli
   push_all; py_dirty ;;

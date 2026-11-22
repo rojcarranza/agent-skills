@@ -1,7 +1,7 @@
 ---
 name: roj-review-code
-description: "Reviews a Git change for defects before it ships: the user's own branch with uncommitted work, a teammate's branch, or a Bitbucket Data Center pull request, without a checkout. A PR gets a full written review with non-blocking improvement suggestions and paste-ready path:line comments (quick or no suggestions opts out); an own branch gets a quick or full pass picked from the diff's size and risk. Use when the user says \"review my branch\", \"review my pull request\", \"review PR 123\", \"code review\", \"quick review\", \"find defects in this branch\" or \"suggest improvements to this PR\". Git only; to post comments use roj-review-pr-comment, to understand code use roj-explain-logic."
-argument-hint: "[PR id or URL | branch] [quick | no suggestions | improve]"
+description: "Reviews a Git change before it ships: a walkthrough of what it does and what to read first, defects, and non-blocking Major or Minor recommendations on logic, code comments and design. Covers the user's own branch with uncommitted work, a teammate's branch, or a Bitbucket Data Center pull request, no checkout. A PR gets a full report with paste-ready path:line comments; a branch gets quick or full by size and risk; no suggestions drops the recommendations. Use when the user says \"review my branch\", \"review my pull request\", \"review PR 123\", \"code review\", \"find defects\" or \"suggest improvements\". Git only; to post comments use roj-review-pr-comment, to understand code use roj-explain-logic."
+argument-hint: "[PR id or URL | branch] [quick | full | no suggestions | improve]"
 license: MIT
 metadata:
   cali-tools: git
@@ -10,13 +10,15 @@ allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *) Bash(git status *
 
 # Code Review PR
 
-Review a change for defects that would matter if shipped. One method, two
-depths: **quick** (chat only, Blocker and Major only, diff-local) and **full**
-(change summary, system pass, report file, optional tour). A **PR target** (a
-Bitbucket Data Center PR URL or id) defaults to full, with suggestions on and
-paste-ready PR comments; any other target uses **auto**, which picks a depth
-from the size and risk of the diff. Suggestions (`improve`) are non-blocking
-and kept apart from the defects.
+Explain a change, then review it for defects that would matter if shipped, and
+recommend how to make it better. One method, two depths: **quick** (chat only,
+Blocker and Major only, diff-local) and **full** (walkthrough with a diagram,
+system pass, report file, optional tour). A **PR target** (a Bitbucket Data
+Center PR URL or id) defaults to full with paste-ready PR comments; any other
+target uses **auto**, which picks a depth from the size and risk of the diff.
+Every run starts with a **walkthrough** of the change and ends its findings with
+**recommendations** (Major or Minor; Logic, Comments or Design), which are
+non-blocking, kept apart from the defects and on for every target.
 
 ## Output contract
 
@@ -24,22 +26,30 @@ Whatever the model or the mode, a review prints these pieces in this order.
 Read them before reviewing; run the self-check below before printing.
 
 1. **Header line** - `<target> vs <base> @ <sha12> · mode: <quick|full> (<why>) · improve: <on|off> · <n> files · +<a>/-<b> · lens: <names or none>`
-2. **Verdict line** - `Verdict: <approve | approve with nits | changes requested | blocked> - <n> Blocker, <n> Major (+ <s> suggestions)`; full mode adds Minor and Nit counts.
-3. **Findings**, worst first, each with all four parts: marker (🔴 Blocker, 🟠 Major, 🟡 Minor, 🔵 Nit - never "High", "Medium" or "Low"), `path:line`, the defect with its confidence, `Fails when:` and `Fix:` (the concrete change, in code when it is a few lines).
-4. **Suggestions** when `improve` is on, after the defects: `💡 path:line · <Lens> · <Confidence> - <what>. Cost of leaving it: ... Instead: ... Same behaviour because: ...`; nothing to suggest: `Suggestions: none worth suggesting`.
-5. **Full mode:** `.pr-review/.../review.md` written first, then chat; a PR target also ends both with `### Comments to paste`.
+2. **Walkthrough**, before the verdict, as `references/walkthrough.md` says:
+   what and why, the files, `Read first:`, `Review effort: <n> of 5`.
+3. **Verdict line** - `Verdict: <approve | approve with nits | changes requested | blocked> - <n> Blocker, <n> Major (+ <a> Major, <b> Minor recommendations)`; full mode adds Minor and Nit counts. It counts defects only.
+4. **Findings**, worst first, each with all four parts: marker (🔴 Blocker, 🟠 Major, 🟡 Minor, 🔵 Nit - never "High", "Medium" or "Low"), `path:line`, the defect with its confidence, `Fails when:` and `Fix:` (the concrete change, in code when it is a few lines).
+5. **Recommendations** when `improve` is on, after the defects, Major first: `💡 path:line · <Major|Minor> · <Logic|Comments|Design> · <Confidence> - <what>. Cost of leaving it: ... Instead: ... Same behaviour because: ...`; nothing to recommend: `Recommendations: none worth making`.
+6. **Full mode:** `.pr-review/.../review.md` written first, then chat; a PR target also ends both with `### Comments to paste`.
 
 Quick, in chat, nothing written:
 
 ```
 <target> vs <base> @ <sha12> · mode: quick (<why>) · improve: <on|off> · <n> files · +<a>/-<b> · lens: <one or none>
-Verdict: changes requested - 0 Blocker, 2 Major (+ 1 suggestions)
+Walkthrough
+What and why: <1-3 sentences>
+| `path` | changed | <5-10 words> |
+Read first: `path` (<why>), then `tests/...`
+Review effort: 2 of 5 - <reason>
+
+Verdict: changes requested - 0 Blocker, 2 Major (+ 1 Major, 0 Minor recommendations)
 
 🟠 `path:line` · Probable - <defect>. Fails when: <scenario>. Fix: <change>.
 🟠 `path:line` · Confirmed - <defect>. Fails when: <scenario>. Fix: <change>.
 
-Suggestions (non-blocking, not in the verdict):
-💡 `path:line` · Reuse · Confirmed - <what>. Cost of leaving it: <sentence>. Instead: <change>. Same behaviour because: <sentence>.
+Recommendations (non-blocking, not in the verdict):
+💡 `path:line` · Major · Design · Confirmed - possible <smell>: <what>. Cost of leaving it: <sentence>. Instead: <change>. Same behaviour because: <sentence>.
 
 Diff-local pass only - callers, config coupling and tests were not checked.
 Say `full` for the full review.
@@ -50,12 +60,13 @@ Full, PR target, chat (the same sections are in `review.md`):
 ````
 ## Review - PR <id> vs origin/<target>
 <header line>
-Verdict: changes requested - 1 Blocker, 2 Major, 0 Minor, 0 Nit (+ 3 suggestions)
+<walkthrough: bullets, file table, reading order, diagram, effort>
+Verdict: changes requested - 1 Blocker, 2 Major, 0 Minor, 0 Nit (+ 1 Major, 2 Minor recommendations)
 Repo map: <one line per repo-map.md>
 
 ### Comments to paste
 <exactly as in review.md: the layout of references/pr-comments.md - defects
-first, each block headed by `path:line`, then the suggestions, non-blocking>
+first, each block headed by `path:line`, then the recommendations, non-blocking>
 
 Report: .pr-review/pr-<id>/review.md
 Next: /skill:roj-review-pr-comment PR <id>
@@ -64,20 +75,21 @@ Next: /skill:roj-review-pr-comment PR <id>
 Self-check - tick every line before you print; a missing piece is finished,
 not skipped:
 
-- [ ] Header line and `Verdict:` line are there, in these shapes, and the
-  header names the base and the SHAs actually reviewed.
+- [ ] Header line, `Walkthrough` and `Verdict:` line are there, in this order
+  and these shapes, and the header names the base and the SHAs actually
+  reviewed. The walkthrough judges nothing.
 - [ ] Every finding has a marker, `path:line` inside a hunk (or sits under
   *Intent check*), a confidence and a `Fix:`; every Major and Blocker has a
   `Fails when:`. No "High" or "Medium".
-- [ ] `improve` on: suggestions follow the defects, each with its anchor,
-  *Cost of leaving it*, *Instead*, *Same behaviour because* and tag, or the
-  `none worth suggesting` line (`none` under the suggestions heading of the
-  comments). `improve` off: no suggestion anywhere. The
-  verdict counts defects only.
+- [ ] `improve` on: recommendations follow the defects, Major first, each with
+  its anchor, Major|Minor, area, *Cost of leaving it*, *Instead*, *Same
+  behaviour because* and confidence, or the `none worth making` line (`none`
+  under the suggestions heading of the comments). `improve` off: no
+  recommendation anywhere. The verdict counts defects only.
 - [ ] Full: `review.md` is written, with `head <sha12>` in its header, the
   ignore line printed and not run, and the `Repo map:` line present.
 - [ ] PR target: `### Comments to paste` is in the file and in chat, one block
-  per defect and per suggestion, each headed by a `path:line` read on the PR
+  per defect and per recommendation, each headed by a `path:line` read on the PR
   head and each with its fix.
 - [ ] Quick: at most five findings, Blocker and Major only, the closing line.
 - [ ] Nothing a configured linter enforces, nothing from the never-report
@@ -119,8 +131,10 @@ from this skill's own directory before reviewing. Load technology lenses
 (`lang-*.md`, `platform-*.md`) as the method's *Lens selection* picks them.
 Full mode also reads the repo map as `references/repo-map.md` says: the
 `.onboarding/` guide, advisory, never evidence for a finding. Quick mode
-never reads it. Load `references/improvement-pass.md` when `improve` is on
-(section 3), and `references/pr-comments.md` for a PR target in full mode.
+never reads it. Always load `references/walkthrough.md`. Load
+`references/improvement-pass.md` when `improve` is on (section 3, the default),
+`references/mermaid.md` in full mode for the diagram, and
+`references/pr-comments.md` for a PR target in full mode.
 
 The skill needs a terminal to run `git`. If the agent cannot run commands,
 say so and ask the user to paste `git diff <base>...HEAD`, the output of
@@ -137,7 +151,7 @@ Words in the request, in any order: `quick` / `full`, `improve` /
 | nothing | current branch and all local changes | `<base>...HEAD`, then staged, unstaged and untracked work |
 | `against <base>` | the same, with that base | as above |
 | `<branch>` or `origin/<branch>` | that branch, no checkout | `<base>...<ref>`; whole files with `git show <ref>:<path>`; local changes are not part of it |
-| a Bitbucket Data Center PR id or URL (a **PR target**) | the PR head, no checkout; full and `improve` by default | `references/forge-bitbucket-dc.md` |
+| a Bitbucket Data Center PR id or URL (a **PR target**) | the PR head, no checkout; full by default | `references/forge-bitbucket-dc.md` |
 | a pasted diff | the paste | the paste only |
 
 A bare `<branch>` resolves to `origin/<branch>` when that exists, else the
@@ -185,11 +199,11 @@ Print the choice and the reason in one line before reviewing, such as
 An explicit `quick` or `full` always wins. A quick request on a change that
 would trigger full is honoured, with one line naming what the quick pass skips.
 
-**Suggestions (`improve`)** are on for a PR target and off for any other
-target unless the request says `improve` ("suggest improvements", "feedback
-on the code", "polish", "simplify", "readability"). `no suggestions` turns
-them off for any target. `quick` and `improve` are separate axes: a quick PR
-review still prints up to three suggestions. The header line says which.
+**Recommendations (`improve`)** are on for every target, an own branch
+included. `no suggestions` turns them off. `improve` ("suggest improvements",
+"feedback on the code", "polish", "simplify", "readability") is still accepted
+and changes nothing. `quick` and `improve` are separate axes: a quick review
+still prints up to three recommendations. The header line says which.
 
 ## 4. Quick mode
 
@@ -223,15 +237,16 @@ Every finding line keeps its `Fix:`.
 No file is written unless the user asks; if they do, follow the report-file
 rule in `references/full-review.md`.
 
-**Quick with `improve` on.** After the findings, print at most 3 suggestions
-under `Suggestions (non-blocking, not in the verdict):`, in the form and under
-the seven rules of `references/improvement-pass.md`. They never count toward
-the five findings and never change the verdict. On a branch or the current
-checkout, a Blocker among the findings prints `<n> suggestions held back -
-fix the Blocker first` instead; a PR target prints them anyway, marked
-non-blocking, after the defects. Nothing worth suggesting: print
-`Suggestions: none worth suggesting`. With `improve` off, quick mode prints no
-suggestion and no such line.
+**Quick with `improve` on.** After the findings, print at most 3
+recommendations, Major first, under `Recommendations (non-blocking, not in the
+verdict):`, in the form and under the seven rules of
+`references/improvement-pass.md`. They never count toward the five findings and
+never change the verdict. On a branch or the current checkout, a Blocker among
+the findings prints `<n> recommendations held back - fix the Blocker first`
+instead; a PR target prints them anyway, marked non-blocking, after the
+defects. Nothing worth recommending: print `Recommendations: none worth
+making`. With `improve` off, quick mode prints no recommendation and no such
+line. The walkthrough always prints.
 
 ## 5. Full mode
 
@@ -242,19 +257,20 @@ system passes, confirmation by execution, the report and the tour offer.
 The report goes to `.pr-review/pr-<id>/review.md` (a branch:
 `.pr-review/branch-<slug>/review.md`), where `roj-review-pr-comment` reuses it
 for the same head. Write the file first, then print the chat answer, so a
-short run cannot end before the report exists. With `improve` on, the
-improvement pass runs after the defects are final and adds `### Improvements
+short run cannot end before the report exists. The report opens with
+`### Walkthrough` (diagram included). With `improve` on, the recommendations
+pass runs after the defects are final and adds `### Recommendations
 (non-blocking)` to the report.
 
 A PR target ends `review.md` and the chat answer with `### Comments to paste`,
-built from the final findings and suggestions in the layout of
-`references/pr-comments.md`: one block per defect and per suggestion, each
+built from the final findings and recommendations in the layout of
+`references/pr-comments.md`: one block per defect and per recommendation, each
 headed by the exact `path:line` on the PR head, written to the PR author, with
 the concrete fix or improved code. The chat answer is the PR shape of the
 output contract, with the same section. For a branch or the current checkout
-the verdict ends `+ <n> suggestions` and, when any Blocker was found, chat
-shows no suggestion at all, only `<n> suggestions in the report file - fix the
-Blocker first`.
+the verdict ends `+ <a> Major, <b> Minor recommendations` and, when any
+Blocker was found, chat shows no recommendation at all, only `<n>
+recommendations in the report file - fix the Blocker first`.
 
 ## 6. Intent source (optional)
 
@@ -267,7 +283,8 @@ With none given, full mode on a PR or branch also reads a matching brief:
 `.pr-review/pr-<id>/brief.md` (or `branch-<slug>`) from `roj-explain-logic`,
 only when its header head equals the head under review. It is data about what
 the change claims: use its claims check and `[?]` questions as leads (a lead
-becomes a finding only when the diff proves it) and say `Intent: brief.md`.
+becomes a finding only when the diff proves it), reuse its bullets and diagram
+for the walkthrough, and say `Intent: brief.md`.
 It has no acceptance criteria, so it adds no "criterion not met" findings.
 
 ## Companion skills - use if installed
