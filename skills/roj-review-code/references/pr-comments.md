@@ -44,10 +44,10 @@ Fix: <change>.
 Markers: 🔴 **Blocker**, 🟠 **Major**, 🟡 **Minor**, 🔵 **Nit**, then the
 confidence (Confirmed or Probable). Every comment has a `Fix:` line.
 
-A suggestion (non-blocking, never a Bitbucket task or a blocker comment):
+A recommendation (non-blocking, never a Bitbucket task or a blocker comment):
 
 ```text
-💡 **Suggestion (non-blocking)** · Reuse · Confirmed - <what>.
+💡 **Suggestion (non-blocking)** · Major · Design · Confirmed - <what>.
 
 Cost of leaving it: <sentence>.
 
@@ -57,7 +57,7 @@ Instead: <existing helper path:line, or a plain fenced block of at most 6 lines>
 ## Layout
 
 Defects first, worst first. Defects take the inline slots first, up to 15;
-the rest go in the summary. Suggestions follow: at most 5 inline, in the slots
+the rest go in the summary. Recommendations follow, Major first: at most 5 inline, in the slots
 the defects left, never more than 15 inline in all; the rest, with every
 suggestion that has no line, go in the summary under `Further suggestions`.
 A suggestion never displaces a defect.

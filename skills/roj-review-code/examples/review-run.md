@@ -61,6 +61,9 @@ after.
 
 ## The report
 
+This run was asked for `no suggestions`, so the header says `improve: off` and
+the report has no recommendations; the next section shows the default.
+
 ```
 ## Review — feature/PROJ-4471-atomic-upgrade vs origin/main
 
@@ -71,7 +74,7 @@ Uncommitted: none
 Intent: none
 Excluded: none
 
-### What this branch does
+### Walkthrough
 
 Adds a `--wait-timeout` flag to `deploy`, and makes the Helm upgrade wait for
 the release to become ready instead of returning as soon as the API accepts
@@ -79,20 +82,35 @@ it. When the wait fails, the upgrade now rolls back automatically rather than
 leaving the release in `pending-upgrade`. The staging chart is bumped to
 0.4.0 to pick up the matching probe changes.
 
-- `cmd/deploy.go` — registers `--wait-timeout`, defaults it, passes it down.
-- `internal/helm/client.go` — sets `Atomic`, `Wait` and `Timeout` on the
-  upgrade action; maps a timeout error to a distinct exit code.
-- `charts/service/Chart.yaml` — version 0.3.2 → 0.4.0.
-- `charts/service/values-staging.yaml` — adds `probes.startupSeconds`.
-- `internal/helm/client_test.go` — covers the timeout mapping.
-- `bamboo-specs/deploy.yaml` — the staging deploy task passes
-  `--wait-timeout 300`.
+1. `deploy` parses `--wait-timeout` and passes it down.
+2. `helm.Client.Upgrade` builds the action with `Atomic`, `Wait` and `Timeout`.
+3. On a wait failure Helm rolls back and `Upgrade` wraps the error as
+   `ErrWaitTimeout`.
+4. `cmd/deploy.go` exits 4, so the Bamboo task can tell a timeout from a
+   genuine failure.
 
-Flow: `deploy` parses flags → `helm.Client.Upgrade` builds the action with
-`Atomic: true`, `Wait: true`, `Timeout: <flag>` → on a wait failure Helm
-rolls back and returns an error → `Upgrade` wraps it as `ErrWaitTimeout` →
-`cmd/deploy.go` exits 4 so the Bamboo task can distinguish a timeout from a
-genuine failure.
+| File | Type | What it does |
+|---|---|---|
+| `internal/helm/client.go` | changed | atomic upgrade, timeout error mapping |
+| `cmd/deploy.go` | changed | registers and passes `--wait-timeout` |
+| `internal/helm/client_test.go` | test | covers the timeout mapping |
+| `charts/service/values-staging.yaml` | config | adds `probes.startupSeconds` |
+| `charts/service/Chart.yaml` | config | chart version 0.3.2 to 0.4.0 |
+| `bamboo-specs/deploy.yaml` | config | staging task passes `--wait-timeout 300` |
+
+Reading order: `internal/helm/client.go` first (the behaviour change), then its
+test, then the flag and the chart files.
+
+```mermaid
+flowchart LR
+  A[deploy parses flags] --> B[Upgrade: Atomic, Wait, Timeout]
+  B -->|wait fails| C[Helm rolls back]
+  C --> D[ErrWaitTimeout]
+  D --> E[exit 4]
+```
+
+Review effort: 3 of 5 - a deploy path with a chart and a Bamboo spec to read
+together.
 
 ### Verdict
 
@@ -177,21 +195,21 @@ The report is written to the branch's folder under `.pr-review/`, and the run
 printed `echo '.pr-review/' >> .git/info/exclude` because the folder was not
 ignored. It did not run it.
 
-## The same run with `improve`
+## The same run with the default (recommendations on)
 
-The request says `improve`, so `improvement-pass.md` is loaded and the pass
-runs after the defects are final. The header reads `improve: on ·
+Recommendations are on for every target, so `improvement-pass.md` is loaded
+and the pass runs after the defects are final. The header reads `improve: on ·
 suggestions: 1` and the verdict reads `Changes requested — 1 Blocker, 1
-Major, 1 Minor, 0 Nits (+ 1 suggestions)`; nothing else above changes. This
-branch has a Blocker, so chat carries only the count (`1 suggestion, in the
-report file - fix the Blocker first`) and the file gains this section, between
+Major, 1 Minor, 0 Nits (+ 1 Major, 0 Minor recommendations)`; nothing else above changes. This
+branch has a Blocker, so chat carries only the count (`1 recommendation, in
+the report file - fix the Blocker first`) and the file gains this section, between
 *Runtime / deploy impact* and *Needs your input*:
 
 ```
-### Improvements (non-blocking)
+### Recommendations (non-blocking)
 
-**`cmd/deploy.go:121`** · Reuse · Confirmed
-The diff adds a second switch that maps errors to exit codes, but
+**`cmd/deploy.go:121`** · Major · Design · Confirmed
+Possible duplicated code: the diff adds a second switch that maps errors to exit codes, but
 `exitCodeFor` already does that for every other error (`cmd/errors.go:12`).
 Cost of leaving it: the next new error type needs a case in two places, and
 the two tables can drift.
@@ -202,14 +220,14 @@ Same behaviour because the new switch maps `ErrWaitTimeout` to 4 and every
 other error to 1, and `exitCodeFor` already returns 1 for the rest.
 ```
 
-Not suggested: renaming `ErrWaitTimeout` (a preference), swapping the `for`
+Not recommended: renaming `ErrWaitTimeout` (a preference), swapping the `for`
 loop in `client.go` for `slices.ContainsFunc` (an idiom swap), and a
 `fmt.Errorf` wrapper helper (one site, no repeat).
 
 ## The same review as a PR target
 
 A Bitbucket PR (`review PR 31`) skips auto: mode is **full**
-(`Mode: full (PR target - default)`) and `improve` is on, with no checks
+(`Mode: full (PR target - default)`) and recommendations are on, with no checks
 question because the PR is not checked out. Another change, an Ansible PR that
 moves a free-space guard into a shell library, ends `review.md` and the chat
 answer with this section (the rest of the report is the shape above):
@@ -221,7 +239,7 @@ Summary comment:
 ```text
 Moves the HDFS free-space guard out of the playbook into the function library.
 
-2 findings: 0 🔴 · 2 🟠 · 0 🟡 · 0 🔵 · 1 suggestions
+2 findings: 0 🔴 · 2 🟠 · 0 🟡 · 0 🔵 · 1 recommendations
 
 Further suggestions:
 none
@@ -255,7 +273,7 @@ Inline comments - suggestions (1):
 
 `playbooks/db-backup/function_library.sh:44`
 ```text
-💡 **Suggestion (non-blocking)** · Simplify · Confirmed - the "target directory does not exist" check is copied into `cmd_backup`, `cmd_verify` and `cmd_restore`.
+💡 **Suggestion (non-blocking)** · Major · Logic · Confirmed - the "target directory does not exist" check is copied into `cmd_backup`, `cmd_verify` and `cmd_restore`.
 
 Cost of leaving it: the next command copies it a fourth time and can drop the `-z` test.
 

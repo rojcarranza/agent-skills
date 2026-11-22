@@ -1,7 +1,7 @@
 # Full review
 
 Loaded only in full mode, which a PR target gets by default. The target, base,
-mode and `improve` are already settled (`SKILL.md` steps 1 to 3); the output
+mode and `improve` (on unless `no suggestions`) are already settled (`SKILL.md` steps 1 to 3); the output
 contract and self-check at the top of `SKILL.md` apply to everything below.
 
 ## Contents
@@ -82,8 +82,9 @@ evidence. Quick mode skips all of this.
 
 With no intent source from the user, look for
 `.pr-review/pr-<id>/brief.md` (a branch: `branch-<slug>`) and read it only
-when its header `head` equals `<head>`, as `SKILL.md` section 6 says. With
-`improve` on (always for a PR target), load `improvement-pass.md` now so the
+when its header `head` equals `<head>`, as `SKILL.md` section 6 says; its
+bullets and diagram feed the walkthrough. Load `walkthrough.md` and
+`mermaid.md`, and with `improve` on load `improvement-pass.md` now so the
 per-file pass can note candidates; nothing is reported from it until the
 verification pass of step 5 is done. For a PR target also load
 `pr-comments.md`.
@@ -114,6 +115,11 @@ registry or server, or the whole integration suite.
 
 ## 5. Review
 
+0. **Walkthrough** - from the collected change, before judging anything:
+   write it as `walkthrough.md` says (bullets, file table, reading order, one
+   diagram, effort). Read the main part first, and the tests first when they
+   state the intent. A design decision it cannot explain becomes a question
+   for *Needs your input*.
 1. **Per-file pass** - each changed hunk against `cross-cutting.md` and the
    selected lenses.
 2. **System pass** (mandatory) - see `review-method.md`: callers of changed
@@ -124,10 +130,11 @@ registry or server, or the whole integration suite.
 4. **Verification pass** - re-read each candidate finding against the whole
    file and drop the ones the surrounding code already handles.
 
-5. **Improvement pass** - only with `improve` on, and only after the defects
-   are final: read `improvement-pass.md` and add the suggestions it admits.
-   They never change a finding, a severity or the verdict.
-6. **Comments pass** - a PR target only, after the defects and suggestions are
+5. **Recommendations pass** - only with `improve` on, and only after the
+   defects are final: read `improvement-pass.md` and add the Major and Minor
+   recommendations it admits. They never change a finding, a severity or the
+   verdict.
+6. **Comments pass** - a PR target only, after the defects and recommendations are
    final: for each, read the anchored line with `git show <head>:<path>`, check
    the quoted code is on it, and write the comment as `pr-comments.md` says.
    A finding whose line cannot be confirmed goes in the summary comment.
@@ -177,7 +184,7 @@ Follow the output skeleton in `review-method.md`.
   `roj-explain-logic` writes its brief to, and the file
   `roj-review-pr-comment` reuses for the same head. Create the folders; write
   nothing else. The header carries `head <sha12>`, `improve: on | off` and
-  `suggestions: <n>`. `.pr-review/` is personal and stays out of Git: run
+  `suggestions: <n>` (the recommendations). `.pr-review/` is personal and stays out of Git: run
   `git check-ignore -q .pr-review/`, and when it is not ignored print this
   line for the reader, never run it and never edit `.gitignore`:
 
@@ -187,23 +194,24 @@ echo '.pr-review/' >> .git/info/exclude
 
   The user may ask for chat only instead: print the whole report and write
   nothing.
-- **Chat, branch or current checkout.** The verdict (with `+ <n> suggestions`
-  when `improve` is on), one line per finding (`marker path:line - defect.
-  Fix: <change>`), the `Repo map:` line and the report path. With `improve`
-  on and no Blocker, add one line per suggestion under `Improvements
-  (non-blocking)`. With a Blocker, print no suggestion line at all, only `<n>
-  suggestions in the report file - fix the Blocker first`. Not the whole
-  report twice.
+- **Chat, branch or current checkout.** The walkthrough (bullets, file table,
+  reading order, effort and the diagram), the verdict (with `+ <a> Major, <b>
+  Minor recommendations` when `improve` is on), one line per finding (`marker
+  path:line - defect. Fix: <change>`), the `Repo map:` line and the report
+  path. With `improve` on and no Blocker, add one line per recommendation
+  under `Recommendations (non-blocking)`. With a Blocker, print no
+  recommendation line at all, only `<n> recommendations in the report file -
+  fix the Blocker first`. Not the whole report twice.
 - **Chat, PR target.** The PR shape of the output contract in `SKILL.md`: the
-  header line, the verdict, the `Repo map:` line, `### Comments to paste`
-  exactly as written to the file, the report path and the Next line. The
-  comments carry the findings, so there is no separate one-line list; with no
-  Blocker hold, the suggestions print.
-- **Pre-PR** adds a drafted PR description built from the change summary, and
+  header line, the walkthrough, the verdict, the `Repo map:` line, `###
+  Comments to paste` exactly as written to the file, the report path and the
+  Next line. The comments carry the findings, so there is no separate
+  one-line list; with no Blocker hold, the recommendations print.
+- **Pre-PR** adds a drafted PR description built from the walkthrough, and
   may offer to apply fixes - after asking.
 - **Post-PR** ends the report, after *Good*, with `### Comments to paste`
   (`pr-comments.md`): the findings as pasteable review comments written to the
-  PR author, one `path:line` block each, defects first, then the suggestions
+  PR author, one `path:line` block each, defects first, then the recommendations
   marked non-blocking. It never suggests rewriting history. The report keeps
   its other sections for the reader; the comments section is what is pasted.
 - **Next.** One line, with both prefixes, when the target is a Bitbucket PR:
@@ -226,8 +234,8 @@ three steps.
 
 - **Persona**: `pr-reviewer`.
 
-- **Steps**: evidence already gathered, ordered by the change summary then
-  by severity. Reuse `file:line` already cited; never re-investigate.
+- **Steps**: evidence already gathered, ordered by the walkthrough's reading
+  order then by severity. Reuse `file:line` already cited; never re-investigate.
 
 On a yes, chain to `code-tour`; if it is not installed write the JSON inline
 (`$schema`, `title`, `description`, `steps` of `{file, line, description}`).

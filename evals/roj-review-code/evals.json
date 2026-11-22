@@ -294,7 +294,7 @@
         "Flags that upload() in app/uploader.py returns None after the last failed attempt",
         "Ends by saying callers, config coupling and tests were not checked and that 'full' gives the full review",
         "Prints the quick shape: header line with improve: on, a Verdict line, findings with the 🟠 marker and a Fix:, and writes no file and no review.md",
-        "After the findings prints at most 3 suggestions under 'Suggestions (non-blocking, not in the verdict):' or the line 'Suggestions: none worth suggesting'"
+        "After the findings prints at most 3 recommendations under 'Recommendations (non-blocking, not in the verdict):' or the line 'Recommendations: none worth making'"
       ]
     },
     {
@@ -306,13 +306,13 @@
       "expected_output": "Defects first, then the Reuse suggestion naming the existing helper in the report file and in the comments to paste; the verdict counts defects only; a PR target has no Blocker hold, so the suggestion is in chat too.",
       "expectations": [
         "Fetches refs/pull-requests/7/from and develop, reads the printed head SHA, does not check out and uses origin/develop as the base",
-        "Loads improvement-pass.md because improve is on (the request says it, and it is the default for a PR target)",
+        "Loads improvement-pass.md because recommendations are on (the default for every target)",
         "Findings come first: upload() in app/uploader.py returns None after the last failed attempt, Blocker or Major, anchored to a line inside the diff hunk",
-        "One suggestion is a Reuse suggestion on the _safe_name copy in app/cli.py that names the existing slugify helper by path:line (app/slug.py:4), found by search or graph in this run",
-        "Every suggestion has a line inside a diff hunk, the concrete change (at most 6 lines or the existing helper's path:line), a 'Cost of leaving it' sentence, a 'Same behaviour because' sentence and a Confirmed or Probable tag",
+        "One recommendation is a Design recommendation (possible duplicated code, move: call the existing helper) on the _safe_name copy in app/cli.py that names the existing slugify helper by path:line (app/slug.py:4), found by search or graph in this run",
+        "Every recommendation is tagged Major or Minor and Logic, Comments or Design, has a line inside a diff hunk, the concrete change (at most 6 lines or the existing helper's path:line), a 'Cost of leaving it' sentence, a 'Same behaviour because' sentence and a Confirmed or Probable tag",
         "No suggestion restates a linter rule, proposes a library or idiom swap, or targets code the PR did not touch",
-        "The verdict line counts defects only and ends with '+ <n> suggestions'; suggestions are not counted as Minor or Nit",
-        "The report file .pr-review/pr-7/review.md has a separate '### Improvements (non-blocking)' section after the defects, with at most 5 inline suggestions plus 3 summary-only, and 'improve: on', 'suggestions: <n>' and 'head <sha12>' in its header",
+        "The verdict line counts defects only and ends with '(+ <a> Major, <b> Minor recommendations)'; recommendations are not counted as Minor or Nit",
+        "The report file .pr-review/pr-7/review.md has a separate '### Recommendations (non-blocking)' section after the defects, with at most 5 Major and 5 Minor, and 'improve: on', 'suggestions: <n>' and 'head <sha12>' in its header",
         "Prints the ignore line echo '.pr-review/' >> .git/info/exclude without running it",
         "Because the target is a PR, chat prints the suggestion even when a Blocker is among the findings: it is in '### Comments to paste' after the defects, headed by its path:line, marked non-blocking, with Cost of leaving it and Instead"
       ]
@@ -323,11 +323,11 @@
       "fixture": {
         "repo": "pyrepo-dup-clean"
       },
-      "expected_output": "Quick mode with improve on a branch with no defect: no findings, then at most 3 suggestions under their own line.",
+      "expected_output": "Quick mode with improve on a branch with no defect: no findings, then at most 3 recommendations under their own line.",
       "expectations": [
         "Prints a header naming mode: quick and writes no file",
         "Reports no Blocker or Major finding",
-        "Prints at most 3 suggestions after the findings under 'Suggestions (non-blocking, not in the verdict):', each with a cost, the concrete change and 'Same behaviour because'",
+        "Prints at most 3 recommendations after the findings under 'Recommendations (non-blocking, not in the verdict):', each with a cost, the concrete change and 'Same behaviour because'",
         "The normalize_name copy of slugify (app/slug.py:4) is the Reuse suggestion, anchored in app/names.py",
         "The suggestions do not change the verdict and are not counted toward the five findings",
         "Does not read .onboarding/ and runs no command other than git"
@@ -342,9 +342,9 @@
       "expected_output": "A Blocker is present, so the suggestions are in the report file and not in chat.",
       "expectations": [
         "Flags the hard-coded API token in the uncommitted app/cli.py as a Blocker",
-        "The verdict line ends with '+ <n> suggestions' and counts defects only",
+        "The verdict line ends with '(+ <a> Major, <b> Minor recommendations)' and counts defects only",
         "Chat prints no suggestion line and says in one line that the suggestions are in the report file and the Blocker comes first",
-        "The report file .pr-review/branch-feature-retry-uploads/review.md holds '### Improvements (non-blocking)' with the Reuse suggestion for _safe_name and slugify",
+        "The report file .pr-review/branch-feature-retry-uploads/review.md holds '### Recommendations (non-blocking)' with the Design recommendation for _safe_name and slugify",
         "Also flags the shell=True command injection in the untracked app/notify.py as a defect, not as a suggestion"
       ]
     },
@@ -371,7 +371,7 @@
       "expected_output": "The bare review request on a PR URL gives the whole contract: full mode, defects with Fix lines, suggestions, review.md, and paste-ready comments written to the PR author.",
       "expectations": [
         "Prints 'Mode: full (PR target - default)' or equivalent, fetches refs/pull-requests/7/from and develop and uses origin/develop as the base",
-        "Header line, then 'Verdict: changes requested - ... (+ <n> suggestions)', then the comments: each finding has a marker (🔴 or 🟠), a path:line, a confidence, a Fails when: sentence and a Fix: line",
+        "Header line, then 'Verdict: changes requested - ... (+ <a> Major, <b> Minor recommendations)', then the comments: each finding has a marker (🔴 or 🟠), a path:line, a confidence, a Fails when: sentence and a Fix: line",
         "Flags that upload() in app/uploader.py returns None after the last failed attempt, as Blocker or Major",
         "Has a Reuse suggestion for the _safe_name copy in app/cli.py naming the existing slugify (app/slug.py:4), after the defects",
         ".pr-review/pr-7/review.md exists with 'improve: on', 'suggestions: <n>' and 'head <sha12>' in its header and ends with '### Comments to paste'",
@@ -406,7 +406,7 @@
         "Mode is full (PR target default) and the header says improve: off",
         ".pr-review/pr-7/review.md header says 'improve: off' and 'suggestions: 0' and has no '### Improvements (non-blocking)' section",
         "Ends with '### Comments to paste' with one heading 'Inline comments (<n>)', defects only, each with a Fix",
-        "The _safe_name duplicate is not mentioned anywhere as a suggestion"
+        "The _safe_name duplicate is not mentioned anywhere as a recommendation"
       ]
     },
     {
@@ -451,7 +451,63 @@
       "expectations": [
         "Prints a one-line mode choice that honours quick and names what the quick pass skips for an Ansible change (callers, config coupling such as the variable the playbook used to pass, tests)",
         "Writes no file and runs no command other than git",
-        "Prints the header line, a Verdict line and findings with markers and Fix: lines; no suggestions because improve is off for a branch"
+        "Prints the walkthrough, the header line, a Verdict line and findings with markers and Fix: lines; recommendations are on for a branch by default, so up to 3 follow the findings (Major first) or 'Recommendations: none worth making'"
+      ]
+    },
+    {
+      "id": 30,
+      "prompt": "review my branch",
+      "fixture": {
+        "repo": "pyrepo-recs"
+      },
+      "expected_output": "An own-branch review, with no 'improve' in the request, shows the walkthrough and tagged recommendations.",
+      "expectations": [
+        "Loads references/walkthrough.md and references/improvement-pass.md without being asked to improve",
+        "Prints, before the Verdict line, a Walkthrough with What and why, a file table of at most 6 rows (type new, changed, deleted, renamed, test or config), a 'Read first:' line and 'Review effort: <n> of 5'",
+        "The Walkthrough contains no defect and no recommendation",
+        "The header line says improve: on and the verdict ends '(+ <a> Major, <b> Minor recommendations)'"
+      ]
+    },
+    {
+      "id": 31,
+      "prompt": "full review of my branch",
+      "fixture": {
+        "repo": "pyrepo-recs"
+      },
+      "expected_output": "The fixture has a misleading comment, a rule written in two places and nested ifs; each area yields one tagged recommendation.",
+      "expectations": [
+        "review.md has '### Walkthrough' (not '### What this branch does') with 1-4 ordered bullets, a file table, a reading order, one mermaid diagram and 'Review effort: <n> of 5'",
+        "'### Recommendations (non-blocking)' has a Comments recommendation on the comment in app/limits.py that says 3 attempts while the code allows 5, tagged Major, with the sentence that belongs there or its deletion",
+        "It has a Design recommendation labelled 'possible' duplicated code or shotgun surgery on the size limit written in both app/limits.py and app/api.py, tagged Major, with the move (one place, call it)",
+        "It has a Logic recommendation on the nested ifs in app/limits.py with the guard-clause equivalent, tagged Minor",
+        "Every recommendation carries Major|Minor, Logic|Comments|Design, Confirmed|Probable, a path:line inside a hunk, Cost of leaving it, Instead (at most 6 lines or an existing helper's path:line) and Same behaviour because; Major prints before Minor",
+        "None of them appears in the Findings, and the verdict counts defects only"
+      ]
+    },
+    {
+      "id": 32,
+      "prompt": "review my branch, no suggestions",
+      "fixture": {
+        "repo": "pyrepo-recs"
+      },
+      "expected_output": "no suggestions turns the recommendations off but keeps the walkthrough.",
+      "expectations": [
+        "The header line says improve: off",
+        "Prints the Walkthrough before the Verdict line",
+        "Prints no recommendation, no 'Recommendations' line, no 'held back' line and no '(+ ... recommendations)' on the verdict, and loads no improvement-pass.md"
+      ]
+    },
+    {
+      "id": 33,
+      "prompt": "review my branch",
+      "fixture": {
+        "repo": "pyrepo-clean"
+      },
+      "expected_output": "A clean diff still gets the walkthrough and says nothing is worth recommending.",
+      "expectations": [
+        "Prints the Walkthrough with a Read first line and 'Review effort: 1 of 5' or '2 of 5'",
+        "Says 'Nothing to flag' for defects",
+        "Prints 'Recommendations: none worth making' and invents none; no rename for taste, no constant, no docstring request"
       ]
     }
   ]

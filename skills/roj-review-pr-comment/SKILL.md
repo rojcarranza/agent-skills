@@ -187,7 +187,7 @@ For each finding record `path`, `line` (new file), `lineType` (`ADDED` for a
 confidence, the defect, the failure scenario and the fix. A finding with no
 such line (a deleted line, a criterion no hunk satisfies) has no inline
 comment: it goes in the summary. A suggestion records the same, with its
-lens, *Cost of leaving it*, *Instead* and *Same behaviour because* in place of
+Major or Minor tag, its area (Logic, Comments or Design), *Cost of leaving it*, *Instead* and *Same behaviour because* in place of
 the failure scenario and the fix.
 
 ## 6. Skip what is already said

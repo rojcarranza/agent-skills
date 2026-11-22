@@ -586,8 +586,9 @@ class TestRepoMap(unittest.TestCase):
 
 
 class TestImprovementPass(unittest.TestCase):
-    """`improve` is an opt-in axis of the two review skills: non-blocking
-    suggestions kept apart from the defects, under hard evidence rules. The
+    """Recommendations (`improve`) are on for every target in the two review
+    skills: non-blocking, Major or Minor, on Logic, Comments and Design, kept
+    apart from the defects under hard evidence rules. The
     full review report lives in .pr-review/pr-<n>/review.md, where the comment
     skill finds it for the same head instead of reviewing twice."""
 
@@ -614,46 +615,63 @@ class TestImprovementPass(unittest.TestCase):
                 self.assertFalse((SKILLS / name / "references" /
                                   "improvement-pass.md").exists())
 
-    def test_pass_states_the_lenses_the_seven_rules_and_the_caps(self):
+    def test_pass_states_the_areas_the_seven_rules_and_the_caps(self):
         text = self.OWNER.read_text("utf-8")
         flat = " ".join(text.split())
-        for lens in ("Reuse", "Simplify", "Clarity", "Convention"):
-            self.assertRegex(text, re.compile(rf"^\| {lens} \|", re.M),
-                             f"lens {lens}")
+        for area in ("Logic", "Comments", "Design"):
+            self.assertRegex(text, re.compile(rf"^\| {area} \|", re.M),
+                             f"area {area}")
+        for old in ("Reuse", "Simplify", "Clarity", "Convention"):
+            self.assertNotRegex(text, re.compile(rf"^\| {old} \|", re.M))
         rules = re.search(r"## Evidence rules\n(.*?)\n## ", text, re.S).group(1)
         self.assertEqual(re.findall(r"^(\d)\. ", rules, re.M),
                          list("1234567"))
         for phrase in ("Cost of leaving it", "Same behaviour because",
                        "at most 6 lines", "Confirmed or Probable",
-                       "at most 3 suggestions", "never counted toward the",
-                       "at most 5 inline suggestions plus 3 more",
-                       "The verdict ignores suggestions",
+                       "at most 3 recommendations", "never counted toward the",
+                       "at most 5 Major and 5 Minor",
+                       "The verdict ignores recommendations",
                        "With a Blocker among the defects, chat shows no "
-                       "suggestion at all", "the report file holds them in "
-                       "full", "Sort once, never both",
-                       "never Bitbucket tasks", "Default **off**"):
+                       "recommendation at all", "the report file holds them "
+                       "in full", "Sort once, never both",
+                       "never Bitbucket tasks", "on for every target",
+                       "possible <smell>", "Major prints first",
+                       "overrides this list", "none worth making"):
             self.assertIn(phrase, flat)
 
     def test_pass_runs_only_after_the_defects_are_final(self):
         flat = self.flat(self.OWNER)
         self.assertIn("After the verification pass and the failure-scenario "
                       "rule, never before", flat)
-        self.assertIn("Pre-existing code is not a suggestion target", flat)
+        self.assertIn("Pre-existing code is not a target", flat)
+
+    def test_pass_names_twelve_smells_and_eight_moves(self):
+        text = self.OWNER.read_text("utf-8")
+        for label, n in (("Smells", 12), ("Moves", 8)):
+            body = re.search(rf"^{label}: (.*?)\n\n", text, re.M | re.S)
+            self.assertIsNotNone(body, label)
+            self.assertEqual(len(body.group(1).split(";")), n, label)
 
     def test_method_skeleton_keeps_suggestions_out_of_the_verdict(self):
         text = (self.REVIEW / "references" / "review-method.md"
                 ).read_text("utf-8")
         skeleton = text[text.index("## Output skeleton"):]
-        self.assertIn("### Improvements (non-blocking)", skeleton)
+        self.assertIn("### Recommendations (non-blocking)", skeleton)
+        self.assertNotIn("### Improvements (non-blocking)", skeleton)
         self.assertIn("head `<sha12>`", skeleton)
         self.assertIn("improve: on | off \u00b7 suggestions: <n>", skeleton)
         flat = " ".join(skeleton.split())
         self.assertIn("The verdict counts defects only", flat)
-        # Improvements sit after Tests and before Needs your input.
+        # Recommendations sit after Tests and before Needs your input.
         self.assertLess(skeleton.index("### Tests"),
-                        skeleton.index("### Improvements (non-blocking)"))
-        self.assertLess(skeleton.index("### Improvements (non-blocking)"),
+                        skeleton.index("### Recommendations (non-blocking)"))
+        self.assertLess(skeleton.index("### Recommendations (non-blocking)"),
                         skeleton.index("### Needs your input"))
+        # The walkthrough replaces the change summary and comes first.
+        self.assertIn("### Walkthrough", skeleton)
+        self.assertNotIn("### What this branch does", skeleton)
+        self.assertLess(skeleton.index("### Walkthrough"),
+                        skeleton.index("### Verdict"))
 
     def test_description_budget_and_the_improve_word(self):
         for skill in (self.REVIEW, self.COMMENT):
@@ -661,6 +679,52 @@ class TestImprovementPass(unittest.TestCase):
             with self.subTest(skill=skill.name):
                 self.assertLessEqual(len(fm["description"]), 1024)
                 self.assertIn("improve", fm["description"])
+
+    def test_skill_prints_the_walkthrough_before_the_verdict(self):
+        text = (self.REVIEW / "SKILL.md").read_text("utf-8")
+        contract = text[text.index("## Output contract"):text.index("## Rules")]
+        self.assertLess(contract.index("**Walkthrough**"),
+                        contract.index("**Verdict line**"))
+        flat = " ".join(contract.split())
+        for phrase in ("Review effort: <n> of 5", "Read first:",
+                       "(+ <a> Major, <b> Minor recommendations)",
+                       "Recommendations: none worth making"):
+            self.assertIn(phrase, flat)
+        walk = self.flat(self.REVIEW / "references" / "walkthrough.md")
+        for phrase in ("At most 6 rows", "up to 20 rows",
+                       "main change first", "tests first",
+                       "`new`, `changed`, `deleted`, `renamed`, `test`, "
+                       "`config`", "Do not derive them again"):
+            self.assertIn(phrase, walk)
+
+    def test_recommendation_comments_carry_the_tag_and_area(self):
+        for skill in (self.REVIEW, self.COMMENT):
+            flat = self.flat(skill / "references" / "pr-comments.md")
+            with self.subTest(skill=skill.name):
+                self.assertIn("\U0001f4a1 **Suggestion (non-blocking)** "
+                              "\u00b7 Major \u00b7 Design", flat)
+
+    def test_never_report_keeps_only_a_pattern_with_no_named_smell(self):
+        flat = self.flat(self.REVIEW / "references" / "review-method.md")
+        self.assertIn("a different pattern\" that names no smell, rule or "
+                      "concrete move", flat)
+
+    def test_usage_credits_the_sources_with_licences(self):
+        usage = (self.REVIEW / "USAGE.md").read_text("utf-8")
+        credits = usage[usage.index("## Credits"):]
+        for url in ("The-PR-Agent/pr-agent", "google/eng-practices",
+                    "addyosmani/agent-skills", "mattpocock/skills",
+                    "anthropics/claude-plugins-official", "obra/superpowers",
+                    "conventionalcomments.org"):
+            self.assertIn(url, credits)
+        self.assertIn("MIT", credits)
+        self.assertIn("CC BY 3.0", credits)
+
+    def test_diagram_rules_travel_with_the_review_skill(self):
+        mermaid = "roj-onboard-repo/references/mermaid.md"
+        self.assertEqual(
+            (self.REVIEW / "references" / "mermaid.md").read_text("utf-8"),
+            (SKILLS / mermaid).read_text("utf-8"))
 
     def test_report_moved_into_the_pr_folder(self):
         full = self.flat(self.REVIEW / "references" / "full-review.md")
@@ -686,7 +750,8 @@ class TestImprovementPass(unittest.TestCase):
         kinds = TestEvals().fixture_kinds()
         self.assertGreaterEqual(
             kinds, {"pyrepo-bb-pr-dup", "pyrepo-bb-pr-review",
-                    "pyrepo-bb-pr-review-old", "pyrepo-dirty-dup"})
+                    "pyrepo-bb-pr-review-old", "pyrepo-dirty-dup",
+                    "pyrepo-recs"})
 
 
 class TestPrReviewDefaults(unittest.TestCase):
