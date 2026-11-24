@@ -4,7 +4,7 @@
 
 **Goal:** When Claude Code opens a PR in a repo owned by an allowlisted GitHub owner, a `COMMENT` review with inline comments is posted to it automatically.
 
-**Architecture:** A stdlib-Python `PostToolUse` hook (`claude/pr_review_hook.py`) watches Bash calls for `gh pr create`, checks the new PR's owner against `PR_REVIEW_OWNERS`, optionally requests Copilot, and injects `additionalContext` telling Claude to read and follow `~/.claude/skills/review-pr-comment/SKILL.md`. The skill reuses `code-review-pr`'s method files and posts one review through `gh api`.
+**Architecture:** A stdlib-Python `PostToolUse` hook (`claude/pr_review_hook.py`) watches Bash calls for `gh-axi pr create`, checks the new PR's owner against `PR_REVIEW_OWNERS`, optionally requests Copilot, and injects `additionalContext` telling Claude to read and follow `~/.claude/skills/review-pr-comment/SKILL.md`. The skill reuses `code-review-pr`'s method files and posts one review through `gh api`.
 
 **Tech Stack:** Python 3.8+ stdlib, `unittest`, `gh` CLI, Claude Code hooks/settings, SKILL.md.
 
@@ -23,11 +23,11 @@
 
 ## Review Focus
 
-- `gh pr create` fails (no URL in output) → hook prints nothing. Pinned in Task 1 (`test_failed_create_is_silent`).
+- `gh-axi pr create` fails (no URL in output) → hook prints nothing. Pinned in Task 1 (`test_failed_create_is_silent`).
 - `tool_response` arrives as a plain string instead of a dict → URL still found. Pinned in Task 1 (`test_string_tool_response`).
 - `PR_REVIEW_OWNERS` unset or empty (a repo opting out) → no trigger. Pinned in Task 1 (`test_empty_owners_disables`).
 - `gh` missing from PATH during the Copilot request → no exception, review context still emitted. Pinned in Task 1 (`test_copilot_gh_missing`).
-- A command that chains `gh pr create` with other commands whose output holds an unrelated PR URL (e.g. `gh pr list`) — accepted limitation: the first URL is used. Chained create-then-list is rare; documented in the hook's docstring, not tested.
+- A command that chains `gh-axi pr create` with other commands whose output holds an unrelated PR URL (e.g. `gh-axi pr list`) — accepted limitation: the first URL is used. Chained create-then-list is rare; documented in the hook's docstring, not tested.
 
 ---
 
@@ -70,7 +70,7 @@ _spec.loader.exec_module(hook)
 URL = "https://github.com/rojcarranza/demo/pull/7"
 
 
-def payload(command="gh pr create --fill", stdout=URL + "\n", response=None):
+def payload(command="gh-axi pr create --fill", stdout=URL + "\n", response=None):
     if response is None:
         response = {"stdout": stdout, "stderr": "", "interrupted": False}
     return json.dumps({"hook_event_name": "PostToolUse", "tool_name": "Bash",
@@ -98,7 +98,7 @@ class TriggerTest(unittest.TestCase):
         self.assertEqual(run(payload(), owners="someone-else"), (0, ""))
 
     def test_other_command_is_silent(self):
-        self.assertEqual(run(payload(command="gh pr view 7")), (0, ""))
+        self.assertEqual(run(payload(command="gh-axi pr view 7")), (0, ""))
 
     def test_failed_create_is_silent(self):
         self.assertEqual(
@@ -108,7 +108,7 @@ class TriggerTest(unittest.TestCase):
 
     def test_echo_without_url_does_not_trigger(self):
         self.assertEqual(
-            run(payload(command='echo "gh pr create"', stdout="gh pr create\n")),
+            run(payload(command='echo "gh-axi pr create"', stdout="gh-axi pr create\n")),
             (0, ""))
 
     def test_malformed_stdin_is_silent(self):
@@ -138,7 +138,7 @@ class CopilotTest(unittest.TestCase):
                                return_value=mock.Mock(returncode=0)) as sp:
             code, out = run(payload(), copilot="1")
         args = sp.call_args[0][0]
-        self.assertEqual(args[:4], ["gh", "api", "-X", "POST"])
+        self.assertEqual(args[:4], ["gh-axi", "api", "-X", "POST"])
         self.assertIn("repos/rojcarranza/demo/pulls/7/requested_reviewers", args)
         self.assertIn("reviewers[]=copilot-pull-request-reviewer[bot]", args)
         self.assertIn("Copilot review was also requested", out)
@@ -181,13 +181,13 @@ Expected: ERROR — `FileNotFoundError` for `claude/pr_review_hook.py`.
 #!/usr/bin/env python3
 """Claude Code PostToolUse hook: auto-review PRs Claude opens.
 
-After a Bash call that ran `gh pr create` and printed a new PR URL, if the
+After a Bash call that ran `gh-axi pr create` and printed a new PR URL, if the
 repo owner is in PR_REVIEW_OWNERS, tell Claude to review the PR by reading
 the review-pr-comment skill file. With PR_REVIEW_COPILOT=1, also request a
 Copilot review.
 
 The first github.com PR URL in the output is used, so a command that chains
-`gh pr create` with another command printing PR URLs may pick the wrong one.
+`gh-axi pr create` with another command printing PR URLs may pick the wrong one.
 
 Always exits 0 with no output unless it is triggering a review — a hook
 must never block or break the tool call it follows.
@@ -226,7 +226,7 @@ def parse_payload(raw: str) -> Tuple[str, str]:
 
 def find_pr(command: str, output: str) -> Optional[Tuple[str, str, int]]:
     """(owner, repo, number) when the command created a PR, else None."""
-    if "gh pr create" not in command:
+    if "gh-axi pr create" not in command:
         return None
     match = PR_URL.search(output)
     if match is None:
@@ -243,7 +243,7 @@ def request_copilot(owner: str, repo: str, number: int) -> bool:
     """gh 2.64 does not document @copilot for --add-reviewer; use REST."""
     try:
         result = subprocess.run(
-            ["gh", "api", "-X", "POST",
+            ["gh-axi", "api", "-X", "POST",
              f"repos/{owner}/{repo}/pulls/{number}/requested_reviewers",
              "-f", f"reviewers[]={COPILOT_BOT}"],
             capture_output=True, text=True, timeout=30)
@@ -294,7 +294,7 @@ Expected: 14 tests, OK.
 
 Run:
 ```bash
-echo '{"tool_input":{"command":"gh pr create"},"tool_response":{"stdout":"https://github.com/rojcarranza/x/pull/1"}}' \
+echo '{"tool_input":{"command":"gh-axi pr create"},"tool_response":{"stdout":"https://github.com/rojcarranza/x/pull/1"}}' \
   | PR_REVIEW_OWNERS=rojcarranza python3 claude/pr_review_hook.py; echo "exit=$?"
 echo 'garbage' | python3 claude/pr_review_hook.py; echo "exit=$?"
 ```
@@ -400,7 +400,7 @@ Change "the three config files are **copied**" to "the config files are **copied
 ## PR auto-review
 
 `settings.json` registers `pr_review_hook.py` as a `PostToolUse` hook on
-Bash. When Claude runs `gh pr create` and the new PR's owner is in
+Bash. When Claude runs `gh-axi pr create` and the new PR's owner is in
 `PR_REVIEW_OWNERS`, the hook tells Claude to follow
 `~/.claude/skills/review-pr-comment/SKILL.md` (from `agent-skills`), which
 posts one `COMMENT` review with inline comments to the PR. It posts
@@ -497,7 +497,7 @@ run is an explicit request.
 
 Rules for the whole run:
 
-- Commands allowed: `git`, `gh pr view`, `gh pr diff`, `gh api` on this
+- Commands allowed: `git`, `gh-axi pr view`, `gh-axi pr diff`, `gh api` on this
   PR's reviews. Nothing else.
 - Never approve, request changes, push, or edit the PR.
 - Every finding anchors to a line inside a diff hunk, carries a severity and
@@ -527,7 +527,7 @@ phase says.
 Argument is a URL or number; none → the current branch's PR.
 
 ```bash
-gh pr view <arg> --json number,url,baseRefName,headRefOid,isDraft,title,body,headRepositoryOwner,headRepository
+gh-axi pr view <arg> --fields number,url,baseRefName,headRefOid,isDraft,title,body,headRepositoryOwner,headRepository
 ```
 
 Take `owner`/`repo` from the URL. No PR found: say so and stop. Draft PRs
@@ -536,7 +536,7 @@ are reviewed like any other.
 ## 3. Skip if this commit is already reviewed
 
 ```bash
-gh api repos/<owner>/<repo>/pulls/<n>/reviews --paginate --jq '.[].body'
+gh-axi api repos/<owner>/<repo>/pulls/<n>/reviews --paginate --jq '.[].body'
 ```
 
 If any body contains `<!-- review-pr-comment:<headRefOid> -->`, say
@@ -551,7 +551,7 @@ git fetch origin <baseRefName> --quiet
 git diff -U15 origin/<baseRefName>...HEAD
 ```
 
-Otherwise use `gh pr diff <n>`. Read whole changed files where the method
+Otherwise use `gh-axi pr diff <n>`. Read whole changed files where the method
 says to. The PR title and body are the stated intent.
 
 ## 5. Review
@@ -617,7 +617,7 @@ and delete it:
 ```
 
 ```bash
-gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input "$payload"
+gh-axi api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input "$payload"
 rm -f "$payload"
 ```
 
@@ -693,7 +693,7 @@ No code unless a check fails. Needs a new Claude Code session so the new hook an
 ```bash
 cd "$(mktemp -d)" && git init -q -b main && printf 'def total(xs):\n    return sum(xs)\n' > calc.py
 git add . && git commit -qm init
-gh repo create rojcarranza/pr-review-sandbox --private --source . --push
+gh-axi repo create rojcarranza/pr-review-sandbox --private --source . --push
 git switch -c planted-bug
 printf 'def total(xs):\n    t = 0\n    for i in range(1, len(xs)):\n        t += xs[i]\n    return t\n' > calc.py
 git commit -qam "refactor: loop in total" && git push -qu origin planted-bug
@@ -701,13 +701,13 @@ git commit -qam "refactor: loop in total" && git push -qu origin planted-bug
 
 - [ ] **Step 2: Open the PR through Claude Code**
 
-In a fresh `claude` session in that directory, ask: "open a PR for this branch". Expected: after `gh pr create`, Claude reads the skill file and posts a review without being asked.
+In a fresh `claude` session in that directory, ask: "open a PR for this branch". Expected: after `gh-axi pr create`, Claude reads the skill file and posts a review without being asked.
 
 - [ ] **Step 3: Check the review**
 
 ```bash
-gh api repos/rojcarranza/pr-review-sandbox/pulls/1/reviews --jq '.[] | {state, body}'
-gh api repos/rojcarranza/pr-review-sandbox/pulls/1/comments --jq '.[] | {path, line, body}'
+gh-axi api repos/rojcarranza/pr-review-sandbox/pulls/1/reviews --jq '.[] | {state, body}'
+gh-axi api repos/rojcarranza/pr-review-sandbox/pulls/1/comments --jq '.[] | {path, line, body}'
 ```
 Expected: exactly one review, `state: "COMMENTED"`, body ends with `<!-- review-pr-comment:<sha> -->`; an inline comment on `calc.py` line 3 flagging the skipped first element; no Claude attribution.
 
@@ -719,7 +719,7 @@ In the same session run `/review-pr-comment 1`. Expected: "already reviewed", an
 
 In the sandbox add `.claude/settings.json` with `{"env":{"PR_REVIEW_COPILOT":"1"}}`, push a second branch, open PR 2 through Claude. Then:
 ```bash
-gh api repos/rojcarranza/pr-review-sandbox/pulls/2/requested_reviewers
+gh-axi api repos/rojcarranza/pr-review-sandbox/pulls/2/requested_reviewers
 ```
 Expected: Copilot is listed (or has already reviewed). **If the request fails on this account, remove the Copilot switch** (the `request_copilot` function and its tests, the `PR_REVIEW_COPILOT` env key and its test, the README row), run the suite, and commit `fix(claude): drop the Copilot switch — not available on this account`.
 
@@ -729,4 +729,4 @@ In the sandbox set `.claude/settings.json` to `{"env":{"PR_REVIEW_OWNERS":""}}`,
 
 - [ ] **Step 7: Clean up and report**
 
-Report the PR 1 review URL as evidence. Ask the user before deleting the sandbox repo (`gh repo delete rojcarranza/pr-review-sandbox` needs the `delete_repo` scope).
+Report the PR 1 review URL as evidence. Ask the user before deleting the sandbox repo (`gh-axi api DELETE /repos/rojcarranza/pr-review-sandbox` needs the `delete_repo` scope).

@@ -16,7 +16,7 @@ PR.
 
 ## Goal
 
-When Claude Code opens a PR (`gh pr create`) in a repository owned by the
+When Claude Code opens a PR (`gh-axi pr create`) in a repository owned by the
 user, a review is posted to that PR automatically, as one GitHub `COMMENT`
 review with inline comments — using the Claude subscription of the session
 that opened it. No token in the repo, no CI.
@@ -36,7 +36,7 @@ Not goals:
 
 | Question | Choice |
 |---|---|
-| Where PRs are created | From Claude Code (`gh pr create` via the Bash tool) |
+| Where PRs are created | From Claude Code (`gh-axi pr create` via the Bash tool) |
 | Trigger mechanism | `PostToolUse` hook injecting `additionalContext` that tells Claude to run the skill |
 | Output on GitHub | One review, `event: COMMENT`, inline comments + short summary body |
 | Which repos | Owner-based allowlist; default is the user's login `rojcarranza` |
@@ -61,7 +61,7 @@ the PR knows why the branch exists.
 ### 1. `agent-skills/skills/review-pr-comment/SKILL.md`
 
 - **Input:** PR URL or number. No argument → the current branch's PR
-  (`gh pr view`).
+  (`gh-axi pr view`).
 - **Method:** loads `references/review-method.md`, `cross-cutting.md`, and
   the matching technology lenses from the installed `code-review-pr` skill,
   resolved with the same four-location lookup `code-review-pr-fast` uses
@@ -70,7 +70,7 @@ the PR knows why the branch exists.
   method is not found anywhere, say so in one line and stop — no review
   without the method.
 - **Posts:** exactly one review per run via
-  `gh api repos/{owner}/{repo}/pulls/{n}/reviews --input <payload.json>`.
+  `gh-axi api repos/{owner}/{repo}/pulls/{n}/reviews --input <payload.json>`.
 - Invocable by hand (`/review-pr-comment 42`) as well as from the hook.
 - `skillOverrides`: `user-invocable-only`, like the other custom skills —
   no per-turn listing cost.
@@ -102,12 +102,12 @@ Logic, as pure functions so it is unit-testable:
 
 1. `parse_payload(stdin)` → `tool_input.command` and the tool's output.
    Anything malformed → no-op.
-2. Proceed only if the command contains `gh pr create` **and** the output
+2. Proceed only if the command contains `gh-axi pr create` **and** the output
    contains `https://github.com/<owner>/<repo>/pull/<n>`. Both are required,
-   so `echo "gh pr create"` does not trigger.
+   so `echo "gh-axi pr create"` does not trigger.
 3. `owner_allowed(owner, PR_REVIEW_OWNERS)` — case-insensitive match against
    the comma-separated list.
-4. If `PR_REVIEW_COPILOT=1`: `gh api -X POST
+4. If `PR_REVIEW_COPILOT=1`: `gh-axi api -X POST
    repos/{owner}/{repo}/pulls/{n}/requested_reviewers -f
    'reviewers[]=copilot-pull-request-reviewer[bot]'`. (`gh` 2.64.0 on this
    machine does not document `@copilot` for `--add-reviewer`, so the REST
@@ -152,14 +152,14 @@ override the global value (add an org, turn Copilot on for one repo, or set
 
 ## Review flow
 
-1. **Hook** (after `gh pr create` succeeds): extract URL → check owner →
+1. **Hook** (after `gh-axi pr create` succeeds): extract URL → check owner →
    optionally request Copilot → emit `additionalContext`.
-2. **Gather:** `gh pr view <url> --json
+2. **Gather:** `gh-axi pr view <url> --fields
    number,baseRefName,headRefOid,isDraft,title,body`. Diff with
    `git diff -U15 origin/<base>...HEAD` from the local checkout. If local
-   `HEAD` ≠ `headRefOid`, use `gh pr diff <n>` instead.
+   `HEAD` ≠ `headRefOid`, use `gh-axi pr diff <n>` instead.
 3. **Dedupe:** list the PR's reviews
-   (`gh api repos/{owner}/{repo}/pulls/{n}/reviews`). If any body contains
+   (`gh-axi api repos/{owner}/{repo}/pulls/{n}/reviews`). If any body contains
    `<!-- review-pr-comment:<headRefOid> -->`, stop and say the commit is
    already reviewed.
 4. **Review** per the `code-review-pr` method: every finding anchors to a
@@ -185,7 +185,7 @@ override the global value (add an org, turn Copilot on for one repo, or set
 
 | Failure | Behaviour |
 |---|---|
-| Hook: bad JSON, no URL, owner not allowed, `gh pr create` failed | Silent no-op, exit 0 |
+| Hook: bad JSON, no URL, owner not allowed, `gh-axi pr create` failed | Silent no-op, exit 0 |
 | Copilot request fails (no Copilot on account/plan) | Context line says it was not requested; Claude's review proceeds |
 | GitHub `422` on the review (a line not in the diff) | Retry once with every finding moved into the body |
 | `gh` not authenticated / no network | Print findings in chat, state that nothing was posted |
@@ -201,7 +201,7 @@ override the global value (add an org, turn Copilot on for one repo, or set
 - Disallowed owner, non-create command, output without URL, malformed or
   empty stdin → no output, exit 0.
 - Multiple comma-separated owners; case-insensitive match.
-- `echo "gh pr create"` with no URL in output → no trigger.
+- `echo "gh-axi pr create"` with no URL in output → no trigger.
 - `PR_REVIEW_COPILOT=1` → calls `requested_reviewers` with
   `copilot-pull-request-reviewer[bot]`; a failing call still returns the
   review context plus the not-requested line.

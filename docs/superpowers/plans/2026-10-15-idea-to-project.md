@@ -1950,4 +1950,4 @@ Title `feat(skills): add roj-idea-to-project skill`; body starts `Closes #29`, t
 
 - [ ] **Step 5: On the user's yes only**
 
-`git push -u origin feat/idea-to-project`, `gh pr create --title ... --body-file ...`, then add the PR number to issue #29 (`gh issue comment 29 --body "PR #<n>"`).
+`git push -u origin feat/idea-to-project`, `gh-axi pr create --title ... --body-file ...`, then add the PR number to issue #29 (`gh-axi issue comment 29 --body "PR #<n>"`).

@@ -22,8 +22,8 @@ Priority order:
      Then `git diff --stat <base>...HEAD` and `git diff <base>...HEAD`.
    - Bitbucket Data Center PR (an id or URL): fetch its head without a
      checkout and read from it, as `references/forge-bitbucket-dc.md` says.
-   - GitHub PR: `gh-axi pr view <number>` and its diff command when
-     gh-axi is installed (see its `--help`), else `gh pr diff <number>`.
+   - GitHub PR: `gh-axi pr view <number>` and `gh-axi pr diff <number>`.
+     Never raw `gh`; if gh-axi is missing, say so and stop.
    - A PR or branch is explained as a **brief**, written to
      `.pr-review/pr-<n>/brief.md` and `brief.html`, not as a long chat
      answer. Load `references/pr-brief.md` now: where the files go, the read

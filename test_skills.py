@@ -1002,7 +1002,7 @@ class TestPrBrief(unittest.TestCase):
   S->>A: ~ fetch the head, inferred
   end
   rect rgba(220,0,0,0.12)
-  Note over A,S: - removed: gh pr diff, read
+  Note over A,S: - removed: gh-axi pr diff, read
   end"""
     BRIEF = (
         "# PR brief: x (PR 7)\n\n"

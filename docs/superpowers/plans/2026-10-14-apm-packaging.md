@@ -415,7 +415,7 @@ dependencies:
 
 Verify each community subpath before committing (the inventory's `subdir` was `skills` unless stated):
 
-Run: `for p in github/awesome-copilot:skills/code-tour addyosmani/agent-skills:skills/debugging-and-error-recovery juliusbrussee/caveman:skills/caveman anthropics/skills:skills/pdf vercel-labs/skills:skills/find-skills warpdotdev/common-skills:.agents/skills/write-pr-description; do r=${p%%:*}; d=${p#*:}; gh api "repos/$r/contents/$d/SKILL.md" --jq .path >/dev/null && echo "ok $r/$d" || echo "MISSING $r/$d"; done`
+Run: `for p in github/awesome-copilot:skills/code-tour addyosmani/agent-skills:skills/debugging-and-error-recovery juliusbrussee/caveman:skills/caveman anthropics/skills:skills/pdf vercel-labs/skills:skills/find-skills warpdotdev/common-skills:.agents/skills/write-pr-description; do r=${p%%:*}; d=${p#*:}; gh-axi api "repos/$r/contents/$d/SKILL.md" --jq .path >/dev/null && echo "ok $r/$d" || echo "MISSING $r/$d"; done`
 Expected: every line `ok`. Fix any `MISSING` path in `apm.yml`.
 
 - [ ] **Step 4: Create the instructions file**
@@ -1379,14 +1379,14 @@ Record results in `$SCRATCH/step0-findings.md` under "Manual check".
 
 ```bash
 git push -u origin feat/apm-install
-gh pr create --title "feat(install): manage skills, instructions and mcp through apm" --body-file "$SCRATCH/pr-body.md"
+gh-axi pr create --title "feat(install): manage skills, instructions and mcp through apm" --body-file "$SCRATCH/pr-body.md"
 ```
 
 `pr-body.md` starts with `Closes #24`, then: summary (one paragraph), what moved where, Step 0 findings, manual check results, the platform matrix CI result, and the follow-up dotfiles change (spec Step 2). Use the `write-pr-description` skill to draft it. No Claude attribution.
 
 - [ ] **Step 5: Link the PR in the issue**
 
-Run: `gh issue comment 24 --body "PR: <url>"`
+Run: `gh-axi issue comment 24 --body "PR: <url>"`
 
 - [ ] **Step 6: Bind the PR and read CI** (desktop app `ccd_pr` tools: `get_status`, `bind_pr` if needed). Fix any matrix failure on the branch.
 
