@@ -77,7 +77,7 @@ its evidence tier word (`read`, `inferred` or `ran`):
 
 ```text
 A->>S: + token-status, read
-Note over A,G: - removed: gh pr diff and gh api reviews POST, read
+Note over A,G: - removed: gh-axi pr diff and gh-axi api reviews POST, read
 ```
 
 A removed step has nothing left to call, so it is a `Note over` inside a red

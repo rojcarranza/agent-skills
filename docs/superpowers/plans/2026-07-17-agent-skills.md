@@ -129,7 +129,7 @@ Priority order:
    - Branch: `git diff main...HEAD` (base unclear: check `git merge-base`).
      Changed files: `git diff --stat main...HEAD`.
    - GitHub PR: GitHub MCP tools (`get_pull_request`, `get_pull_request_diff`)
-     if available, else `gh pr diff <number>`.
+     if available, else `gh-axi pr diff <number>`.
 2. **File/function**: read the whole file, not just the snippet.
 3. **Ambiguous**: ask ONE question ("Which branch/PR, or which file?"), then proceed.
 

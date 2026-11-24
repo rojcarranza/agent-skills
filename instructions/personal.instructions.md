@@ -49,8 +49,9 @@ description: Personal Copilot instructions - output style, working approach, git
 
 # Git and safety
 
-- Prefer an installed axi tool (`gh-axi` for GitHub) to the plain program or
-  an MCP server; fall back only where the axi tool has no command.
+- Use `gh-axi` for GitHub, never raw `gh`, and not an MCP server. The one
+  exception is signing in (`gh auth login`, `gh auth setup-git`, `gh auth
+  token`), which gh-axi has no command for. If gh-axi is missing, say so.
 - Read-only by default. Read files and run read-only `git` commands freely.
 - Never run `commit`, `push`, `reset`, `rebase`, `checkout`, `switch`,
   `stash`, `fetch`, `merge` or anything with `--force` unless explicitly

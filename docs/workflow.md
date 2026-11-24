@@ -16,8 +16,9 @@ branch, so the PR that adds them is not checked by its own gates.
 ## GitHub operations
 
 Agents use [`gh-axi`](https://github.com/kunchenguid/gh-axi) for issues, PRs,
-reviews and checks. Raw `gh` is a fallback only where gh-axi has no command,
-and the agent says so when it uses it.
+reviews and checks, never raw `gh`. The one exception is signing in
+(`gh auth login`, `gh auth setup-git`, `gh auth token`), which gh-axi has no
+command for. gh-axi runs `gh` underneath, so `gh` stays installed.
 
 ## Onboard a repo
 
