@@ -22,6 +22,12 @@ command for. gh-axi runs `gh` underneath, so `gh` stays installed.
 
 ## Onboard a repo
 
+The [baseline](https://github.com/rojcarranza/baseline) is the standard setup
+for personal projects. In a repo, `baseline check` lists which of its rules the
+repo is missing; run it from the repo's folder. The steps below set up the
+no-mistakes gate and GitHub by hand. Where they differ from the baseline,
+follow the baseline.
+
 Steps marked **Claude Code** do nothing in other agents.
 
 1. Run `no-mistakes init` in the repo. It needs an `origin` remote and adds the
