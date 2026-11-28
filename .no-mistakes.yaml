@@ -10,10 +10,16 @@ gates:
     after: test
     command: >-
       uv run --no-project --python 3.12 --with python-pptx python -m unittest
-      test_install test_skills
+      test_install test_skills test_baseline_size
   - name: shared-files-in-sync
     after: test
     command: uv run --no-project --python 3.12 python tools/sync_shared.py --check
+  - name: code-file-size
+    after: test
+    # `baseline size` from a standard-library copy, because this gate also runs
+    # on computers without the baseline program. Keep the words "baseline size"
+    # here: baseline's own check finds this gate by them.
+    command: uv run --no-project --python 3.12 python tools/baseline_size.py
   - name: installer-smoke
     after: test
     # install.py into a scratch HOME with no cali on PATH; the real home is

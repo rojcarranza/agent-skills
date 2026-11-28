@@ -43,8 +43,9 @@
 ## Before pushing
 
 ```bash
-python3 -m unittest test_install test_skills
+python3 -m unittest test_install test_skills test_baseline_size
 python3 tools/sync_shared.py --check
+python3 tools/baseline_size.py
 ```
 
 Push through `git push no-mistakes <branch>`, never `origin`: the

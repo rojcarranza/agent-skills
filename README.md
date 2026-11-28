@@ -240,9 +240,12 @@ skills/<name>/
 cali.yaml         every skill and community skill, as a list Cali reads (`cali setup`)
 instructions/      personal instructions install.py deploys to Copilot
 tools/            sync_shared.py — copies shared files into every skill using them
+                  baseline_size.py - fails a code file over 1,000 lines
+.baseline-long-files  code files over 1,000 lines when the limit came in; they may shrink, never grow
 install.py        deploys instructions, removes the retired GitHub MCP entry, installs graphify; installs no skills (docs/installer.md)
 test_install.py   installer tests
 test_skills.py    spec, publishing, evals and description-routing checks
+test_baseline_size.py  the 1,000-line limit checks
 ```
 
 ## Writing or changing a skill
@@ -283,13 +286,17 @@ test_skills.py    spec, publishing, evals and description-routing checks
 ## Tests
 
 ```bash
-python3 -m unittest test_install test_skills -v
+python3 -m unittest test_install test_skills test_baseline_size -v
 python3 tools/sync_shared.py --check
+python3 tools/baseline_size.py        # no code file over 1,000 lines
 npx skills add . --list               # what skills.sh will discover
 ```
 
-The no-mistakes gate runs all three on every push (GitHub Actions is off, see
-[docs/workflow.md](docs/workflow.md)).
+The no-mistakes gate runs all four on every push (GitHub Actions is off, see
+[docs/workflow.md](docs/workflow.md)). A code file over 1,000 lines fails
+unless `.baseline-long-files` lists it, and a listed file may shrink but never
+grow: lower its count when it shrinks, and remove its line once it is under
+the limit.
 
 ### Evals
 
