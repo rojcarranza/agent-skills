@@ -1,0 +1,6 @@
+# Code files over the size limit when this list was written: path, tab, lines.
+# A listed file may shrink but not grow. Remove a line when its file is under the limit.
+evals/fixtures/build.sh	1233
+install.py	1195
+test_install.py	1608
+test_skills.py	2251
