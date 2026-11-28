@@ -240,7 +240,7 @@ skills/<name>/
 cali.yaml         every skill and community skill, as a list Cali reads (`cali setup`)
 instructions/      personal instructions install.py deploys to Copilot
 tools/            sync_shared.py — copies shared files into every skill using them
-                  baseline_size.py — fails a code file over 1,000 lines
+                  baseline_size.py - fails a code file over 1,000 lines
 .baseline-long-files  code files over 1,000 lines when the limit came in; they may shrink, never grow
 install.py        deploys instructions, removes the retired GitHub MCP entry, installs graphify; installs no skills (docs/installer.md)
 test_install.py   installer tests
