@@ -17,7 +17,8 @@ gates:
   - name: code-file-size
     after: test
     # `baseline size` from a standard-library copy, because this gate also runs
-    # on computers without the baseline program.
+    # on computers without the baseline program. Keep the words "baseline size"
+    # here: baseline's own check finds this gate by them.
     command: uv run --no-project --python 3.12 python tools/baseline_size.py
   - name: installer-smoke
     after: test
